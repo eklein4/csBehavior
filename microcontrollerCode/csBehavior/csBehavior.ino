@@ -1,6 +1,6 @@
-// csStateBehavior v0.95 -- 32 bit version (teensy)
-// this program can run on any teensy board, or avr based board.
-// most avr boards are 8 bit, so you may want to change the uint32s to be uint
+// csStateBehavior v0.92 -- 32 bit version (teensy)
+//
+// changes: added a stimGen function which is currently accessible in state 0.
 
 #include <FlexiTimer2.h>
 #include <Wire.h>
@@ -8,6 +8,7 @@
 // *********** UART Serial Outs
 #define visualSerial Serial1 // out to a computer running psychopy
 #define dashSerial Serial3 // out to a csDashboard object
+
 
 // ****** Scale.
 uint32_t weightOffset = 0;
@@ -47,26 +48,23 @@ uint32_t stateTime;
 uint32_t trigTime = 10;
 
 
-// pulse train chan a
-// pulseTime, delayTime, amp, numpulses, baseline
+// ****** stim trains
+// 0) pulsing? 1) sample counter 3) baseline time 4) stim time 5) baseline amp 6) stim amp 7) stim type 8) write value
+int pulseTrain_chanA[] = {1, 0, 100, 30, 0, 0, 1, 0};
 
-int pulseTrain_chanA[] = {1, 0, 100, 100, 0, 4095, 1, 0};
-//
-// Chan State Map: 0) baselineComp,1) inPulse,2) stateCounter,3) pulseCounter, 4) blDur
-// 5) nPulse, 6) delayTime, 7) pulseTIme, 8) slope 9) stimAmp
-
-
+// ***** reward stuff
 int rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulus
 
+// ****** state flow
 bool blockStateChange = 0;
 bool rewarding = 0;
 
 // knownLabels[]={'tState','rewardTime','timeOut','contrast','orientation',
-// 'sFreq','tFreq','visVariableUpdateBlock','loadCell','motion','lickSensor','writeValA'};
+// 'sFreq','tFreq','visVariableUpdateBlock','loadCell','motion','lickSensor','pulseAPeak','pulseADur'};
 
-char knownHeaders[] = {'a', 'r', 't', 'c', 'o', 's', 'f', 'v', 'w', 'm', 'l', 'y'};
-int knownValues[] = {0, 500, 4000, 0, 0, 0, 0, 1, 0, 0, 0, 0};
-int knownCount = 12;
+char knownHeaders[] = {'a', 'r', 't', 'c', 'o', 's', 'f', 'v', 'w', 'm', 'l', 'x','y', 'z'};
+int knownValues[] = {0, 500, 4000, 0, 0, 0, 0, 1, 0, 0, 0,pulseTrain_chanA[6], pulseTrain_chanA[5], pulseTrain_chanA[3]};
+int knownCount = 14;
 
 // ************ data
 bool scopeState = 1;
@@ -118,13 +116,16 @@ void vStates() {
   // State 0: Boot/Init State
   // **************************
   if (knownValues[0] == 0) {
-    rampStim(pulseTrain_chanA);
-    analogWrite(A14,pulseTrain_chanA[7]);
+    pulseTrain_chanA[3] = knownValues[13];
+    pulseTrain_chanA[5] = knownValues[12];
+    pulseTrain_chanA[6] = knownValues[11];
+    stimGen(pulseTrain_chanA);
+    analogWrite(A14, pulseTrain_chanA[7]);
     // run a header for state 0
     if (headerStates[0] == 0) {
       genericHeader(0);
       loopCount = 0;
-      
+
 
     }
 
@@ -276,7 +277,7 @@ void dataReport() {
   Serial.print(',');
   Serial.print(knownValues[10]); // lick sensor
   Serial.print(',');
-  Serial.print(encoderAngle);     //pwm_value knownValues[9]); // motion
+  Serial.print(encoderAngle);     //rotary encoder value
   Serial.print(',');
   Serial.println(scopeState);
 }
@@ -361,7 +362,7 @@ void genericStateBody() {
   knownValues[10] = analogRead(lickPin);
   knownValues[9] = analogRead(motionPin);
   knownValues[8] = analogRead(forceSensorPin);
-//  analogWrite(A20, pulseTrain_chanA[6]);
+  //  analogWrite(A20, pulseTrain_chanA[6]);
   scopeState = digitalRead(scopePin);
   sensorPoll++;
 }
@@ -408,7 +409,6 @@ void rising() {
 void falling() {
   attachInterrupt(14, rising, RISING);
   encoderAngle = micros() - prev_time;
-  //  Serial.println(pwm_value);
 }
 
 
@@ -416,81 +416,83 @@ void falling() {
 // **************  Pulse Train Function ***************************
 // ****************************************************************
 
-void pulseTrain(int pulseTracker[]) {
+void stimGen(int pulseTracker[]) {
+  if (pulseTracker[6] == 0) {
 
-  // *** handle pulse state
-  // 0 tracks in pulse and 2 is the pulseWidth; 1 is the counter
-  // 6 is the output value
-  if (pulseTracker[0] == 1) {
-    pulseTracker[7]=pulseTracker[5]; // 5 is the pulse amp; 6 is the current output.
-    if (pulseTracker[1] >= pulseTracker[2]){
-      pulseTracker[1] = 0; // reset counter
-      pulseTracker[0] = 0; // stop pulsing
+    // *** handle pulse state
+    // 0 tracks in pulse and 2 is the pulseWidth; 1 is the counter
+    // 6 is the output value
+    if (pulseTracker[0] == 1) {
+      pulseTracker[7] = pulseTracker[5]; // 5 is the pulse amp; 6 is the current output.
+      if (pulseTracker[1] >= pulseTracker[3]) {
+        pulseTracker[1] = 0; // reset counter
+        pulseTracker[0] = 0; // stop pulsing
+      }
+    }
+
+    // 0 tracks in pulse and 3 is the delayWidth; 1 is the counter
+    else if (pulseTracker[0] == 0) {
+      pulseTracker[7] = pulseTracker[4]; // 4 is the baseline amp; 7 is the current output.
+      if (pulseTracker[1] >= pulseTracker[2]) {
+        pulseTracker[1] = 0; // reset counter
+        pulseTracker[0] = 1; // start pulsing
+        pulseTracker[7] = pulseTracker[4]; // 4 is the baseline amp; 6 is the current output.
+      }
     }
   }
-  
-  // 0 tracks in pulse and 3 is the delayWidth; 1 is the counter
-  else if (pulseTracker[0] == 0) {
-    pulseTracker[7]=pulseTracker[4]; // 4 is the baseline amp; 7 is the current output.
-    if (pulseTracker[1] >= pulseTracker[3]){
-      pulseTracker[1] = 0; // reset counter
-      pulseTracker[0] = 1; // start pulsing
-      pulseTracker[7]=pulseTracker[4]; // 4 is the baseline amp; 6 is the current output.
+
+  else if (pulseTracker[6] == 1) {
+    int incToPeak = (pulseTracker[5] - pulseTracker[4]) / pulseTracker[3];
+    // *** handle pulse state
+    // 0 tracks in pulse and 2 is the pulseWidth; 1 is the counter
+    // 7 is the output value
+    if (pulseTracker[0] == 1) {
+      pulseTracker[7] = pulseTracker[7] + incToPeak; // 5 is the pulse amp; 7 is the current output.
+      if (pulseTracker[1] >= pulseTracker[3]) {
+        pulseTracker[1] = 0; // reset counter
+        pulseTracker[0] = 0; // stop pulsing
+      }
     }
+
+    // 0 tracks in pulse and 3 is the delayWidth; 1 is the counter
+    else if (pulseTracker[0] == 0) {
+      pulseTracker[7] = pulseTracker[4]; // 4 is the baseline amp; 7 is the current output.
+      if (pulseTracker[1] >= pulseTracker[2]) {
+        pulseTracker[1] = 0; // reset counter
+        pulseTracker[0] = 1; // start pulsing
+      }
+    }
+
   }
-  
-  pulseTracker[1]=pulseTracker[1]+1;
+
+  pulseTracker[1] = pulseTracker[1] + 1;
 }
 
 void rampStim(int pulseTracker[]) {
-  int incToPeak=(pulseTracker[5]-pulseTracker[4])/pulseTracker[2];
+  int incToPeak = (pulseTracker[5] - pulseTracker[4]) / pulseTracker[3];
   // *** handle pulse state
   // 0 tracks in pulse and 2 is the pulseWidth; 1 is the counter
   // 7 is the output value
   if (pulseTracker[0] == 1) {
-    pulseTracker[7]=pulseTracker[7]+incToPeak; // 5 is the pulse amp; 7 is the current output.
-    if (pulseTracker[1] >= pulseTracker[2]){
+    pulseTracker[7] = pulseTracker[7] + incToPeak; // 5 is the pulse amp; 7 is the current output.
+    if (pulseTracker[1] >= pulseTracker[3]) {
       pulseTracker[1] = 0; // reset counter
       pulseTracker[0] = 0; // stop pulsing
     }
   }
-  
+
   // 0 tracks in pulse and 3 is the delayWidth; 1 is the counter
   else if (pulseTracker[0] == 0) {
-    pulseTracker[7]=pulseTracker[4]; // 4 is the baseline amp; 7 is the current output.
-    if (pulseTracker[1] >= pulseTracker[3]){
+    pulseTracker[7] = pulseTracker[4]; // 4 is the baseline amp; 7 is the current output.
+    if (pulseTracker[1] >= pulseTracker[2]) {
       pulseTracker[1] = 0; // reset counter
       pulseTracker[0] = 1; // start pulsing
     }
   }
-  
-  pulseTracker[1]=pulseTracker[1]+1;
+
+  pulseTracker[1] = pulseTracker[1] + 1;
 }
 
-void rampStim(int pulseTracker[]) {
-  int incToPeak=(pulseTracker[5]-pulseTracker[4])/pulseTracker[2];
-  // *** handle pulse state
-  // 0 tracks in pulse and 2 is the pulseWidth; 1 is the counter
-  // 7 is the output value
-  if (pulseTracker[0] == 1) {
-    pulseTracker[7]=pulseTracker[7]+incToPeak; // 5 is the pulse amp; 7 is the current output.
-    if (pulseTracker[1] >= pulseTracker[2]){
-      pulseTracker[1] = 0; // reset counter
-      pulseTracker[0] = 0; // stop pulsing
-    }
-  }
-  
-  // 0 tracks in pulse and 3 is the delayWidth; 1 is the counter
-  else if (pulseTracker[0] == 0) {
-    pulseTracker[7]=pulseTracker[4]; // 4 is the baseline amp; 7 is the current output.
-    if (pulseTracker[1] >= pulseTracker[3]){
-      pulseTracker[1] = 0; // reset counter
-      pulseTracker[0] = 1; // start pulsing
-    }
-  }
-  
-  pulseTracker[1]=pulseTracker[1]+1;
-}
 
 
 
