@@ -5,6 +5,7 @@
 #include <FlexiTimer2.h>
 #include <Wire.h>
 
+
 // *********** UART Serial Outs
 #define visualSerial Serial1 // out to a computer running psychopy
 #define dashSerial Serial3 // out to a csDashboard object
@@ -50,7 +51,7 @@ uint32_t trigTime = 10;
 
 // ****** stim trains
 // 0) pulsing? 1) sample counter 3) baseline time 4) stim time 5) baseline amp 6) stim amp 7) stim type 8) write value
-int pulseTrain_chanA[] = {1, 0, 100, 30, 0, 0, 1, 0};
+int pulseTrain_chanA[] = {1, 0, 1000, 1000, 0, 4000, 1, 0};
 
 // ***** reward stuff
 int rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulus
@@ -62,8 +63,8 @@ bool rewarding = 0;
 // knownLabels[]={'tState','rewardTime','timeOut','contrast','orientation',
 // 'sFreq','tFreq','visVariableUpdateBlock','loadCell','motion','lickSensor','pulseAPeak','pulseADur'};
 
-char knownHeaders[] = {'a', 'r', 't', 'c', 'o', 's', 'f', 'v', 'w', 'm', 'l', 'x','y', 'z'};
-int knownValues[] = {0, 500, 4000, 0, 0, 0, 0, 1, 0, 0, 0,pulseTrain_chanA[6], pulseTrain_chanA[5], pulseTrain_chanA[3]};
+char knownHeaders[] = {'a', 'r', 't', 'c', 'o', 's', 'f', 'v', 'w', 'm', 'l', 'x', 'y', 'z'};
+int knownValues[] = {0, 500, 4000, 0, 0, 0, 0, 1, 0, 0, 0, pulseTrain_chanA[6], pulseTrain_chanA[5], pulseTrain_chanA[3]};
 int knownCount = 14;
 
 // ************ data
@@ -77,6 +78,11 @@ int lastState = 0;
 bool trigStuff = 0;
 
 void setup() {
+  // ****** Setup Cyclops
+  // Start the device
+
+
+  // ****** Setup Analog Out
   analogWriteResolution(12);
   attachInterrupt(14, rising, RISING);
   pinMode(syncPin, OUTPUT);
@@ -116,6 +122,7 @@ void vStates() {
   // State 0: Boot/Init State
   // **************************
   if (knownValues[0] == 0) {
+
     pulseTrain_chanA[3] = knownValues[13];
     pulseTrain_chanA[5] = knownValues[12];
     pulseTrain_chanA[6] = knownValues[11];
