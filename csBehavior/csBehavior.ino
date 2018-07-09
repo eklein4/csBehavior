@@ -1,4 +1,4 @@
-// csStateBehavior v0.92 -- 32 bit version (teensy)
+// csStateBehavior v0.93 -- 32 bit version (teensy)
 //
 // changes: added a stimGen function which is currently accessible in state 0.
 
@@ -23,7 +23,7 @@ int dacResolution = 12;
 const int forceSensorPin = 20;
 const int lickPin = 21;
 const int scopePin = 24;
-const int motionPin = 23;
+const int motionPin = 14;
 const int rewardPinA = 35;
 const int syncPin = 25;
 
@@ -33,7 +33,7 @@ volatile uint32_t encoderAngle = 0;
 volatile uint32_t prev_time = 0;
 
 // **** output pins
-int dacChans[] = {A14, A3};
+int dacChans[] = {A14,A13};
 
 // ****** Interupt Timing
 int sampsPerSecond = 1000;
@@ -41,7 +41,6 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 
 // ****** Time & State Flow
 uint32_t loopCount = 0;
-uint32_t sensorPoll = 0;
 uint32_t timeOffs;
 uint32_t stateTimeOffs;
 uint32_t trialTime;
@@ -50,8 +49,10 @@ uint32_t trigTime = 10;
 
 
 // ****** stim trains
-// 0) pulsing? 1) sample counter 3) baseline time 4) stim time 5) baseline amp 6) stim amp 7) stim type 8) write value
-int pulseTrain_chanA[] = {1, 0, 1000, 1000, 0, 4000, 1, 0};
+// 0) pulsing? 1) sample counter 3) baseline time 4) stim time
+// 5) baseline amp 6) stim amp 7) stim type 8) write value
+uint16_t pulseTrain_chanA[] = {0, 0, 100, 500, 0, 2000, 1, 0};
+uint16_t pulseTrain_chanB[] = {0, 0, 100, 500, 0, 0, 1, 0};
 
 // ***** reward stuff
 int rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulus
@@ -84,7 +85,7 @@ void setup() {
 
   // ****** Setup Analog Out
   analogWriteResolution(12);
-  attachInterrupt(14, rising, RISING);
+  attachInterrupt(motionPin, rising, RISING);
   pinMode(syncPin, OUTPUT);
   digitalWrite(syncPin, LOW);
   pinMode(scopePin, INPUT);
@@ -122,22 +123,21 @@ void vStates() {
   // State 0: Boot/Init State
   // **************************
   if (knownValues[0] == 0) {
-
-    pulseTrain_chanA[3] = knownValues[13];
-    pulseTrain_chanA[5] = knownValues[12];
-    pulseTrain_chanA[6] = knownValues[11];
-    stimGen(pulseTrain_chanA);
-    analogWrite(A14, pulseTrain_chanA[7]);
-    // run a header for state 0
+    
+    // a) run a header for state 0
     if (headerStates[0] == 0) {
       genericHeader(0);
       loopCount = 0;
-
-
     }
 
-    // run the generic state
+    // b) body for state 0
     genericStateBody();
+    pulseTrain_chanA[5] = 0;
+    pulseTrain_chanB[5] = 0;
+    stimGen(pulseTrain_chanA);
+    stimGen(pulseTrain_chanB);
+    analogWrite(dacChans[0], pulseTrain_chanA[7]);
+    analogWrite(dacChans[1], pulseTrain_chanB[7]);
 
   }
 
@@ -173,10 +173,15 @@ void vStates() {
       if (headerStates[1] == 0) {
         visStimOff();
         genericHeader(1);
-        writeValueA = 4000;
         blockStateChange = 0;
       }
       genericStateBody();
+      pulseTrain_chanA[3] = knownValues[13];
+      pulseTrain_chanA[5] = 0;
+      pulseTrain_chanA[6] = knownValues[11];
+      stimGen(pulseTrain_chanA);
+      analogWrite(dacChans[0], pulseTrain_chanA[7]);
+      analogWrite(dacChans[1], pulseTrain_chanA[7]);
     }
 
     // **************************
@@ -189,6 +194,12 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
+      pulseTrain_chanA[3] = knownValues[13];
+      pulseTrain_chanA[5] = knownValues[12];
+      pulseTrain_chanA[6] = knownValues[11];
+      stimGen(pulseTrain_chanA);
+      analogWrite(dacChans[0], pulseTrain_chanA[7]);
+      analogWrite(dacChans[1], pulseTrain_chanA[7]);
     }
 
     // **************************************
@@ -201,6 +212,11 @@ void vStates() {
         visStimOn();
       }
       genericStateBody();
+      pulseTrain_chanA[3] = knownValues[13];
+      pulseTrain_chanA[5] = knownValues[12];
+      pulseTrain_chanA[6] = knownValues[11];
+      stimGen(pulseTrain_chanA);
+      analogWrite(dacChans[0], pulseTrain_chanA[7]);
     }
 
     // **************************************
@@ -214,6 +230,11 @@ void vStates() {
         blockStateChange = 1;
       }
       genericStateBody();
+      pulseTrain_chanA[3] = knownValues[13];
+      pulseTrain_chanA[5] = knownValues[12];
+      pulseTrain_chanA[6] = knownValues[11];
+      stimGen(pulseTrain_chanA);
+      analogWrite(dacChans[0], pulseTrain_chanA[7]);
       if (rewardDelivTypeA == 0 && rewarding == 0) {
         digitalWrite(rewardPinA, HIGH);
         rewarding = 1;
@@ -235,6 +256,11 @@ void vStates() {
       }
 
       genericStateBody();
+      pulseTrain_chanA[3] = knownValues[13];
+      pulseTrain_chanA[5] = knownValues[12];
+      pulseTrain_chanA[6] = knownValues[11];
+      stimGen(pulseTrain_chanA);
+      analogWrite(dacChans[0], pulseTrain_chanA[7]);
       // trap the state in time-out til timeout time over.
       if (stateTime >= uint32_t(knownValues[2])) {
         blockStateChange = 0;
@@ -252,6 +278,11 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
+      pulseTrain_chanA[3] = knownValues[13];
+      pulseTrain_chanA[5] = knownValues[12];
+      pulseTrain_chanA[6] = knownValues[11];
+      stimGen(pulseTrain_chanA);
+      analogWrite(dacChans[0], pulseTrain_chanA[7]);
       if (rewardDelivTypeA == 0 && rewarding == 0) {
         digitalWrite(rewardPinA, HIGH);
         rewarding = 1;
@@ -286,7 +317,11 @@ void dataReport() {
   Serial.print(',');
   Serial.print(encoderAngle);     //rotary encoder value
   Serial.print(',');
-  Serial.println(scopeState);
+  Serial.print(scopeState);
+  Serial.print(',');
+  Serial.print(pulseTrain_chanA[7]);
+  Serial.print(',');
+  Serial.println(pulseTrain_chanB[7]);
 }
 
 
@@ -304,7 +339,6 @@ int flagReceive(char varAr[], int valAr[]) {
 
   while (Serial.available() > 0 && newData == 0) {
     rc = Serial.read();
-    Serial.println(rc); // debug
     if (recvInProgress == false) {
       for ( int i = 0; i < knownCount; i++) {
         if (rc == varAr[i]) {
@@ -369,10 +403,12 @@ void genericStateBody() {
   knownValues[10] = analogRead(lickPin);
   knownValues[9] = analogRead(motionPin);
   knownValues[8] = analogRead(forceSensorPin);
-  //  analogWrite(A20, pulseTrain_chanA[6]);
   scopeState = digitalRead(scopePin);
-  sensorPoll++;
 }
+
+// ****************************************************************
+// **************  Visual Stimuli *********************************
+// ****************************************************************
 
 void visStimOff() {
   visualSerial.print('v');
@@ -402,19 +438,17 @@ void visStimOn() {
   visualSerial.println(knownValues[7]);
 }
 
-
-
-void pulseTrain(int chan) {
-
-}
+// **************************************************************
+// **************  Motion Interrupts  ***************************
+// **************************************************************
 
 void rising() {
-  attachInterrupt(14, falling, FALLING);
+  attachInterrupt(motionPin, falling, FALLING);
   prev_time = micros();
 }
 
 void falling() {
-  attachInterrupt(14, rising, RISING);
+  attachInterrupt(motionPin, rising, RISING);
   encoderAngle = micros() - prev_time;
 }
 
@@ -423,7 +457,7 @@ void falling() {
 // **************  Pulse Train Function ***************************
 // ****************************************************************
 
-void stimGen(int pulseTracker[]) {
+void stimGen(uint16_t pulseTracker[]) {
   if (pulseTracker[6] == 0) {
 
     // *** handle pulse state
@@ -473,33 +507,5 @@ void stimGen(int pulseTracker[]) {
   }
 
   pulseTracker[1] = pulseTracker[1] + 1;
+
 }
-
-void rampStim(int pulseTracker[]) {
-  int incToPeak = (pulseTracker[5] - pulseTracker[4]) / pulseTracker[3];
-  // *** handle pulse state
-  // 0 tracks in pulse and 2 is the pulseWidth; 1 is the counter
-  // 7 is the output value
-  if (pulseTracker[0] == 1) {
-    pulseTracker[7] = pulseTracker[7] + incToPeak; // 5 is the pulse amp; 7 is the current output.
-    if (pulseTracker[1] >= pulseTracker[3]) {
-      pulseTracker[1] = 0; // reset counter
-      pulseTracker[0] = 0; // stop pulsing
-    }
-  }
-
-  // 0 tracks in pulse and 3 is the delayWidth; 1 is the counter
-  else if (pulseTracker[0] == 0) {
-    pulseTracker[7] = pulseTracker[4]; // 4 is the baseline amp; 7 is the current output.
-    if (pulseTracker[1] >= pulseTracker[2]) {
-      pulseTracker[1] = 0; // reset counter
-      pulseTracker[0] = 1; // start pulsing
-    }
-  }
-
-  pulseTracker[1] = pulseTracker[1] + 1;
-}
-
-
-
-

@@ -1,9 +1,10 @@
-# csVisual v0.92
+# csVisual v0.94
 # 
 # - added serial buffering
 # - changed to serial read method to avoid using the readline method
 # - improved MQ/Google Sheet exception handling at the end of the session
 # - buffer size is not configurabe yet
+# - added two analog outputs
 # 
 #
 # Chris Deister - cdeister@brown.edu
@@ -35,11 +36,11 @@ class csVariables(object):
     def __init__(self,sesVarDict={},stimVars={}):
 
         self.sesVarDict={'curSession':1,'comPath_teensy':'/dev/cu.usbmodem4041951',\
-        'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':10,\
+        'baudRate_teensy':19200,'subjID':'an1','taskType':'detect','totalTrials':10,\
         'logMQTT':1,'mqttUpDel':0.05,'curWeight':20,'rigGMTZoneDif':5,'volPerRwd':0.01,\
         'waterConsumed':0,'consumpTarg':1.5,'dirPath':'/Users/Deister/BData',\
         'hashPath':'/Users/cad','trialNum':0,'sessionOn':1,'canQuit':1,\
-        'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':10,\
+        'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':12,\
         'rewardDur':500,'lickAThr':900,'lickLatchA':0,'minNoLickTime':1000,\
         'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStimTime':1500,\
         'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':114,'loadScale':0.42}
@@ -184,6 +185,11 @@ class csMQTT(object):
         # c) log the weight to subject's weight tracking feed.
         mqObj.send('{}_weight'.format(sID,sWeight),sWeight)
 
+    # def updateTrial(self,mqObj,sID,sWeight,hostName):
+        
+    #     mqObj.send('{}_trial'.format(sID),'{}_{}'.format(,'h'))
+
+
     def rigOffLog(self,mqObj,sID,sWeight,hostName,mqDel):
         
         # a) log off to the rig's on-off feed.
@@ -225,7 +231,9 @@ class csMQTT(object):
             self.updatedCol=varCol
         return 
 class csSerial(object):
+    
     def __init__(self,a):
+        
         self.a=1
 
     def connectComObj(self,comPath,baudRate):
@@ -298,6 +306,7 @@ class csSerial(object):
         elif self.dNew==0:
             self.returnVar=0
         return self.returnVar,self.dNew
+
 class csPlot(object):
     def __init__(self,stPlotX={},stPlotY={},stPlotRel={},pClrs={},pltX=[],pltY=[]):
         
@@ -531,14 +540,14 @@ def getPath():
         g=1
 
 def runDetectionTask():
-    
+
     # A) Update the dict from gui, in case the user changed things.
     csVar.updateDictFromGUI(sesVars)
 
     # C) Create a com object to talk to the main Teensy.
     sesVars['comPath_teensy']=comPath_teensy_TV.get()
     teensy=csSer.connectComObj(sesVars['comPath_teensy'],sesVars['baudRate_teensy'])
-
+    print(teensy.baudrate)
     # D) Task specific: preallocate sensory variables that need randomization.
     # prealloc random stuff (assume no more than 1k trials)
     maxTrials=1000
@@ -643,7 +652,7 @@ def runDetectionTask():
     npSamps=sesVars['maxDur']
     sesData=np.zeros([npSamps,sesVars['dStreams']])
     dStreamLables=['interrupt','trialTime','stateTime','teensyState','lick0_Data',\
-    'lick1_Data','pythonState','thrLicksA','motion','contrast','orientation']
+    'motion','scopeState','aOut1','aOut2','pythonState','thrLicksA']
 
     # Temp Trial Variability
     sesVars['curSession']=int(curSession_TV.get())
@@ -697,7 +706,7 @@ def runDetectionTask():
             # b) Look for teensy data.
             [serialBuf,eR,tString]=csSer.readSerialBuffer(teensy,serialBuf,1024)
             # [tString,dNew,bAvail]=csSer.readSerialData(teensy,'tData',9)
-            if len(tString)==9:
+            if len(tString)==sesVars['dStreams']-1:
                 tStateTime=int(tString[3])
                 tTeensyState=int(tString[4])
         
@@ -705,9 +714,8 @@ def runDetectionTask():
                 tFrameCount=0  # Todo: frame counter in.
                 for x in range(0,sesVars['dStreams']-2):
                     sesData[loopCnt,x]=int(tString[x+1])
-                # sesData[loopCnt,5]=bAvail # debug
-                sesData[loopCnt,8]=pyState # The state python wants to be.
-                sesData[loopCnt,9]=0 # Thresholded licks
+                sesData[loopCnt,sesVars['dStreams']-2]=pyState # The state python wants to be.
+                sesData[loopCnt,sesVars['dStreams']-1]=0 # Thresholded licks
                 loopCnt=loopCnt+1
                 
                 # Plot updates.
@@ -731,7 +739,7 @@ def runDetectionTask():
                 # look for licks
                 latchTime=50
                 if sesData[loopCnt-1,5]>=sesVars['lickAThr'] and sesVars['lickLatchA']==0:
-                    sesData[loopCnt-1,9]=1
+                    sesData[loopCnt-1,sesVars['dStreams']-1]=1
                     sesVars['lickLatchA']=latchTime
                     # these are used in states
                     lickCounter=lickCounter+1
@@ -822,6 +830,8 @@ def runDetectionTask():
                     if tStateTime>sesVars['minStimTime']:
                         if reported==1 or sesVars['shapingTrial']:
                             stimTrials.append(sesVars['trialNum'])
+                            # aio.send('{}_trial'.format(sesVars['subjID']),'{}'.format(sesVars['trialNum']))
+                            aio.send('{}_trial'.format(sesVars['subjID']),1)
                             stimResponses.append(1)
                             stateSync=0
                             pyState=4
@@ -830,6 +840,7 @@ def runDetectionTask():
                                 sesVars['totalTrials'])
                         elif reported==0:
                             stimTrials.append(sesVars['trialNum'])
+                            aio.send('{}_trial'.format(sesVars['subjID']),0)
                             stimResponses.append(0)
                             stateSync=0
                             pyState=1
@@ -858,6 +869,7 @@ def runDetectionTask():
                         if reported==1:
                             noStimTrials.append(sesVars['trialNum'])
                             noStimResponses.append(1)
+                            aio.send('{}_trial'.format(sesVars['subjID']),3)
                             stateSync=0
                             pyState=5
                             teensy.write('a5>'.encode('utf-8'))
@@ -866,6 +878,7 @@ def runDetectionTask():
                         elif reported==0:
                             noStimTrials.append(sesVars['trialNum'])
                             noStimResponses.append(0)
+                            aio.send('{}_trial'.format(sesVars['subjID']),4)
                             stateSync=0
                             pyState=1
                             trialSamps[1]=loopCnt
@@ -913,7 +926,10 @@ def runDetectionTask():
                         teensy.write('a1>'.encode('utf-8'))
                         print('last trial took: {} seconds'.format(sampLog[-1]/1000))
         except:
-            
+            print(x)
+            print(loopCnt)
+            print(tString)
+            sesData[loopCnt,x]=int(tString[x+1])
             tc['state'] = 'normal'
             sesVars['curSession']=sesVars['curSession']+1
             curSession_TV.set(sesVars['curSession'])
@@ -926,7 +942,7 @@ def runDetectionTask():
             csVar.updateDictFromGUI(sesVars)
             sesVars_bindings=csVar.dictToPandas(sesVars)
             sesVars_bindings.to_csv(sesVars['dirPath'] + '/' +'sesVars.csv')
-
+            print(stimResponses)
             f["session_{}".format(sesVars['curSession']-1)]=sesData[0:loopCnt,:]
             f["session_{}".format(sesVars['curSession']-1)].attrs['contrasts']=contrastList
             f["session_{}".format(sesVars['curSession'])].attrs['stimResponses']=stimResponses
@@ -1107,7 +1123,7 @@ if makeBar==0:
     baudEntry_label.grid(row=beRW, column=0,sticky=W)
     baudSelected=IntVar(taskBar)
     baudSelected.set(115200)
-    baudPick = OptionMenu(taskBar,baudSelected,115200,19200,9600,500000)
+    baudPick = OptionMenu(taskBar,baudSelected,19200,115200,9600,500000)
     baudPick.grid(row=beRW, column=1,sticky=W)
     baudPick.config(width=8)
 
@@ -1170,7 +1186,7 @@ if makeBar==0:
     Radiobutton(taskBar, text="Load Cell", variable=chanPlotIV, value=4).grid(row=cprw,column=0,padx=0,sticky=W)
     Radiobutton(taskBar, text="Lick Sensor", variable=chanPlotIV, value=5).grid(row=cprw+1,column=0,padx=0,sticky=W)
     Radiobutton(taskBar, text="Motion", variable=chanPlotIV, value=6).grid(row=cprw+2,column=0,padx=0,sticky=W)
-    Radiobutton(taskBar, text="Scope", variable=chanPlotIV, value=7).grid(row=cprw,column=1,padx=0,sticky=W)
+    Radiobutton(taskBar, text="Scope", variable=chanPlotIV, value=8).grid(row=cprw,column=1,padx=0,sticky=W)
     Radiobutton(taskBar, text="Thr Licks", variable=chanPlotIV, value=9).grid(row=cprw+1,column=1,padx=0,sticky=W)
     Radiobutton(taskBar, text="Nothing", variable=chanPlotIV, value=0).grid(row=cprw+2,column=1,padx=0,sticky=W)
 
