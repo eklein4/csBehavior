@@ -1,8 +1,11 @@
 #!/bin/bash
 
-# sets up a fresh Beagle Bone Environment
-# tested on Debian 9.4 iot Stretch
+# sets up a fresh NVIDIA Ubuntu Environment (TK1 14.04)
+echo("First we will install and setup a VNC server, you will be asked to enter a VNC password")
+sudo apt-get install x11vnc
+x11vnc -storepasswd
 
+echo("the rest should be automatic")
 echo("this will take at least an hour")
 echo("this script says yes to everything so you can walk away")
 echo("i don't check for internet, so make sure your BBB is connected")
@@ -44,8 +47,8 @@ sudo mkswap tmpswap
 sudo swapon tmpswap
 
 echo("start pandas install from pypi; will take ~ 1 hour")
-sudo pip3 install pandas
-sudo pip install pandas
+sudo apt-get install python-pandas python3-pandas
+
 
 sudo apt-get install python-h5py python3-h5py -y
 sudo apt-get install python-openpyxl 
@@ -53,8 +56,8 @@ sudo pip3 install openpyxl
 sudo apt-get install python-tables python3-tables -y
 sudo apt-get install python-zmq python3-zmq -y
 
-sudo pip install pygsheets adafruit.io
-sudo pip3 install pygsheets adafruit.io
+sudo pip install pygsheets adafruit.io --ignore-installed
+sudo pip3 install pygsheets adafruit.io --ignore-installed
 
 sudo pip install pyserial
 sudo pip3 install pyserial
@@ -65,8 +68,6 @@ sudo apt-get install python-tk python3-tk python-matplotlib python3-matplotlib
 sudo pip install jupyter --ignore-installed
 sudo pip3 install jupyter --ignore-installed
 
-sudo pip install Adafruit_BBIO
-sudo pip3 install Adafruit_BBIO
 
 cd ~
 git clone https://github.com/cdeister/csBehavior.git

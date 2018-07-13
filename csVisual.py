@@ -10,7 +10,7 @@
 # Chris Deister - cdeister@brown.edu
 # Anything that is licenseable is governed by a MIT License found in the github directory. 
 
-
+# decouple engine from UI
 from tkinter import *
 import tkinter.filedialog as fd
 import serial
@@ -831,7 +831,7 @@ def runDetectionTask():
                         if reported==1 or sesVars['shapingTrial']:
                             stimTrials.append(sesVars['trialNum'])
                             # aio.send('{}_trial'.format(sesVars['subjID']),'{}'.format(sesVars['trialNum']))
-                            aio.send('{}_trial'.format(sesVars['subjID']),1)
+                            # aio.send('{}_trial'.format(sesVars['subjID']),1)
                             stimResponses.append(1)
                             stateSync=0
                             pyState=4
@@ -840,7 +840,7 @@ def runDetectionTask():
                                 sesVars['totalTrials'])
                         elif reported==0:
                             stimTrials.append(sesVars['trialNum'])
-                            aio.send('{}_trial'.format(sesVars['subjID']),0)
+                            # aio.send('{}_trial'.format(sesVars['subjID']),0)
                             stimResponses.append(0)
                             stateSync=0
                             pyState=1
@@ -869,7 +869,7 @@ def runDetectionTask():
                         if reported==1:
                             noStimTrials.append(sesVars['trialNum'])
                             noStimResponses.append(1)
-                            aio.send('{}_trial'.format(sesVars['subjID']),3)
+                            # aio.send('{}_trial'.format(sesVars['subjID']),3)
                             stateSync=0
                             pyState=5
                             teensy.write('a5>'.encode('utf-8'))
@@ -878,7 +878,7 @@ def runDetectionTask():
                         elif reported==0:
                             noStimTrials.append(sesVars['trialNum'])
                             noStimResponses.append(0)
-                            aio.send('{}_trial'.format(sesVars['subjID']),4)
+                            # aio.send('{}_trial'.format(sesVars['subjID']),4)
                             stateSync=0
                             pyState=1
                             trialSamps[1]=loopCnt

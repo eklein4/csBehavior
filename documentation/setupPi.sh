@@ -1,13 +1,23 @@
 #!/bin/bash
 
-# sets up a fresh Beagle Bone Environment
-# tested on Debian 9.4 iot Stretch
+echo("updating apt")
+sudo apt-get update
+echo("upgrading apt will take a bit")
+sudo apt-get upgrade -y
+sudo apt-get dist-upgrade -y
 
+
+
+# sets up a fresh Raspberry Pi (stretch)
+echo("now we will install and setup a VNC server, you will be asked to enter a VNC password")
+sudo apt-get install x11vnc
+x11vnc -storepasswd
+
+echo("the rest should be automatic")
 echo("this will take at least an hour")
 echo("this script says yes to everything so you can walk away")
 echo("i don't check for internet, so make sure your BBB is connected")
-sudo apt-get update
-sudo apt-get upgrade -y
+
 
 sudo apt-get install curl -y
 sudo apt-get remove python-pip -y
@@ -17,9 +27,7 @@ curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
 sudo python get-pip.py 
 sudo python3 get-pip.py
 
-sudo apt-get install build-essential libzmq3-dev -y
-sudo apt-get install python-dev -y
-sudo apt-get install python3-dev -y
+sudo apt-get install build-essential libzmq3-dev python-dev python3-dev -y
 
 sudo pip install distlib setuptools wheel
 sudo pip3 install distlib setuptools wheel
@@ -34,8 +42,8 @@ sudo pip install bottleneck
 sudo pip3 install bottleneck
 sudo pip install numexpr
 sudo pip3 install numexpr
-sudo apt-get install xsel xclip libxml2-dev libxslt1-dev -y
-sudo apt-get install python-lxml python3-lxml -y 
+sudo apt-get install xsel xclip libxml2-dev libxslt1-dev python-lxml python3-lxml -y 
+
 
 echo("I am going to make a temp swap of 1GB in order to give GCC")
 echo("enough memory to compile Pandas")
@@ -44,8 +52,9 @@ sudo mkswap tmpswap
 sudo swapon tmpswap
 
 echo("start pandas install from pypi; will take ~ 1 hour")
-sudo pip3 install pandas
 sudo pip install pandas
+sudo pip3 install pandas
+
 
 sudo apt-get install python-h5py python3-h5py -y
 sudo apt-get install python-openpyxl 
@@ -53,8 +62,8 @@ sudo pip3 install openpyxl
 sudo apt-get install python-tables python3-tables -y
 sudo apt-get install python-zmq python3-zmq -y
 
-sudo pip install pygsheets adafruit.io
-sudo pip3 install pygsheets adafruit.io
+sudo pip install pygsheets adafruit.io --ignore-installed
+sudo pip3 install pygsheets adafruit.io --ignore-installed
 
 sudo pip install pyserial
 sudo pip3 install pyserial
@@ -65,8 +74,6 @@ sudo apt-get install python-tk python3-tk python-matplotlib python3-matplotlib
 sudo pip install jupyter --ignore-installed
 sudo pip3 install jupyter --ignore-installed
 
-sudo pip install Adafruit_BBIO
-sudo pip3 install Adafruit_BBIO
 
 cd ~
 git clone https://github.com/cdeister/csBehavior.git
