@@ -651,8 +651,8 @@ def runDetectionTask():
     # Determine the max samples. We preallocate a numpy array to this depth.
     npSamps=sesVars['maxDur']
     # sesData=np.zeros([npSamps,sesVars['dStreams']])
-    sesData = np.memmap('cur.npy', mode='w+', shape=(npSamps,sesVars['dStreams']))
-    # np.save('/home/cad/sesData.npy',sesData)
+    sesData = np.memmap('cur.npy', mode='w+',dtype=np.int32,shape=(npSamps,sesVars['dStreams']))
+    np.save('sesData.npy',sesData)
 
     dStreamLables=['interrupt','trialTime','stateTime','teensyState','lick0_Data',\
     'motion','scopeState','aOut1','aOut2','pythonState','thrLicksA']
