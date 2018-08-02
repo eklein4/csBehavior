@@ -4,11 +4,20 @@
 
 #include <FlexiTimer2.h>
 #include <Wire.h>
-
+#include <Adafruit_NeoPixel.h>
 
 // *********** UART Serial Outs
 #define visualSerial Serial1 // out to a computer running psychopy
 #define dashSerial Serial3 // out to a csDashboard object
+
+// *********** IO Pin Defs
+#define neoStripPin 22
+#define forceSensorPin 20
+#define lickPin  21
+#define scopePin 24
+#define motionPin  6
+#define rewardPin  35
+#define syncPin  25
 
 
 // ****** Scale.
@@ -19,13 +28,8 @@ float weightScale = 0;
 int adcResolution = 10;
 int dacResolution = 12;
 
-// ****** PINS
-const int forceSensorPin = 20;
-const int lickPin = 21;
-const int scopePin = 24;
-const int motionPin = 14;
-const int rewardPinA = 35;
-const int syncPin = 25;
+
+
 
 uint32_t writeValueA = 0;
 
@@ -33,7 +37,7 @@ volatile uint32_t encoderAngle = 0;
 volatile uint32_t prev_time = 0;
 
 // **** output pins
-int dacChans[] = {A14,A13};
+int dacChans[] = {A21,A22};
 
 // ****** Interupt Timing
 int sampsPerSecond = 1000;
@@ -49,10 +53,10 @@ uint32_t trigTime = 10;
 
 
 // ****** stim trains
-// 0) pulsing? 1) sample counter 3) baseline time 4) stim time
+// 0) pulsing? 1) sample counter 3) baseline dur 4) stim dur
 // 5) baseline amp 6) stim amp 7) stim type 8) write value
-uint16_t pulseTrain_chanA[] = {0, 0, 100, 500, 0, 2000, 1, 0};
-uint16_t pulseTrain_chanB[] = {0, 0, 100, 500, 0, 0, 1, 0};
+uint16_t pulseTrain_chanA[] = {0, 0, 500, 10, 0, 4000, 0, 0};
+uint16_t pulseTrain_chanB[] = {0, 0, 500, 10, 0, 4000, 0, 0};
 
 // ***** reward stuff
 int rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulus
@@ -65,7 +69,7 @@ bool rewarding = 0;
 // 'sFreq','tFreq','visVariableUpdateBlock','loadCell','motion','lickSensor','pulseAPeak','pulseADur'};
 
 char knownHeaders[] = {'a', 'r', 't', 'c', 'o', 's', 'f', 'v', 'w', 'm', 'l', 'x', 'y', 'z'};
-int knownValues[] = {0, 500, 4000, 0, 0, 0, 0, 1, 0, 0, 0, pulseTrain_chanA[6], pulseTrain_chanA[5], pulseTrain_chanA[3]};
+int knownValues[] = {0, 5, 4000, 0, 0, 0, 0, 1, 0, 0, 0, pulseTrain_chanA[6], pulseTrain_chanA[5], pulseTrain_chanA[3]};
 int knownCount = 14;
 
 // ************ data
@@ -78,19 +82,24 @@ int lastState = 0;
 
 bool trigStuff = 0;
 
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(30, neoStripPin, NEO_GRB + NEO_KHZ800);
+
 void setup() {
   // ****** Setup Cyclops
   // Start the device
-
-
+  strip.begin();
+  strip.show();
+//  setStripRed();
+  strip.setBrightness(20);
+  setStripRed();
   // ****** Setup Analog Out
   analogWriteResolution(12);
   attachInterrupt(motionPin, rising, RISING);
   pinMode(syncPin, OUTPUT);
   digitalWrite(syncPin, LOW);
   pinMode(scopePin, INPUT);
-  pinMode(rewardPinA, OUTPUT);
-  digitalWrite(rewardPinA, LOW);
+  pinMode(rewardPin, OUTPUT);
+  digitalWrite(rewardPin, LOW);
 
   dashSerial.begin(9600);
   visualSerial.begin(9600);
@@ -128,6 +137,7 @@ void vStates() {
     if (headerStates[0] == 0) {
       genericHeader(0);
       loopCount = 0;
+      setStripRed();
     }
 
     // b) body for state 0
@@ -137,7 +147,7 @@ void vStates() {
     stimGen(pulseTrain_chanA);
     stimGen(pulseTrain_chanB);
     analogWrite(dacChans[0], pulseTrain_chanA[7]);
-    analogWrite(dacChans[1], pulseTrain_chanB[7]);
+    analogWrite(dacChans[1], pulseTrain_chanA[7]);
 
   }
 
@@ -171,6 +181,7 @@ void vStates() {
     // **************************
     if (knownValues[0] == 1) {
       if (headerStates[1] == 0) {
+        clearStrip();
         visStimOff();
         genericHeader(1);
         blockStateChange = 0;
@@ -236,11 +247,11 @@ void vStates() {
       stimGen(pulseTrain_chanA);
       analogWrite(dacChans[0], pulseTrain_chanA[7]);
       if (rewardDelivTypeA == 0 && rewarding == 0) {
-        digitalWrite(rewardPinA, HIGH);
+        digitalWrite(rewardPin, HIGH);
         rewarding = 1;
       }
       if (stateTime >= uint32_t(knownValues[1])) {
-        digitalWrite(rewardPinA, LOW);
+        digitalWrite(rewardPin, LOW);
         blockStateChange = 0;
       }
     }
@@ -284,11 +295,11 @@ void vStates() {
       stimGen(pulseTrain_chanA);
       analogWrite(dacChans[0], pulseTrain_chanA[7]);
       if (rewardDelivTypeA == 0 && rewarding == 0) {
-        digitalWrite(rewardPinA, HIGH);
+        digitalWrite(rewardPin, HIGH);
         rewarding = 1;
       }
       if (stateTime >= uint32_t(knownValues[1])) {
-        digitalWrite(rewardPinA, LOW);
+        digitalWrite(rewardPin, LOW);
         blockStateChange = 0;
       }
     }
@@ -509,3 +520,25 @@ void stimGen(uint16_t pulseTracker[]) {
   pulseTracker[1] = pulseTracker[1] + 1;
 
 }
+
+void setStripRed(){
+  for(uint16_t i=0; i<strip.numPixels(); i++) {
+    strip.setPixelColor(i, strip.Color(255, 0, 0));
+  }
+  strip.show();
+}
+
+void setStripWhite(){
+  for(uint16_t i=0; i<strip.numPixels(); i++) {
+    strip.setPixelColor(i, strip.Color(255, 200, 100));
+  }
+  strip.show();
+}
+
+void clearStrip(){
+  for(uint16_t i=0; i<strip.numPixels(); i++) {
+    strip.setPixelColor(i, strip.Color(0, 0, 0));
+  }
+  strip.show();
+}
+

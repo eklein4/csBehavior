@@ -1,10 +1,9 @@
-# csVisual v0.94
+# csVisual v0.95
 # 
 # - added serial buffering
-# - changed to serial read method to avoid using the readline method
+# - preallocate trial data as an Numpy memmap
 # - improved MQ/Google Sheet exception handling at the end of the session
-# - buffer size is not configurabe yet
-# - added two analog outputs
+# - added preliminary analog output support
 # 
 #
 # Chris Deister - cdeister@brown.edu
@@ -43,7 +42,8 @@ class csVariables(object):
         'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':12,\
         'rewardDur':500,'lickAThr':900,'lickLatchA':0,'minNoLickTime':1000,\
         'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStimTime':1500,\
-        'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':114,'loadScale':0.42}
+        'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':114,'loadScale':0.42,\
+        'serBufSize':4096}
 
         self.stimVars={'contrast':1,'sFreq':4,'orientation':0}
 
@@ -306,7 +306,6 @@ class csSerial(object):
         elif self.dNew==0:
             self.returnVar=0
         return self.returnVar,self.dNew
-
 class csPlot(object):
     def __init__(self,stPlotX={},stPlotY={},stPlotRel={},pClrs={},pltX=[],pltY=[]):
         
@@ -623,9 +622,6 @@ def runDetectionTask():
             csAIO.rigOnLog(aio,sesVars['subjID'],sesVars['curWeight'],curMachine,sesVars['mqttUpDel'])
         except:
             print('no mqtt logging')
-        # [sesVars['waterConsumed'],hrDiff]=csAIO.getDailyConsumption(aio,sesVars['subjID'],\
-        #     sesVars['rigGMTZoneDif'],12)
-        # print('{} already had {} ml'.format(sesVars['subjID'],sesVars['waterConsumed']))
 
         try:
             print('logging to sheet')
@@ -707,18 +703,19 @@ def runDetectionTask():
 
             
             # b) Look for teensy data.
-            [serialBuf,eR,tString]=csSer.readSerialBuffer(teensy,serialBuf,1024)
-            # [tString,dNew,bAvail]=csSer.readSerialData(teensy,'tData',9)
+            [serialBuf,eR,tString]=csSer.readSerialBuffer(teensy,serialBuf,sesVars['serBufSize'])
             if len(tString)==sesVars['dStreams']-1:
+
+                intNum=int(tString[1])
                 tStateTime=int(tString[3])
                 tTeensyState=int(tString[4])
         
 
                 tFrameCount=0  # Todo: frame counter in.
                 for x in range(0,sesVars['dStreams']-2):
-                    sesData[loopCnt,x]=int(tString[x+1])
-                sesData[loopCnt,sesVars['dStreams']-2]=pyState # The state python wants to be.
-                sesData[loopCnt,sesVars['dStreams']-1]=0 # Thresholded licks
+                    sesData[intNum,x]=int(tString[x+1])
+                sesData[intNum,sesVars['dStreams']-2]=pyState # The state python wants to be.
+                sesData[intNum,sesVars['dStreams']-1]=0 # Thresholded licks
                 loopCnt=loopCnt+1
                 
                 # Plot updates.
@@ -934,7 +931,7 @@ def runDetectionTask():
             print(x)
             print(loopCnt)
             print(tString)
-            sesData[loopCnt,x]=int(tString[x+1])
+            sesData[intNum,x]=int(tString[x+1])
             tc['state'] = 'normal'
             sesVars['curSession']=sesVars['curSession']+1
             curSession_TV.set(sesVars['curSession'])
