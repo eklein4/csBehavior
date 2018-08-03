@@ -1,11 +1,7 @@
 from picamera import PiCamera
-import datetime
 from time import sleep
 import tkinter as tk
 import os.path
-import RPi.GPIO as GPIO
-import io
-import numpy as np
 
 camera = PiCamera()
 camera.resolution = (1640,1232)
@@ -13,12 +9,10 @@ camera.framerate = 30
 camera.exposure_mode='off'
 camera.iso=0
 
-# ********************** initialize GPIO
-GPIO.setmode(GPIO.BOARD)
-# we are going to trigger via low->high
-# so pull down the trigger pin (can emulate on chip)
-GPIO.setup(11, GPIO.IN,pull_up_down=GPIO.PUD_DOWN)
 
+i=0 # picture counter
+j=0 # video counter
+# new_file = Path('/home/pi/Desktop/video_'+str(j)+'.h264')
 
 # button callback fxns
 def startPreview():
@@ -31,33 +25,25 @@ def stopPreview():
     camera.stop_preview()
 def startRecord():
     start_btn.configure(bg="gainsboro")
-    cStr=datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    output = np.empty((1232,1640,3),dtype=np.uint8)
-    filename = '/home/pi/Desktop/video_'+cStr+'.h264'
-    waitForPin=1
-    while waitForPin:
-        checkPin=GPIO.input(11)
-        if checkPin==1:
-            waitForPin=0
-            #camera.capture(output,'rgb')
-            camera.start_recording('/home/pi/Desktop/video_'+cStr+'.h264',sps_timing=True)
-            #camera.start_recording("/home/pi/Desktop/videoD.h264")
-            camera.start_preview(fullscreen=False, window=(0,50,1280,720))
-
-
+    global j
+    filename = '/home/pi/Desktop/video_'+str(j)+'.h264'
+    if os.path.isfile(filename):
+        j+=1
+        startRecord()
+    else:
+        camera.start_recording('/home/pi/Desktop/video_'+str(j)+'.h264')
+        j+=1
 def stopRecord():
-    waitForPin=0
     start_btn.configure(bg="#3CB371")
     camera.stop_recording()
-    camera.stop_preview()
 def takePicture():
-    cStr=datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    filename = '/home/pi/Desktop/image_'+cStr+'.jpg'
+    global i
+    filename = '/home/pi/Desktop/image_'+str(i)+'.jpg'
     if os.path.isfile(filename):
         i+=1
         takePicture()
     else:
-        camera.capture('/home/pi/Desktop/image_'+cStr+'.jpg') 
+        camera.capture('/home/pi/Desktop/image_'+str(i)+'.jpg') 
         i+=1
 
 # simple button GUI

@@ -1,9 +1,10 @@
-# csVisual v0.95
+# csVisual v0.94
 # 
 # - added serial buffering
-# - preallocate trial data as an Numpy memmap
+# - changed to serial read method to avoid using the readline method
 # - improved MQ/Google Sheet exception handling at the end of the session
-# - added preliminary analog output support
+# - buffer size is not configurabe yet
+# - added two analog outputs
 # 
 #
 # Chris Deister - cdeister@brown.edu
@@ -42,8 +43,7 @@ class csVariables(object):
         'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':12,\
         'rewardDur':500,'lickAThr':900,'lickLatchA':0,'minNoLickTime':1000,\
         'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStimTime':1500,\
-        'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':114,'loadScale':0.42,\
-        'serBufSize':4096}
+        'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':114,'loadScale':0.42}
 
         self.stimVars={'contrast':1,'sFreq':4,'orientation':0}
 
@@ -306,6 +306,7 @@ class csSerial(object):
         elif self.dNew==0:
             self.returnVar=0
         return self.returnVar,self.dNew
+
 class csPlot(object):
     def __init__(self,stPlotX={},stPlotY={},stPlotRel={},pClrs={},pltX=[],pltY=[]):
         
@@ -622,6 +623,9 @@ def runDetectionTask():
             csAIO.rigOnLog(aio,sesVars['subjID'],sesVars['curWeight'],curMachine,sesVars['mqttUpDel'])
         except:
             print('no mqtt logging')
+        # [sesVars['waterConsumed'],hrDiff]=csAIO.getDailyConsumption(aio,sesVars['subjID'],\
+        #     sesVars['rigGMTZoneDif'],12)
+        # print('{} already had {} ml'.format(sesVars['subjID'],sesVars['waterConsumed']))
 
         try:
             print('logging to sheet')
@@ -643,13 +647,10 @@ def runDetectionTask():
     # For reference, confirm the Teensy's interrupt (sampling) rate. 
     sesVars['sampRate']=1000
     # Set maxDur to be two hours.
-    sesVars['maxDur']=3600*2*sesVars['sampRate']
+    sesVars['maxDur']=60*60*sesVars['sampRate']*2
     # Determine the max samples. We preallocate a numpy array to this depth.
     npSamps=sesVars['maxDur']
-    # sesData=np.zeros([npSamps,sesVars['dStreams']])
-    sesData = np.memmap('cur.npy', mode='w+',dtype=np.int32,shape=(npSamps,sesVars['dStreams']))
-    np.save('sesData.npy',sesData)
-
+    sesData=np.zeros([npSamps,sesVars['dStreams']])
     dStreamLables=['interrupt','trialTime','stateTime','teensyState','lick0_Data',\
     'motion','scopeState','aOut1','aOut2','pythonState','thrLicksA']
 
@@ -703,19 +704,18 @@ def runDetectionTask():
 
             
             # b) Look for teensy data.
-            [serialBuf,eR,tString]=csSer.readSerialBuffer(teensy,serialBuf,sesVars['serBufSize'])
+            [serialBuf,eR,tString]=csSer.readSerialBuffer(teensy,serialBuf,1024)
+            # [tString,dNew,bAvail]=csSer.readSerialData(teensy,'tData',9)
             if len(tString)==sesVars['dStreams']-1:
-
-                intNum=int(tString[1])
                 tStateTime=int(tString[3])
                 tTeensyState=int(tString[4])
         
 
                 tFrameCount=0  # Todo: frame counter in.
                 for x in range(0,sesVars['dStreams']-2):
-                    sesData[intNum,x]=int(tString[x+1])
-                sesData[intNum,sesVars['dStreams']-2]=pyState # The state python wants to be.
-                sesData[intNum,sesVars['dStreams']-1]=0 # Thresholded licks
+                    sesData[loopCnt,x]=int(tString[x+1])
+                sesData[loopCnt,sesVars['dStreams']-2]=pyState # The state python wants to be.
+                sesData[loopCnt,sesVars['dStreams']-1]=0 # Thresholded licks
                 loopCnt=loopCnt+1
                 
                 # Plot updates.
@@ -926,12 +926,10 @@ def runDetectionTask():
                         teensy.write('a1>'.encode('utf-8'))
                         print('last trial took: {} seconds'.format(sampLog[-1]/1000))
         except:
-            sesData.flush()
-            np.save('sesData.npy',sesData)
             print(x)
             print(loopCnt)
             print(tString)
-            sesData[intNum,x]=int(tString[x+1])
+            sesData[loopCnt,x]=int(tString[x+1])
             tc['state'] = 'normal'
             sesVars['curSession']=sesVars['curSession']+1
             curSession_TV.set(sesVars['curSession'])

@@ -16,6 +16,7 @@
 #define lickPin  21
 #define scopePin 24
 #define motionPin  6
+#define framePin  5
 #define rewardPin  35
 #define syncPin  25
 
@@ -35,9 +36,10 @@ uint32_t writeValueA = 0;
 
 volatile uint32_t encoderAngle = 0;
 volatile uint32_t prev_time = 0;
+volatile uint32_t pulseCount = 0;
 
 // **** output pins
-int dacChans[] = {A21,A22};
+int dacChans[] = {A21, A22};
 
 // ****** Interupt Timing
 int sampsPerSecond = 1000;
@@ -55,8 +57,8 @@ uint32_t trigTime = 10;
 // ****** stim trains
 // 0) pulsing? 1) sample counter 3) baseline dur 4) stim dur
 // 5) baseline amp 6) stim amp 7) stim type 8) write value
-uint16_t pulseTrain_chanA[] = {0, 0, 500, 10, 0, 4000, 0, 0};
-uint16_t pulseTrain_chanB[] = {0, 0, 500, 10, 0, 4000, 0, 0};
+uint16_t pulseTrain_chanA[] = {0, 0, 5, 5, 0, 4000, 0, 0};
+uint16_t pulseTrain_chanB[] = {0, 0, 5, 5, 0, 4000, 0, 0};
 
 // ***** reward stuff
 int rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulus
@@ -89,12 +91,13 @@ void setup() {
   // Start the device
   strip.begin();
   strip.show();
-//  setStripRed();
-  strip.setBrightness(20);
+  //  setStripRed();
+  strip.setBrightness(100);
   setStripRed();
   // ****** Setup Analog Out
   analogWriteResolution(12);
   attachInterrupt(motionPin, rising, RISING);
+  attachInterrupt(framePin, frameCount, RISING);
   pinMode(syncPin, OUTPUT);
   digitalWrite(syncPin, LOW);
   pinMode(scopePin, INPUT);
@@ -132,12 +135,14 @@ void vStates() {
   // State 0: Boot/Init State
   // **************************
   if (knownValues[0] == 0) {
-    
+
     // a) run a header for state 0
     if (headerStates[0] == 0) {
+      visStimEnd();
       genericHeader(0);
       loopCount = 0;
       setStripRed();
+//      rainbowCycle(20);
     }
 
     // b) body for state 0
@@ -181,7 +186,7 @@ void vStates() {
     // **************************
     if (knownValues[0] == 1) {
       if (headerStates[1] == 0) {
-        clearStrip();
+        //clearStrip();
         visStimOff();
         genericHeader(1);
         blockStateChange = 0;
@@ -328,7 +333,7 @@ void dataReport() {
   Serial.print(',');
   Serial.print(encoderAngle);     //rotary encoder value
   Serial.print(',');
-  Serial.print(scopeState);
+  Serial.print(pulseCount);
   Serial.print(',');
   Serial.print(pulseTrain_chanA[7]);
   Serial.print(',');
@@ -421,6 +426,20 @@ void genericStateBody() {
 // **************  Visual Stimuli *********************************
 // ****************************************************************
 
+void visStimEnd() {
+  visualSerial.print('v');
+  visualSerial.print(',');
+  visualSerial.print(0);
+  visualSerial.print(',');
+  visualSerial.print(999);
+  visualSerial.print(',');
+  visualSerial.print(0);
+  visualSerial.print(',');
+  visualSerial.print(0);
+  visualSerial.print(',');
+  visualSerial.println(knownValues[7]);
+}
+
 void visStimOff() {
   visualSerial.print('v');
   visualSerial.print(',');
@@ -461,6 +480,11 @@ void rising() {
 void falling() {
   attachInterrupt(motionPin, rising, RISING);
   encoderAngle = micros() - prev_time;
+}
+
+void frameCount() {
+  pulseCount++;
+
 }
 
 
@@ -521,24 +545,52 @@ void stimGen(uint16_t pulseTracker[]) {
 
 }
 
-void setStripRed(){
-  for(uint16_t i=0; i<strip.numPixels(); i++) {
+void setStripRed() {
+  for (uint16_t i = 0; i < strip.numPixels(); i++) {
     strip.setPixelColor(i, strip.Color(255, 0, 0));
   }
   strip.show();
 }
 
-void setStripWhite(){
-  for(uint16_t i=0; i<strip.numPixels(); i++) {
+void setStripWhite() {
+  for (uint16_t i = 0; i < strip.numPixels(); i++) {
     strip.setPixelColor(i, strip.Color(255, 200, 100));
   }
   strip.show();
 }
 
-void clearStrip(){
-  for(uint16_t i=0; i<strip.numPixels(); i++) {
+void clearStrip() {
+  for (uint16_t i = 0; i < strip.numPixels(); i++) {
     strip.setPixelColor(i, strip.Color(0, 0, 0));
   }
   strip.show();
+}
+
+
+void rainbowCycle(uint8_t wait) {
+  uint16_t i, j;
+
+  for (j = 0; j < 256 * 5; j++) { // 5 cycles of all colors on wheel
+    for (i = 0; i < strip.numPixels(); i++) {
+      strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+    }
+    strip.show();
+    delay(wait);
+  }
+}
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t Wheel(byte WheelPos) {
+  WheelPos = 255 - WheelPos;
+  if(WheelPos < 85) {
+    return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  }
+  if(WheelPos < 170) {
+    WheelPos -= 85;
+    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  }
+  WheelPos -= 170;
+  return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
 }
 
