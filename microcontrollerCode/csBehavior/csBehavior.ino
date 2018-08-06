@@ -5,7 +5,10 @@
 #include <Wire.h>
 #include <FlexiTimer2.h>
 #include <Adafruit_NeoPixel.h>
+#include "HX711.h"
 
+#define calibration_factor -440000
+#define zero_factor 8421804
 
 //-----------------------------
 // ~~~~~~~ IO Pin Defs ~~~~~~~~
@@ -20,6 +23,8 @@
 
 // b) Digital Input Pins
 #define scopePin 24       // State of 2P Scope (Digital)
+#define scaleData  29
+#define scaleClock  28
 
 // c) Digital Interrupt Input Pins
 #define motionPin  6
@@ -51,9 +56,12 @@ uint32_t maxBrightness = 255;
 //--------------------------------
 
 
-// ****** Analog Input Inits.
+// make a loadcell object and set variables
+HX711 scale(scaleData, scaleClock);
 uint32_t weightOffset = 0;
-float weightScale = 0;
+float scaleVal = 0;
+
+
 uint32_t lickSensorAValue = 0;
 uint32_t genAnalogInput0 = 0;
 uint32_t genAnalogInput1 = 0;
@@ -165,6 +173,11 @@ void setup() {
   strip.show();
   strip.setBrightness(1);
   setStrip(3);
+
+  scale.set_scale(calibration_factor);
+  scale.set_offset(zero_factor);
+  scale.tare();
+  
   // ****** Setup Analog Out
   analogWriteResolution(12);
   attachInterrupt(motionPin, rising, RISING);
@@ -560,10 +573,14 @@ void genericHeader(int stateNum) {
 void genericStateBody() {
   stateTime = millis() - stateTimeOffs;
   lickSensorAValue = analogRead(lickPinA);
-  knownValues[17] = analogRead(forcePin);
+  // knownValues[17] = analogRead(forcePin);
   genAnalogInput0 = analogRead(genA0);
   genAnalogInput1 = analogRead(genA1);
   scopeState = digitalRead(scopePin);
+  if (scale.is_ready()){
+    scaleVal=scale.get_units()*22000; // this scale factor gives hundreths of a gram as the least significant int
+    knownValues[17]=scaleVal;
+  }
 }
 
 // ****************************************************************

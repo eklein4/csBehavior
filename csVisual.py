@@ -42,7 +42,7 @@ class csVariables(object):
 		'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':12,\
 		'rewardDur':500,'lickAThr':900,'lickLatchA':0,'minNoLickTime':1000,\
 		'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStimTime':1500,\
-		'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':114,'loadScale':0.42,\
+		'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':0,'loadScale':1,\
 		'serBufSize':4096}
 
 		self.stimVars={'contrast':1,'sFreq':4,'orientation':0}
@@ -606,8 +606,9 @@ def runDetectionTask():
 			if vN:
 				wVals.append(rV)
 				lIt=lIt+1
-		sesVars['curWeight']=(np.mean(wVals)-sesVars['loadBaseline'])*sesVars['loadScale'];
+		sesVars['curWeight']=(np.mean(wVals)-sesVars['loadBaseline'])*0.1;
 		preWeight=sesVars['curWeight']
+		print("pre weight={}".format(preWeight))
 	except:
 		sesVars['curWeight']=20
 
@@ -962,7 +963,7 @@ def runDetectionTask():
 			# Update MQTT Feeds
 			if sesVars['logMQTT']==1:
 				try:
-					sesVars['curWeight']=(np.mean(sesData[-200:-1,4])-sesVars['loadBaseline'])*sesVars['loadScale']
+					sesVars['curWeight']=(np.mean(sesData[-1000:-1,4])-sesVars['loadBaseline'])*0.1
 					csAIO.rigOffLog(aio,sesVars['subjID'],sesVars['curWeight'],curMachine,sesVars['mqttUpDel'])
 
 					# update animal's water consumed feed.
@@ -1017,7 +1018,7 @@ def runDetectionTask():
 	# Update MQTT Feeds
 	if sesVars['logMQTT']==1:
 		try:
-			sesVars['curWeight']=(np.mean(sesData[loopCnt-plotSamps:loopCnt,4])-sesVars['loadBaseline'])*sesVars['loadScale']
+			sesVars['curWeight']=(np.mean(sesData[loopCnt-plotSamps:loopCnt,4])-sesVars['loadBaseline'])*0.1
 			sesVars['waterConsumed']=int(sesVars['waterConsumed']*10000)/10000
 			topAmount=sesVars['consumpTarg']-sesVars['waterConsumed']
 			topAmount=int(topAmount*10000)/10000
@@ -1167,7 +1168,20 @@ def rampTeensyChan(rampAmp,rampDur,interRamp,rampCount,chanNum,stimType):
 	time.sleep(varDelay)
 	teensy.close()
 
+def markOffset():
+	sesVars['comPath_teensy']=comPath_teensy_TV.get()
+	teensy=csSer.connectComObj(sesVars['comPath_teensy'],sesVars['baudRate_teensy'])
 
+	wVals=[]
+	lIt=0
+	while lIt<=50:
+		[rV,vN]=csSer.checkVariable(teensy,'w',0.002)
+		if vN:
+			wVals.append(rV)
+			lIt=lIt+1
+	sesVars['loadBaseline']=np.mean(wVals)
+	print("offset ={}".format(sesVars['loadBaseline']))
+	teensy.close()
 
 
 
@@ -1353,6 +1367,10 @@ if makeBar==0:
 	pulseTrainDac1Btn = Button(deviceControl_frame,text="Pulses DAC2",width=15,command=lambda: rampTeensyChan(4095,10,90,10,2,0)) #teensy.write('n3>'.encode('utf-8')))))
 	pulseTrainDac1Btn.grid(row=3,column=1)
 	pulseTrainDac1Btn['state'] = 'normal'
+
+	weightOffsetBtn = Button(deviceControl_frame,text="Get Offset",width=15,command=lambda: markOffset()) #teensy.write('n3>'.encode('utf-8')))))
+	weightOffsetBtn.grid(row=4,column=1)
+	weightOffsetBtn['state'] = 'normal'
 
 
 
