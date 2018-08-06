@@ -5,6 +5,7 @@
 #include <Adafruit_STMPE610.h>
 #include <Adafruit_GFX.h>
 #include <Trinamic_TMC2130.h>
+//https://github.com/makertum/Trinamic_TMC2130
 #include "Adafruit_SGP30.h"
 #include "Adafruit_VL6180X.h"
 
@@ -58,7 +59,7 @@ bool sHead[] = {0, 0, 0};
 
 
 char knownHeaders[] = {'r', 's', 'c', 'e', 'd'};
-int knownValues[] = {0, 50, 64, 1, 0};
+int knownValues[] = {0, 50, 2*256, 1, 0};
 int knownCount = 5;
 
 int curScreen = 1;
@@ -99,7 +100,7 @@ int motor_lastValues[] = {0, 0, 0, 0};
 int motor_labCount[] = {7, 5, 8, 7};
 int motor_knownCount = 4;
 
-HardwareSerial Serial1(2);
+//HardwareSerial Serial1(2);
 
 
 void setup(void) {
@@ -113,7 +114,8 @@ void setup(void) {
     Serial.println("Touchscreen started.");
   }
   Serial.begin (baudrate);  // USB monitor
-  Serial1.begin(baudrate);  // HW UART1
+  Serial2.begin(115200);  // HW UART1
+  delay(1000);
   if (useI2Sensors == 1) {
     sgp.begin();
     sgp.IAQmeasure();
@@ -130,14 +132,15 @@ void setup(void) {
   dashState = 0;
 
 
+
 }
 
 void detectStateBody() {
   if (Serial.available()) {
-    Serial1.write(Serial.read());
+    Serial2.write(Serial.read());
   }
 
-  if (Serial1.available()) {
+  if (Serial2.available()) {
     Serial.write(Serial1.read());
   }
 
@@ -149,18 +152,20 @@ void detectStateBody() {
 }
 
 void loop() {
+
+  //  Serial1.println("b30>");
   int nD = flagReceive(knownHeaders, knownValues);
   if (nD > 0) {
     refreshScreen(curScreen);
   }
-  
-  bool giveReward=digitalRead(rewardPin);
-  
-  if (giveReward==1){
-    knownValues[0]=1;
+
+  bool giveReward = digitalRead(rewardPin);
+
+  if (giveReward == 1) {
+    knownValues[0] = 1;
   }
-  
-  
+
+
 
   if (knownValues[0] == 1) {
     blockScreen = 1;
@@ -599,7 +604,7 @@ void s3Btn(bool selState) {
     tft.setCursor(bLoc + bTBuf, tbRow + bTBuf);
     tft.setTextColor(ILI9341_BLACK);
     tft.setTextSize(1);
-    tft.print("galvo");
+    tft.print("pulse motor");
   }
   if (selState == 1) {
     tft.fillRect(bLoc, tbRow, tbWidth, bHeight, ILI9341_BLUE);
@@ -607,8 +612,15 @@ void s3Btn(bool selState) {
     tft.setCursor(bLoc + bTBuf, tbRow + bTBuf);
     tft.setTextColor(ILI9341_BLACK);
     tft.setTextSize(1);
-    tft.print("resonant");
+    tft.print("pulsing");
+    Serial2.print('n');
+    Serial2.print(2);
+    Serial2.println('>');
+    Serial2.print('b');
+    Serial2.print(10);
+    Serial2.println('>');
     knownValues[0] = 1;
+    
   }
 }
 void s4Btn(bool selState) {
@@ -632,6 +644,9 @@ void s4Btn(bool selState) {
     tft.print("inc");
     int tlVal = knownValues[1];
     knownValues[1] = knownValues[1] + 5;
+    Serial2.print('n');
+    Serial2.print(1);
+    Serial2.println('>');
     tft.setTextColor(ILI9341_BLACK);
     tft.setCursor(0, (textHeight + rowBuf) * 2);
     tft.print("speed:");
@@ -653,6 +668,9 @@ void s5Btn(bool selState) {
     tft.setTextColor(ILI9341_BLACK);
     tft.setTextSize(1);
     tft.print("dec");
+    Serial2.print('b');
+    Serial2.print(5);
+    Serial2.println('>');
   }
   if (selState == 1) {
     tft.fillRect(bLoc, tbRow, tbWidth, bHeight, ILI9341_BLUE);
@@ -661,12 +679,15 @@ void s5Btn(bool selState) {
     tft.setTextColor(ILI9341_BLACK);
     tft.setTextSize(1);
     tft.print("dec");
-
+    Serial2.print('b');
+    Serial2.print(50);
+    Serial2.println('>');
     int tlVal = knownValues[1];
     knownValues[1] = knownValues[1] - 5;
     if (knownValues[1] < 1) {
       knownValues[1] = 1;
     }
+    
 
     tft.setTextColor(ILI9341_BLACK);
     tft.setCursor(0, (textHeight + rowBuf) * 2);

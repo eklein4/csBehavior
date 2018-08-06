@@ -44,6 +44,7 @@
 // if rgbw use top line, if rgb use second.
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(15, neoStripPin, NEO_GRBW + NEO_KHZ800);
 //Adafruit_NeoPixel strip = Adafruit_NeoPixel(15, neoStripPin, NEO_GRB + NEO_KHZ800);
+uint32_t maxBrightness = 255;
 
 //--------------------------------
 // ~~~~~~~ Variable Block ~~~~~~~~
@@ -53,10 +54,9 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(15, neoStripPin, NEO_GRBW + NEO_KHZ8
 // ****** Analog Input Inits.
 uint32_t weightOffset = 0;
 float weightScale = 0;
-uint32_t loadCellValue=0;
-uint32_t lickSensorAValue=0;
-uint32_t genAnalogInput0=0;
-uint32_t genAnalogInput1=0;
+uint32_t lickSensorAValue = 0;
+uint32_t genAnalogInput0 = 0;
+uint32_t genAnalogInput1 = 0;
 
 // a) Set DAC and ADC resolution in bits.
 uint32_t adcResolution = 10;
@@ -104,10 +104,13 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // i/14: pulse duration of train b
 // j/15: pulse amplitude of train b
 // k/16: stim type of train b
+// w/17: current value on loadCell
+// m/18: max pulses for a stimulus only trial (chanA)
+// p/19: max pulses for a stimulus only trial (chanB)
 
-char knownHeaders[] = {'a', 'r', 't', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k'};
-uint32_t knownValues[] = {0, 5, 8000, 0, 0, 0, 0, 999, 0, 10, 10, 4000, 0, 10, 10, 4000, 1};
-int knownCount = 17;
+char knownHeaders[] = {'a', 'r', 't', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'w', 'm', 'p'};
+uint32_t knownValues[] = {0, 5, 8000, 0, 0, 0, 0, 10, 0, 40, 4095, 4095, 1, 40, 4095, 4095, 1, 0, 20, 20};
+int knownCount = 20;
 
 
 
@@ -121,8 +124,9 @@ int knownCount = 17;
 // 7: Write Value (determined by the pulseGen function and is what we write to the DAC each interrupt).
 // 8: completed pulses
 // todo: swap 7 and 8
-uint32_t pulseTrain_chanA[] = {1,0,knownValues[9],knownValues[10],0,knownValues[11],knownValues[12],0,0};
-uint32_t pulseTrain_chanB[] = {1,0,knownValues[13],knownValues[14],0,knownValues[15],knownValues[16],0,0};
+uint32_t pulseTrain_chanA[] = {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0};
+uint32_t pulseTrain_chanB[] = {1, 1, knownValues[13], knownValues[14], 0, knownValues[15], knownValues[16], 0, 0};
+
 
 
 
@@ -137,6 +141,7 @@ uint32_t stateTimeOffs; // Mark an offset time from when we enter a new state.
 uint32_t trialTime;     // Mark time for each trial (state 1 to state 1).
 uint32_t stateTime;     // Mark time for each state.
 uint32_t trigTime = 10; // Duration (in interrupt time) of a sync out trigger.
+uint32_t lastBrightness = 10;
 bool trigStuff = 0;      // Keeps track of whether we triggered things.
 
 bool blockStateChange = 0;   // Sometimes you want teensy to be able to finish something before python can push it.
@@ -144,13 +149,13 @@ bool rewarding = 0;
 bool scopeState = 1;
 // ***** All states have a header we keep track of whether it fired with an array.
 // !!!!!! So, if you add a state, add a header entry and increment stateCount.
-int headerStates[] = {0, 0, 0, 0, 0, 0, 0};
-int stateCount = 7;
+int headerStates[] = {0, 0, 0, 0, 0, 0, 0, 0};
+int stateCount = 8;
 
 // i) csDashboard
-char knownDashHeaders[] = {'b', 'n'};
-uint32_t knownDashValues[] = {999, 0};
-int knownDashCount = 2;
+//char knownDashHeaders[] = {'b', 'n','v'};
+uint32_t knownDashValues[] = {10, 0, 10};
+//int knownDashCount = 3;
 
 
 void setup() {
@@ -158,8 +163,8 @@ void setup() {
   // Start the device
   strip.begin();
   strip.show();
-  strip.setBrightness(2);
-  setStripRed();
+  strip.setBrightness(1);
+  setStrip(3);
   // ****** Setup Analog Out
   analogWriteResolution(12);
   attachInterrupt(motionPin, rising, RISING);
@@ -170,10 +175,10 @@ void setup() {
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
 
-  dashSerial.begin(9600);
-  visualSerial.begin(9600);
+  dashSerial.begin(115200);
+  visualSerial.begin(115200);
   Serial.begin(19200);
-  delay(10000);
+  delay(1000);
   FlexiTimer2::set(1, evalEverySample / sampsPerSecond, vStates);
   FlexiTimer2::start();
 }
@@ -189,6 +194,8 @@ void vStates() {
 
   // we then look for any changes to variables, or calls for updates
   flagReceive(knownHeaders, knownValues);
+  flagReceiveDashboard(knownDashValues);
+
 
   // Some hardware actions need to complete before a state-change.
   // So, we have a latch for state change. We write over any change with lastState
@@ -204,18 +211,17 @@ void vStates() {
 
     // a) run a header for state 0
     if (headerStates[0] == 0) {
-      visStimEnd();
+      visStim(2);
       genericHeader(0);
       loopCount = 0;
-      setStripRed();
-      pulseCount=0;
+      setStrip(3);
+      pulseCount = 0;
     }
-
     pollColorChange();
-
     // b) body for state 0
     genericStateBody();
-    stimTrainsNoStimState();
+    stimTrainState_DAC1(0);
+    stimTrainState_DAC2(0);
 
   }
 
@@ -223,7 +229,6 @@ void vStates() {
   // ******* ******************************
   // Some things we do for all non-boot states before the state code:
   if (knownValues[0] != 0) {
-
 
     // Get a time offset from when we arrived from 0.
     // This should be the start of the trial, regardless of state we start in.
@@ -249,12 +254,15 @@ void vStates() {
     // **************************
     if (knownValues[0] == 1) {
       if (headerStates[1] == 0) {
-        visStimOff();
+        visStim(0);
         genericHeader(1);
         blockStateChange = 0;
+        setStrip(1);
       }
       genericStateBody();
-      stimTrainsNoStimState();
+      stimTrainState_DAC1(0);
+      stimTrainState_DAC2(0);
+
     }
 
     // **************************
@@ -263,16 +271,12 @@ void vStates() {
     else if (knownValues[0] == 2) {
       if (headerStates[2] == 0) {
         genericHeader(2);
-        visStimOn();
+        visStim(1);
         blockStateChange = 0;
       }
       genericStateBody();
-      if (pulseTrain_chanA[8] <2){
-       stimTrainsStimState(); 
-      }
-      else if (pulseTrain_chanA[8] >=2){
-        stimTrainsNoStimState(); 
-      }
+      stimTrainState_DAC1(0);
+      stimTrainState_DAC2(0);
     }
 
     // **************************************
@@ -282,10 +286,11 @@ void vStates() {
       if (headerStates[3] == 0) {
         blockStateChange = 0;
         genericHeader(3);
-        visStimOn();
+        visStim(1);
       }
       genericStateBody();
-      stimTrainsNoStimState();
+      stimTrainState_DAC1(0);
+      stimTrainState_DAC2(0);
     }
 
     // **************************************
@@ -294,13 +299,15 @@ void vStates() {
     else if (knownValues[0] == 4) {
       if (headerStates[4] == 0) {
         genericHeader(4);
-        visStimOff();
+        visStim(0);
         rewarding = 0;
         blockStateChange = 1;
       }
       genericStateBody();
-      stimTrainsNoStimState();
-      
+      stimTrainState_DAC1(0);
+      stimTrainState_DAC2(0);
+
+
       if (rewardDelivTypeA == 0 && rewarding == 0) {
         digitalWrite(rewardPin, HIGH);
         rewarding = 1;
@@ -317,12 +324,14 @@ void vStates() {
     else if (knownValues[0] == 5) {
       if (headerStates[5] == 0) {
         genericHeader(5);
-        visStimOff();
+        visStim(0);
         blockStateChange = 1;
       }
 
       genericStateBody();
-      stimTrainsNoStimState();
+      stimTrainState_DAC1(0);
+      stimTrainState_DAC2(0);
+
       // trap the state in time-out til timeout time over.
       if (stateTime >= uint32_t(knownValues[2])) {
         blockStateChange = 0;
@@ -335,13 +344,14 @@ void vStates() {
     else if (knownValues[0] == 6) {
       if (headerStates[6] == 0) {
         genericHeader(6);
-        //        visStimOff();
         rewarding = 0;
         blockStateChange = 0;
       }
       genericStateBody();
-      stimTrainsNoStimState();
-      
+      stimTrainState_DAC1(0);
+      stimTrainState_DAC2(0);
+
+
       if (rewardDelivTypeA == 0 && rewarding == 0) {
         digitalWrite(rewardPin, HIGH);
         rewarding = 1;
@@ -352,13 +362,39 @@ void vStates() {
       }
     }
 
+    // ****************************************
+    // State 7: Single Pulse Train Trial State
+    // ****************************************
+    else if (knownValues[0] == 7) {
+      if (headerStates[7] == 0) {
+        genericHeader(7);
+        visStim(0);
+        blockStateChange = 0;
+      }
+      genericStateBody();
+      // if we have done enough pulses on A then stop
+      if (pulseTrain_chanA[8] >= knownValues[18]) {
+        stimTrainState_DAC1(0);
+      }
+      else {
+        stimTrainState_DAC1(1);
+      }
+
+      // if we have done enough pulses on B then stop
+      if (pulseTrain_chanB[8] >= knownValues[19]) {
+        stimTrainState_DAC2(0);
+      }
+      else {
+        stimTrainState_DAC2(1);
+      }
+    }
+
     // ******* Stuff we do for all non-boot states.
     trialTime = millis() - timeOffs;
     dataReport();
     loopCount++;
   }
 }
-
 
 
 void dataReport() {
@@ -372,7 +408,7 @@ void dataReport() {
   Serial.print(',');
   Serial.print(knownValues[0]); //state
   Serial.print(',');
-  Serial.print(loadCellValue);  //load cell
+  Serial.print(knownValues[17]);  //load cell
   Serial.print(',');
   Serial.print(lickSensorAValue); // lick sensor
   Serial.print(',');
@@ -380,11 +416,10 @@ void dataReport() {
   Serial.print(',');
   Serial.print(pulseCount);
   Serial.print(',');
-  Serial.print(genAnalogInput0);
+  Serial.print(genAnalogInput1);
   Serial.print(',');
-  Serial.println(genAnalogInput1);
+  Serial.println(pulseTrain_chanB[7]);
 }
-
 
 int flagReceive(char varAr[], uint32_t valAr[]) {
   static boolean recvInProgress = false;
@@ -446,34 +481,39 @@ int flagReceive(char varAr[], uint32_t valAr[]) {
   return newData; // tells us if a valid variable arrived.
 }
 
-int flagReceiveDashboard(char varAr[], uint32_t valAr[]) {
-  static boolean recvInProgress = false;
-  static byte ndx = 0;
+int flagReceiveDashboard(uint32_t valAr[]) {
+  static boolean recvInProgress2 = false;
+  static byte ndx2 = 0;
   char endMarker = '>';
   char feedbackMarker = '<';
   char rc;
   uint32_t nVal;
   const byte numChars = 32;
   char writeChar[numChars];
-  int selectedVar = 0;
+  static int selectedVar = 0;
   int newData = 0;
 
   while (dashSerial.available() > 0 && newData == 0) {
     rc = dashSerial.read();
-    if (recvInProgress == false) {
-      for ( int i = 0; i < knownDashCount; i++) {
-        if (rc == varAr[i]) {
-          selectedVar = i;
-          recvInProgress = true;
-        }
+
+    if (recvInProgress2 == false) {
+      if (rc == 'b') {
+        selectedVar = 0;
+        recvInProgress2 = true;
       }
+      else if (rc == 'n') {
+        selectedVar = 1;
+        recvInProgress2 = true;
+      }
+
     }
 
-    else if (recvInProgress == true) {
+    else if (recvInProgress2 == true) {
       if (rc == endMarker ) {
-        writeChar[ndx] = '\0'; // terminate the string
-        recvInProgress = false;
-        ndx = 0;
+        //        Serial.println(selectedVar);
+        writeChar[ndx2] = '\0'; // terminate the string
+        recvInProgress2 = false;
+        ndx2 = 0;
         newData = 1;
 
         nVal = uint32_t(String(writeChar).toInt());
@@ -481,13 +521,11 @@ int flagReceiveDashboard(char varAr[], uint32_t valAr[]) {
 
       }
       else if (rc == feedbackMarker) {
-        writeChar[ndx] = '\0'; // terminate the string
-        recvInProgress = false;
-        ndx = 0;
+        writeChar[ndx2] = '\0'; // terminate the string
+        recvInProgress2 = false;
+        ndx2 = 0;
         newData = 1;
         dashSerial.print("echo");
-        dashSerial.print(',');
-        dashSerial.print(varAr[selectedVar]);
         dashSerial.print(',');
         dashSerial.print(valAr[selectedVar]);
         dashSerial.print(',');
@@ -495,17 +533,16 @@ int flagReceiveDashboard(char varAr[], uint32_t valAr[]) {
       }
 
       else if (rc != feedbackMarker || rc != endMarker) {
-        writeChar[ndx] = rc;
-        ndx++;
-        if (ndx >= numChars) {
-          ndx = numChars - 1;
+        writeChar[ndx2] = rc;
+        ndx2++;
+        if (ndx2 >= numChars) {
+          ndx2 = numChars - 1;
         }
       }
     }
   }
   return newData; // tells us if a valid variable arrived.
 }
-
 
 void resetHeaders() {
   for ( int i = 0; i < stateCount; i++) {
@@ -523,7 +560,7 @@ void genericHeader(int stateNum) {
 void genericStateBody() {
   stateTime = millis() - stateTimeOffs;
   lickSensorAValue = analogRead(lickPinA);
-  loadCellValue = analogRead(forcePin);
+  knownValues[17] = analogRead(forcePin);
   genAnalogInput0 = analogRead(genA0);
   genAnalogInput1 = analogRead(genA1);
   scopeState = digitalRead(scopePin);
@@ -533,41 +570,46 @@ void genericStateBody() {
 // **************  Visual Stimuli *********************************
 // ****************************************************************
 
-void visStimEnd() {
-  visualSerial.print('v');
-  visualSerial.print(',');
-  visualSerial.print(0);
-  visualSerial.print(',');
-  visualSerial.print(999);  // I set psychopy to stop a session when contrast = 999
-  visualSerial.print(',');
-  visualSerial.print(0);
-  visualSerial.print(',');
-  visualSerial.println(0);
+void visStim(int stimType) {
+  //0 is off
+  if (stimType == 0) {
+    visualSerial.print('v');
+    visualSerial.print(',');
+    visualSerial.print(0);
+    visualSerial.print(',');
+    visualSerial.print(0);
+    visualSerial.print(',');
+    visualSerial.print(0);
+    visualSerial.print(',');
+    visualSerial.println(0);
+  }
+  //1 is on
+  if (stimType == 2) {
+    visualSerial.print('v');
+    visualSerial.print(',');
+    visualSerial.print(knownValues[4]);
+    visualSerial.print(',');
+    visualSerial.print(knownValues[3]);
+    visualSerial.print(',');
+    visualSerial.print(knownValues[5]);
+    visualSerial.print(',');
+    visualSerial.println(knownValues[6]);
+
+  }
+  //2 is end
+  if (stimType == 3) {
+    visualSerial.print('v');
+    visualSerial.print(',');
+    visualSerial.print(0);
+    visualSerial.print(',');
+    visualSerial.print(999);  // I set psychopy to stop a session when contrast = 999
+    visualSerial.print(',');
+    visualSerial.print(0);
+    visualSerial.print(',');
+    visualSerial.println(0);
+  }
 }
 
-void visStimOff() {
-  visualSerial.print('v');
-  visualSerial.print(',');
-  visualSerial.print(0);
-  visualSerial.print(',');
-  visualSerial.print(0);
-  visualSerial.print(',');
-  visualSerial.print(0);
-  visualSerial.print(',');
-  visualSerial.println(0);
-}
-
-void visStimOn() {
-  visualSerial.print('v');
-  visualSerial.print(',');
-  visualSerial.print(knownValues[4]);
-  visualSerial.print(',');
-  visualSerial.print(knownValues[3]);
-  visualSerial.print(',');
-  visualSerial.print(knownValues[5]);
-  visualSerial.print(',');
-  visualSerial.println(knownValues[6]);
-}
 
 // **************************************************************
 // **************  Motion Interrupts  ***************************
@@ -592,29 +634,36 @@ void frameCount() {
 // **************  Pulse Train Function ***************************
 // ****************************************************************
 void resetStimTrains() {
-  pulseTrain_chanA[0] = 0;
-  pulseTrain_chanB[0] = 0;
-  pulseTrain_chanA[1] = 0;
-  pulseTrain_chanB[1] = 0;
-  pulseTrain_chanA[7] = 0;
-  pulseTrain_chanB[7] = 0;
-  pulseTrain_chanA[8] = 0;
-  pulseTrain_chanB[8] = 0;
+  uint32_t pulseTrain_chanA_defs[]= {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0};
+  uint32_t pulseTrain_chanB_defs[] = {1, 1, knownValues[13], knownValues[14], 0, knownValues[15], knownValues[16], 0, 0};
+  for ( int i = 0; i < 9; i++) {
+    pulseTrain_chanA[i] = pulseTrain_chanA_defs[i];
+    pulseTrain_chanB[i] = pulseTrain_chanB_defs[i];
+  }
 }
 
-void stimTrainsNoStimState() {
-  stimGen(pulseTrain_chanA);
-  stimGen(pulseTrain_chanB);
-  analogWrite(DAC1, 0);
-  analogWrite(DAC2, 0);
+void stimTrainState_DAC1(bool shouldPulse) {
+  if (shouldPulse == 0) {
+    stimGen(pulseTrain_chanA);
+    analogWrite(DAC1, 0);
+  }
+  else if (shouldPulse == 1) {
+    stimGen(pulseTrain_chanA);
+    analogWrite(DAC1, pulseTrain_chanA[7]);
+  }
 }
 
-void stimTrainsStimState() {
-  stimGen(pulseTrain_chanA);
-  stimGen(pulseTrain_chanB);
-  analogWrite(DAC1, pulseTrain_chanA[7]);
-  analogWrite(DAC2, pulseTrain_chanB[7]);
+void stimTrainState_DAC2(bool shouldPulse) {
+  if (shouldPulse == 0) {
+    stimGen(pulseTrain_chanB);
+    analogWrite(DAC2, 0);
+  }
+  else if (shouldPulse == 1) {
+    stimGen(pulseTrain_chanB);
+    analogWrite(DAC2, pulseTrain_chanB[7]);
+  }
 }
+
 
 void stimGen(uint32_t pulseTracker[]) {
   if (pulseTracker[6] == 0) {
@@ -623,7 +672,7 @@ void stimGen(uint32_t pulseTracker[]) {
       if (pulseTracker[1] >= pulseTracker[3]) {
         pulseTracker[1] = 0; // reset counter
         pulseTracker[0] = 0; // stop pulsing
-        pulseTracker[8] = pulseTracker[8]+1;
+        pulseTracker[8] = pulseTracker[8] + 1;
       }
       else {
         pulseTracker[7] = pulseTracker[5]; // 5 is the pulse amp; 7 is the current output.
@@ -636,13 +685,20 @@ void stimGen(uint32_t pulseTracker[]) {
         pulseTracker[1] = 0; // reset counter
         pulseTracker[0] = 1; // start pulsing
       }
-      else{
+      else {
         pulseTracker[7] = pulseTracker[4]; // 4 is the baseline amp; 6 is the current output.
       }
     }
   }
 
   else if (pulseTracker[6] == 1) {
+    // TODO: finish skip factor for long rampsa
+    //    uint32_t valRange = (pulseTracker[5] - pulseTracker[4]);
+    //    // if the value range is greater than the pulse duration we have to skip samples by some factor
+    //    uint32_t skipFactor=1;
+    //    if (valRange>pulseTracker[3]){
+    //     uint32_t skipFactor=pulseTracker[3]/valRange;
+    //    }
     uint32_t incToPeak = (pulseTracker[5] - pulseTracker[4]) / pulseTracker[3];
     // *** handle pulse state
     // 0 tracks in pulse and 2 is the pulseWidth; 1 is the counter
@@ -651,9 +707,10 @@ void stimGen(uint32_t pulseTracker[]) {
       if (pulseTracker[1] >= pulseTracker[3]) {
         pulseTracker[1] = 0; // reset counter
         pulseTracker[0] = 0; // stop pulsing
-        pulseTracker[8] = pulseTracker[8]+1;
+        pulseTracker[8] = pulseTracker[8] + 1;
+        pulseTracker[7] = pulseTracker[4];
       }
-      else{
+      else {
         pulseTracker[7] = pulseTracker[7] + incToPeak; // 5 is the pulse amp; 7 is the current output.
       }
     }
@@ -664,7 +721,7 @@ void stimGen(uint32_t pulseTracker[]) {
         pulseTracker[1] = 0; // reset counter
         pulseTracker[0] = 1; // start pulsing
       }
-      else{
+      else {
         pulseTracker[7] = pulseTracker[4]; // 4 is the baseline amp; 7 is the current output.
       }
     }
@@ -676,106 +733,73 @@ void stimGen(uint32_t pulseTracker[]) {
 // ----------------------------------------------
 // ---------- NEOPIXEL FUNCTIONS ----------------
 // ----------------------------------------------
-void setStripGreen() {
+
+void setStrip(uint32_t stripState) {
   for (uint16_t i = 0; i < strip.numPixels(); i++) {
-    strip.setPixelColor(i, strip.Color(0, 255, 0));
-  }
-  strip.show();
-}
-
-void setStripRed() {
-  for (uint16_t i = 0; i < strip.numPixels(); i++) {
-    strip.setPixelColor(i, strip.Color(255, 0, 0));
-  }
-  strip.show();
-}
-
-void setStripWhite() {
-  for (uint16_t i = 0; i < strip.numPixels(); i++) {
-    strip.setPixelColor(i, strip.Color(0, 0, 0, 255));
-  }
-  strip.show();
-}
-
-void clearStrip() {
-  for (uint16_t i = 0; i < strip.numPixels(); i++) {
-    strip.setPixelColor(i, strip.Color(0, 0, 0));
-  }
-  strip.show();
-}
-
-void randomColors() {
-
-  for (uint16_t i = 0; i < strip.numPixels(); i++) {
-    strip.setPixelColor(i, strip.Color(random(256), random(256), random(256)));
-  }
-  strip.show();
-}
-
-
-void rainbowCycle(uint8_t wait) {
-  uint16_t i, j;
-  for (j = 0; j < 256 * 5; j++) { // 5 cycles of all colors on wheel
-    for (i = 0; i < strip.numPixels(); i++) {
-      strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + j) & 255));
+    if (stripState == 1) {
+      strip.setPixelColor(i, strip.Color(0, 0, 0));
     }
-    strip.show();
-    delay(wait);
+    else if (stripState == 2) {
+      strip.setPixelColor(i, strip.Color(0, 0, 0, 255));
+    }
+    else if (stripState == 3) {
+      strip.setPixelColor(i, strip.Color(255, 0, 0));
+    }
+    else if (stripState == 4) {
+      strip.setPixelColor(i, strip.Color(0, 255, 0));
+    }
+    else if (stripState == 5) {
+      strip.setPixelColor(i, strip.Color(0, 0, 255));
+    }
+    else if (stripState == 6) {
+      strip.setPixelColor(i, strip.Color(255, 0, 255));
+    }
+    else if (stripState == 7) {
+      strip.setPixelColor(i, strip.Color(random(256), random(256), random(256)));
+    }
   }
+  strip.show();
 }
 
-// Input a value 0 to 255 to get a color value.
-// The colours are a transition r - g - b - back to r.
-uint32_t Wheel(byte WheelPos) {
-  WheelPos = 255 - WheelPos;
-  if (WheelPos < 85) {
-    return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
-  }
-  if (WheelPos < 170) {
-    WheelPos -= 85;
-    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
-  }
-  WheelPos -= 170;
-  return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
-}
 
 void pollColorChange() {
-  // a) Handle brightness calls.
-  if (knownValues[7] < 999) {
-    if (knownValues[7] > 100) {
-      knownValues[7] = 100;
+
+  if (knownValues[7] != lastBrightness) {
+    if (knownValues[7] > maxBrightness) {
+      knownValues[7] = maxBrightness;
     }
     strip.setBrightness(knownValues[7]);
     strip.show();
+    lastBrightness = knownValues[7];
+    knownDashValues[0] = lastBrightness;
   }
-
-  if (knownDashValues[0] <999) {
-    if (knownDashValues[0] > 100) {
-      knownDashValues[0] = 100;
+  if (knownDashValues[0] != lastBrightness) {
+    if (knownDashValues[0] > maxBrightness) {
+      knownDashValues[0] = maxBrightness;
     }
     strip.setBrightness(knownDashValues[0]);
     strip.show();
+    lastBrightness = knownDashValues[0];
+    knownValues[7] = lastBrightness;
   }
+
 
   // b) Handle color changes.
-  if ((knownValues[8] == 1) || (knownDashValues[1] == 1)) {
-    setStripWhite();
+  if (knownValues[8] > 0 && knownValues[8] < 8) {
+    setStrip(knownValues[8]);
+    knownValues[8] = 0;
   }
-  else if ((knownValues[8] == 2) || (knownDashValues[1] == 2)) {
-    setStripRed();
-  }
-  else if ((knownValues[8] == 3) || (knownDashValues[1] == 3)) {
-    setStripGreen();
-  }
-  else if ((knownValues[8] == 4) || (knownDashValues[1] == 4)) {
-    randomColors();
-  }
-  else if ((knownValues[8] == 5) || (knownDashValues[1] == 5)) {
-    rainbowCycle(10);
+  else {
+    knownValues[8] = 0;
   }
 
-  knownValues[7] = 999;
-  knownDashValues[0] = 999;
-  knownValues[8] = 0;
-  knownDashValues[1] = 0;
+  if (knownDashValues[1] > 0 && knownDashValues[1] < 8) {
+    setStrip(knownDashValues[1]);
+    knownDashValues[1] = 0;
+  }
+  else {
+    knownDashValues[1] = 0;
+  }
 }
+
+

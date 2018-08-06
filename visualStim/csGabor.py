@@ -4,15 +4,15 @@ from psychopy import visual, core, event, data, clock
 import numpy as np
 import serial 
 
-teensyObj = serial.Serial("/dev/ttyS0",9600)
+teensyObj = serial.Serial("/dev/ttyS0",115200)
 teensyObj.close()
 teensyObj.open()
 #teensyObj.write(bytes(b'a0>'))
 
 
 #create a window
-win_x1=400
-win_y1=400
+win_x1=500
+win_y1=500
 
 
 mywin = visual.Window([win_x1,win_y1],allowGUI=False)
@@ -47,7 +47,7 @@ while runSession: #this creates a never-ending loop
 
         sR=teensyObj.readline().strip().decode()
         sR=sR.split(',')
-        if len(sR)==6 and sR[0]=='v':
+        if len(sR)==5 and sR[0]=='v':
             if int(sR[2])==999:
                 runSession=0
                 sR[2]=0
