@@ -1,4 +1,3 @@
-// Import Libraries
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_ILI9341.h>
@@ -6,10 +5,8 @@
 #include <Adafruit_GFX.h>
 #include <Trinamic_TMC2130.h>
 //https://github.com/makertum/Trinamic_TMC2130
-#include "Adafruit_SGP30.h"
-#include "Adafruit_VL6180X.h"
+#include <AccelStepper.h>
 
-bool useI2Sensors = 0;
 
 // Pass touchscreen calibration.
 #define TS_MINX 150
@@ -28,7 +25,6 @@ bool useI2Sensors = 0;
 #define DIR_PIN 21
 #define STEP_PIN 12
 
-#define resGalvo 4 //A5
 #define rewardPin 13
 
 
@@ -36,31 +32,36 @@ bool useI2Sensors = 0;
 Trinamic_TMC2130 myStepper(CS_PIN);
 Adafruit_STMPE610 ts = Adafruit_STMPE610(STMPE_CS);
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
-Adafruit_SGP30 sgp;
-Adafruit_VL6180X vl = Adafruit_VL6180X();
+AccelStepper stepper(AccelStepper::DRIVER, STEP_PIN, DIR_PIN);
 
 bool blockScreen = 0;
 
+
+
+
+
+
+bool sHead[] = {0, 0, 0};
+int stepsPerRev = 200;
+char knownHeaders[] = {'w', 's', 'e', 'm', 'r'};
+int knownValues[] = {0, 50, 1, 128, 200};
+int knownCount = 5;
+
 // motor variables
 int stepRes = 256;
+int microStepFactor = knownValues[3];
+int totalStepsPerRev = stepsPerRev * stepRes;
+int interpFullStep = totalStepsPerRev / microStepFactor;
+int rwdVol = knownValues[4] * (interpFullStep / microStepFactor);
+int totalDebugSteps = totalStepsPerRev / rwdVol;
 int stepCounter;
 int totalSteps = 0;
 float curPosition = 0;
 
-
-const int baudrate = 115200;
-bool resGalvoToggle = 0; // 0 is galvo and 1 is resonant
-bool updateServos = 0;
-int resGalvoDebounce;
-int resGalvoDebounceTime = 10000;
-
-
-bool sHead[] = {0, 0, 0};
-
-
-char knownHeaders[] = {'r', 's', 'c', 'e', 'd'};
-int knownValues[] = {0, 50, 2*256, 1, 0};
-int knownCount = 5;
+//float volPerStep = 2.23872607;
+float volPerStep = 1.2647119363;
+float volPerMuStep = volPerStep / microStepFactor;
+float volDisp = 0;
 
 int curScreen = 1;
 
@@ -92,6 +93,8 @@ int bRow = 190;
 float cur_lux = 0;
 float last_lux = 0;
 
+
+
 int dRwBtnSelected = 0;
 
 char motor_knownHeaders[] = {'s', 'a', 'v', 'm'};
@@ -113,29 +116,23 @@ void setup(void) {
   else {
     Serial.println("Touchscreen started.");
   }
-  Serial.begin (baudrate);  // USB monitor
+  Serial.begin (115200);  // USB monitor
   Serial2.begin(115200);  // HW UART1
   delay(1000);
-  if (useI2Sensors == 1) {
-    sgp.begin();
-    sgp.IAQmeasure();
-    vl.begin();
-    cur_lux = vl.readLux(VL6180X_ALS_GAIN_5);
-  }
-
-  delay(100);
-  digitalWrite(EN_PIN, LOW); // disable stepper
-  delay(10);
   digitalWrite(EN_PIN, HIGH); // disable stepper
+  delay(10);
+
 
 
   dashState = 0;
 
-
-
+  stepper.setMaxSpeed(interpFullStep * 100);
+  stepper.setSpeed(interpFullStep * 100);
+  stepper.setAcceleration(interpFullStep * 10);
 }
 
 void detectStateBody() {
+
   if (Serial.available()) {
     Serial2.write(Serial.read());
   }
@@ -153,12 +150,11 @@ void detectStateBody() {
 
 void loop() {
 
-  //  Serial1.println("b30>");
   int nD = flagReceive(knownHeaders, knownValues);
   if (nD > 0) {
     refreshScreen(curScreen);
   }
-
+  pollMotorChange();
   bool giveReward = digitalRead(rewardPin);
 
   if (giveReward == 1) {
@@ -168,23 +164,10 @@ void loop() {
 
 
   if (knownValues[0] == 1) {
-    blockScreen = 1;
-    digitalWrite(DIR_PIN, knownValues[4]);
-    digitalWrite(EN_PIN, LOW);
-    if (stepCounter <= knownValues[2]) {
-      stepSPI(knownValues[1]);
-      totalSteps++;
-    }
-    else if (stepCounter > knownValues[2]) {
-      digitalWrite(EN_PIN, HIGH);
-      knownValues[0] = 0;
-      stepCounter = 0;
-      blockScreen = 0;
-      resGalvoToggle = 0;
-      s3Btn(resGalvoToggle);
-      //      refreshScreen(curScreen);
-    }
-    stepCounter++;
+    //    digitalWrite(EN_PIN, LOW);
+    dispReward(rwdVol);
+    //    digitalWrite(EN_PIN, HIGH);
+    knownValues[0] = 0;
   }
 
   if (blockScreen == 0) {
@@ -210,27 +193,20 @@ void loop() {
       else if ((x > 140) && (x <= 190) && (y > 180) && (y <= 200)) {
         dashState = 2;
       }
-      else if ((x > 210) && (x <= 290) && (y > 60) && (y <= 90)) {
-        if ((updateServos == 0) && (resGalvoDebounce == 0)) {
-          resGalvoToggle = 1 - resGalvoToggle;
-          updateServos = 1;
-          s3Btn(resGalvoToggle);
-        }
-      }
-      else if ((x > 210) && (x <= 245) && (y > 20) && (y <= 50)) {
-        if ((updateServos == 0) && (resGalvoDebounce == 0)) {
-          resGalvoToggle = 1 - resGalvoToggle;
-          updateServos = 1;
-          s4Btn(resGalvoToggle);
-        }
-      }
-      else if ((x > 250) && (x <= 290) && (y > 20) && (y <= 50)) {
-        if ((updateServos == 0) && (resGalvoDebounce == 0)) {
-          resGalvoToggle = 1 - resGalvoToggle;
-          updateServos = 1;
-          s5Btn(resGalvoToggle);
-        }
-      }
+      //      else if ((x > 210) && (x <= 290) && (y > 60) && (y <= 90)) {
+      ////        if ((updateServos == 0) && (resGalvoDebounce == 0)) {
+      ////          resGalvoToggle = 1 - resGalvoToggle;
+      ////          updateServos = 1;
+      ////          s3Btn(resGalvoToggle);
+      ////        }
+      //      }
+      //      else if ((x > 210) && (x <= 245) && (y > 20) && (y <= 50)) {
+      //        bool ka = 1;
+      //        }
+      //      }
+      //      else if ((x > 250) && (x <= 290) && (y > 20) && (y <= 50)) {
+      //        bool ka = 1;
+      //      }
 
 
 
@@ -248,19 +224,7 @@ void loop() {
     }
 
     // C) **** Bounce/Debounce Buttons
-    if (updateServos == 1) {
-      digitalWrite(resGalvo, resGalvoToggle);
-      resGalvoDebounce++;
-      updateServos = 0;
-    }
 
-    if (resGalvoDebounce > 0) {
-      resGalvoDebounce++;
-      if (resGalvoDebounce > resGalvoDebounceTime) {
-        resGalvoDebounce = 0;
-        updateServos = 0;
-      }
-    }
 
     // *********** S0: Default Info State
     if (dashState == 0) {
@@ -272,10 +236,7 @@ void loop() {
         curScreen = 1;
         homeTimer = 0;
       }
-      if (useI2Sensors == 1) {
-        sgp.IAQmeasure();
-        cur_lux = vl.readLux(VL6180X_ALS_GAIN_5);
-      }
+
 
 
       if (homeTimer > 100) {
@@ -350,8 +311,8 @@ int flagReceive(char varAr[], int valAr[]) {
   int selectedVar = 0;
   int newData = 0;
 
-  while (Serial.available() > 0 && newData == 0) {
-    rc = Serial.read();
+  while (Serial2.available() > 0 && newData == 0) {
+    rc = Serial2.read();
     if (recvInProgress == false) {
       for ( int i = 0; i < knownCount; i++) {
         if (rc == varAr[i]) {
@@ -412,7 +373,7 @@ void resetStepper() {
   pinMode(DIR_PIN, OUTPUT);
   pinMode(STEP_PIN, OUTPUT);
   digitalWrite(EN_PIN, HIGH); // disable driver
-  digitalWrite(DIR_PIN, knownValues[4]); // chose direction
+  digitalWrite(DIR_PIN, LOW); // chose direction
   digitalWrite(STEP_PIN, LOW); // no step yet
 }
 
@@ -444,9 +405,9 @@ void createHome() {
   s0Btn(1);
   s1Btn(0);
   s2Btn(0);
-  s3Btn(resGalvoToggle);
-  s4Btn(resGalvoToggle);
-  s5Btn(resGalvoToggle);
+  s3Btn(0);
+  s4Btn(0);
+  s5Btn(0);
 
   // a) SSID INFO
   tft.setCursor(0, 0);
@@ -470,11 +431,11 @@ void createHome() {
 
   tft.setCursor(0, (textHeight + rowBuf) * 5);
   tft.print("voc: ");
-  tft.println(sgp.TVOC);
+
 
   tft.setCursor(0, (textHeight + rowBuf) * 6);
   tft.print("co2: ");
-  tft.println(sgp.eCO2);
+
 
   tft.setCursor(0, (textHeight + rowBuf) * 7);
   tft.print("weight:");
@@ -488,9 +449,9 @@ void createMotor() {
   s0Btn(0);
   s1Btn(1);
   s2Btn(0);
-  s3Btn(resGalvoToggle);
-  s4Btn(resGalvoToggle);
-  s5Btn(resGalvoToggle);
+  s3Btn(0);
+  s4Btn(0);
+  s5Btn(0);
 
 
   // a) SSID INFO
@@ -521,8 +482,8 @@ void createDetect() {
   s0Btn(0);
   s1Btn(0);
   s2Btn(1);
-  s3Btn(resGalvoToggle);
-  s4Btn(resGalvoToggle);
+  s3Btn(0);
+  s4Btn(0);
 
 
   // a) SSID INFO
@@ -613,14 +574,9 @@ void s3Btn(bool selState) {
     tft.setTextColor(ILI9341_BLACK);
     tft.setTextSize(1);
     tft.print("pulsing");
-    Serial2.print('n');
-    Serial2.print(2);
-    Serial2.println('>');
-    Serial2.print('b');
-    Serial2.print(10);
-    Serial2.println('>');
+
     knownValues[0] = 1;
-    
+
   }
 }
 void s4Btn(bool selState) {
@@ -687,7 +643,7 @@ void s5Btn(bool selState) {
     if (knownValues[1] < 1) {
       knownValues[1] = 1;
     }
-    
+
 
     tft.setTextColor(ILI9341_BLACK);
     tft.setCursor(0, (textHeight + rowBuf) * 2);
@@ -719,6 +675,22 @@ void dRwBtn(bool selState) {
   }
 }
 
+void dispReward(int numMuSteps) {
+
+
+  digitalWrite(EN_PIN, LOW);
+  long curPos = stepper.currentPosition();
+  stepper.runToNewPosition(curPos + (numMuSteps));
+  digitalWrite(EN_PIN, HIGH);
+
+
+}
+
+
+
+
+
+
 void refreshScreen(int targScreen) {
   if (targScreen == 1) {
     createHome();
@@ -730,5 +702,14 @@ void refreshScreen(int targScreen) {
     createDetect();
 
   }
+}
+
+void pollMotorChange() {
+  stepRes = 256;
+  microStepFactor = knownValues[3];
+  totalStepsPerRev = stepsPerRev * stepRes;
+  interpFullStep = totalStepsPerRev / microStepFactor;
+  rwdVol = knownValues[4] * (interpFullStep / microStepFactor);
+  totalDebugSteps = totalStepsPerRev / rwdVol;
 }
 

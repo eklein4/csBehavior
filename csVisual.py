@@ -1,9 +1,7 @@
-# csVisual v0.95
+# csVisual v0.97 
 # 
-# - added serial buffering
-# - preallocate trial data as an Numpy memmap
-# - improved MQ/Google Sheet exception handling at the end of the session
-# - added preliminary analog output support
+#
+# - added console for triggering events and devices outside of a task (inc analog out)
 # 
 #
 # Chris Deister - cdeister@brown.edu
@@ -107,7 +105,6 @@ class csHDF(object):
 		cStr=datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
 		fe=os.path.isfile(basePath+"{}_behav_{}.hdf".format(subID,cStr))
 		if fe:
-			print('dupe hdf')
 			os.path.isfile(basePath+"{}_behav_{}.hdf".format(subID,cStr))
 			self.sesHDF = h5py.File(basePath+"{}_behav_{}_dup.hdf".format(subID,cStr), "a")
 		elif fe==0:
@@ -1157,10 +1154,7 @@ def rampTeensyChan(rampAmp,rampDur,interRamp,rampCount,chanNum,stimType):
 		teensy.write("m0>".format(interRamp).encode('utf-8'))
 		time.sleep(varDelay)
 	[cVal,sChecked]=csSer.checkVariable(teensy,"k",0.005)
-	print(int(cVal))
-	print("i{}>".format(rampDur))
 	teensy.write("a7>".encode('utf-8'))
-	print(totalStimTime)
 	time.sleep(totalStimTime/1000)
 	time.sleep(0.2)
 	teensy.write("a0>".encode('utf-8'))
@@ -1180,8 +1174,10 @@ def markOffset():
 			wVals.append(rV)
 			lIt=lIt+1
 	sesVars['loadBaseline']=np.mean(wVals)
-	print("offset ={}".format(sesVars['loadBaseline']))
+	offsetTV.set(float(np.mean(wVals)))
 	teensy.close()
+
+
 
 
 
@@ -1327,50 +1323,116 @@ if makeBar==0:
 
 
 	makeBar=1
-
+	ramp2Dur=2000
 	# Make Device Controller
 	deviceControl_frame = Toplevel()
 	deviceControl_frame.title('Device Control')
+	dCBWd = 12
 	
-	redLightBtn = Button(deviceControl_frame,text="Red Lights",width=15,command=lambda: commandTeensy("n3>")) #teensy.write('n3>'.encode('utf-8')))))
-	redLightBtn.grid(row=0,column=0)
-	redLightBtn['state'] = 'normal'
+	
+	# ******* Pulse Train Stuff
+	pDur_label = Label(deviceControl_frame,text="Pulse Train",justify=LEFT)
+	pDur_label.grid(row=0, column=0)
 
-	whiteLightBtn = Button(deviceControl_frame,text="White Lights",width=15,command=lambda: commandTeensy("n2>")) #teensy.write('n3>'.encode('utf-8')))))
-	whiteLightBtn.grid(row=1,column=0)
-	whiteLightBtn['state'] = 'normal'
+	pDur_label = Label(deviceControl_frame,text="Dur:",justify=LEFT)
+	pDur_label.grid(row=0, column=2)
 
-	whiteLightBtn = Button(deviceControl_frame,text="Clear Lights",width=15,command=lambda: commandTeensy("n1>")) #teensy.write('n3>'.encode('utf-8')))))
-	whiteLightBtn.grid(row=2,column=0)
-	whiteLightBtn['state'] = 'normal'
+	amplitude_label = Label(deviceControl_frame,text="Amp:",justify=LEFT) #justify=LEFT
+	amplitude_label.grid(row=0, column=3)
 
-	incBrightnessBtn = Button(deviceControl_frame,text="Brightness (+)",width=15,command=lambda: deltaTeensy('b',10)) #teensy.write('n3>'.encode('utf-8')))))
-	incBrightnessBtn.grid(row=3,column=0)
-	incBrightnessBtn['state'] = 'normal'
+	pulseTrainDac1Btn = Button(deviceControl_frame,text="Pulses1",width=dCBWd,\
+		command=lambda: rampTeensyChan(int(ramp1AmpTV.get()),int(ramp1DurTV.get()),90,10,1,0))
+	pulseTrainDac1Btn.grid(row=1,column=0)
+	pulseTrainDac1Btn['state'] = 'normal'
 
-	decBrightnessBtn = Button(deviceControl_frame,text="Brightness (-)",width=15,command=lambda: deltaTeensy('b',-10)) #teensy.write('n3>'.encode('utf-8')))))
-	decBrightnessBtn.grid(row=4,column=0)
-	decBrightnessBtn['state'] = 'normal'
-
-	rampDAC1Btn = Button(deviceControl_frame,text="Ramp DAC1",width=15,command=lambda: rampTeensyChan(4095,2000,100,1,1,1)) #teensy.write('n3>'.encode('utf-8')))))
-	rampDAC1Btn.grid(row=0,column=1)
+	rampDAC1Btn = Button(deviceControl_frame,text="Ramp1",width=dCBWd,\
+		command=lambda: rampTeensyChan(int(ramp1AmpTV.get()),int(ramp1DurTV.get()),100,1,1,1)) 
+	rampDAC1Btn.grid(row=1,column=1)
 	rampDAC1Btn['state'] = 'normal'
 
-	rampDAC2Btn = Button(deviceControl_frame,text="Ramp DAC2",width=15,command=lambda: rampTeensyChan(4095,2000,100,1,2,1)) #teensy.write('n3>'.encode('utf-8')))))
-	rampDAC2Btn.grid(row=1,column=1)
+	ramp1DurTV=StringVar(deviceControl_frame)
+	ramp1DurTV.set(int(2000))
+	ramp1DurTV_Entry = Entry(deviceControl_frame,width=8,textvariable=ramp1DurTV)
+	ramp1DurTV_Entry.grid(row=1,column=2)
+
+	ramp1AmpTV=StringVar(deviceControl_frame)
+	ramp1AmpTV.set(int(4095))
+	ramp1AmpTV_Entry = Entry(deviceControl_frame,width=8,textvariable=ramp1AmpTV)
+	ramp1AmpTV_Entry.grid(row=1,column=3)
+
+	pulseTrainDac2Btn = Button(deviceControl_frame,text="Pulses2",width=dCBWd,\
+		command=lambda: rampTeensyChan(int(ramp2AmpTV.get()),int(ramp2DurTV.get()),90,10,2,0)) 
+	pulseTrainDac2Btn.grid(row=2,column=0)
+	pulseTrainDac2Btn['state'] = 'normal'
+
+	rampDAC2Btn = Button(deviceControl_frame,text="Ramp2",width=dCBWd,\
+		command=lambda: rampTeensyChan(int(ramp2AmpTV.get()),int(ramp2DurTV.get()),100,1,2,1)) 
+	rampDAC2Btn.grid(row=2,column=1)
 	rampDAC2Btn['state'] = 'normal'
 
-	pulseTrainDac1Btn = Button(deviceControl_frame,text="Pulses DAC1",width=15,command=lambda: rampTeensyChan(4095,10,90,10,1,0)) #teensy.write('n3>'.encode('utf-8')))))
-	pulseTrainDac1Btn.grid(row=2,column=1)
-	pulseTrainDac1Btn['state'] = 'normal'
+	ramp2DurTV=StringVar(deviceControl_frame)
+	ramp2DurTV.set(int(2000))
+	ramp2DurTV_Entry = Entry(deviceControl_frame,width=8,textvariable=ramp2DurTV)
+	ramp2DurTV_Entry.grid(row=2,column=2)
 
-	pulseTrainDac1Btn = Button(deviceControl_frame,text="Pulses DAC2",width=15,command=lambda: rampTeensyChan(4095,10,90,10,2,0)) #teensy.write('n3>'.encode('utf-8')))))
-	pulseTrainDac1Btn.grid(row=3,column=1)
-	pulseTrainDac1Btn['state'] = 'normal'
+	ramp2AmpTV=StringVar(deviceControl_frame)
+	ramp2AmpTV.set(int(4095))
+	ramp2AmpTV_Entry = Entry(deviceControl_frame,width=8,textvariable=ramp2AmpTV)
+	ramp2AmpTV_Entry.grid(row=2,column=3)
 
-	weightOffsetBtn = Button(deviceControl_frame,text="Get Offset",width=15,command=lambda: markOffset()) #teensy.write('n3>'.encode('utf-8')))))
-	weightOffsetBtn.grid(row=4,column=1)
+	# ******* Loadcell Stuff
+
+	pDur_label = Label(deviceControl_frame,text="               ",justify=LEFT)
+	pDur_label.grid(row=3, column=0)
+
+	weightOffsetBtn = Button(deviceControl_frame,text="Offset",width=dCBWd,command=lambda: markOffset())
+	weightOffsetBtn.grid(row=5,column=1)
 	weightOffsetBtn['state'] = 'normal'
+
+	offsetTV=StringVar(deviceControl_frame)
+	offsetTV.set(sesVars['loadBaseline'])
+	offsetTV_Entry = Entry(deviceControl_frame,width=8,textvariable=offsetTV)
+	offsetTV_Entry.grid(row=5,column=2)
+
+	testRewardBtn = Button(deviceControl_frame,text="Rwd",width=dCBWd,command=lambda: commandTeensy("z26>"))
+	testRewardBtn.grid(row=4,column=0)
+	testRewardBtn['state'] = 'normal'
+
+	triggerBtn = Button(deviceControl_frame,text="Trig",width=dCBWd,command=lambda: commandTeensy("z25>"))
+	triggerBtn.grid(row=4,column=1)
+	triggerBtn['state'] = 'normal'
+
+
+	# ******* Neopixel Stuff
+	pDur_label = Label(deviceControl_frame,text="               ",justify=LEFT)
+	pDur_label.grid(row=6, column=0)
+
+	redLightBtn = Button(deviceControl_frame,text="NP:Red",width=dCBWd,command=lambda: commandTeensy("n3>")) #teensy.write('n3>'.encode('utf-8')))))
+	redLightBtn.grid(row=7,column=0)
+	redLightBtn['state'] = 'normal'
+
+	whiteLightBtn = Button(deviceControl_frame,text="NP:White",width=dCBWd,command=lambda: commandTeensy("n2>")) #teensy.write('n3>'.encode('utf-8')))))
+	whiteLightBtn.grid(row=7,column=1)
+	whiteLightBtn['state'] = 'normal'
+
+	whiteLightBtn = Button(deviceControl_frame,text="NP:Clear",width=dCBWd,command=lambda: commandTeensy("n1>")) #teensy.write('n3>'.encode('utf-8')))))
+	whiteLightBtn.grid(row=7,column=2)
+	whiteLightBtn['state'] = 'normal'
+
+	incBrightnessBtn = Button(deviceControl_frame,text="NP: +",width=dCBWd,command=lambda: deltaTeensy('b',10)) #teensy.write('n3>'.encode('utf-8')))))
+	incBrightnessBtn.grid(row=8,column=0)
+	incBrightnessBtn['state'] = 'normal'
+
+	decBrightnessBtn = Button(deviceControl_frame,text="NP: -",width=dCBWd,command=lambda: deltaTeensy('b',-10)) #teensy.write('n3>'.encode('utf-8')))))
+	decBrightnessBtn.grid(row=8,column=1)
+	decBrightnessBtn['state'] = 'normal'
+
+	
+
+
+	
+
+	
 
 
 

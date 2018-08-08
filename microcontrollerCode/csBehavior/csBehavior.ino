@@ -7,7 +7,10 @@
 #include <Adafruit_NeoPixel.h>
 #include "HX711.h"
 
-#define calibration_factor -440000
+
+
+
+#define calibration_factor 440000
 #define zero_factor 8421804
 
 //-----------------------------
@@ -115,10 +118,11 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // w/17: current value on loadCell
 // m/18: max pulses for a stimulus only trial (chanA)
 // p/19: max pulses for a stimulus only trial (chanB)
+// z/20: toggle a pin
 
-char knownHeaders[] = {'a', 'r', 't', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'w', 'm', 'p'};
-uint32_t knownValues[] = {0, 5, 8000, 0, 0, 0, 0, 10, 0, 40, 4095, 4095, 1, 40, 4095, 4095, 1, 0, 20, 20};
-int knownCount = 20;
+char knownHeaders[] = {'a', 'r', 't', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'w', 'm', 'p', 'z'};
+uint32_t knownValues[] = {0, 5, 8000, 0, 0, 0, 0, 10, 0, 40, 4095, 4095, 1, 40, 4095, 4095, 1, 0, 20, 20, 0};
+int knownCount = 21;
 
 
 
@@ -167,6 +171,7 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 
 void setup() {
+
   // todo: Setup Cyclops
   // Start the device
   strip.begin();
@@ -177,7 +182,7 @@ void setup() {
   scale.set_scale(calibration_factor);
   scale.set_offset(zero_factor);
   scale.tare();
-  
+
   // ****** Setup Analog Out
   analogWriteResolution(12);
   attachInterrupt(motionPin, rising, RISING);
@@ -192,6 +197,9 @@ void setup() {
   visualSerial.begin(115200);
   Serial.begin(19200);
   delay(1000);
+  dashSerial.println("m64>");
+  delay(10);
+  dashSerial.println("w1>");
   FlexiTimer2::set(1, evalEverySample / sampsPerSecond, vStates);
   FlexiTimer2::start();
 }
@@ -231,6 +239,7 @@ void vStates() {
       pulseCount = 0;
     }
     pollColorChange();
+    pollToggle();
     // b) body for state 0
     genericStateBody();
     stimTrainState_DAC1(0);
@@ -577,9 +586,9 @@ void genericStateBody() {
   genAnalogInput0 = analogRead(genA0);
   genAnalogInput1 = analogRead(genA1);
   scopeState = digitalRead(scopePin);
-  if (scale.is_ready()){
-    scaleVal=scale.get_units()*22000; // this scale factor gives hundreths of a gram as the least significant int
-    knownValues[17]=scaleVal;
+  if (scale.is_ready()) {
+    scaleVal = scale.get_units() * 22000; // this scale factor gives hundreths of a gram as the least significant int
+    knownValues[17] = scaleVal;
   }
 }
 
@@ -651,7 +660,7 @@ void frameCount() {
 // **************  Pulse Train Function ***************************
 // ****************************************************************
 void resetStimTrains() {
-  uint32_t pulseTrain_chanA_defs[]= {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0};
+  uint32_t pulseTrain_chanA_defs[] = {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0};
   uint32_t pulseTrain_chanB_defs[] = {1, 1, knownValues[13], knownValues[14], 0, knownValues[15], knownValues[16], 0, 0};
   for ( int i = 0; i < 9; i++) {
     pulseTrain_chanA[i] = pulseTrain_chanA_defs[i];
@@ -778,6 +787,15 @@ void setStrip(uint32_t stripState) {
   strip.show();
 }
 
+void pollToggle() {
+  if (knownValues[20] == rewardPin || knownValues[20] == syncPin) {
+    bool cVal = digitalRead(knownValues[20]);
+    digitalWrite(knownValues[20], 1 - cVal);
+    delay(5);
+    digitalWrite(knownValues[20], cVal);
+    knownValues[20] = 0;
+  }
+}
 
 void pollColorChange() {
 
