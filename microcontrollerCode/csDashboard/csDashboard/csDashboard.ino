@@ -42,9 +42,9 @@ bool blockScreen = 0;
 
 
 bool sHead[] = {0, 0, 0};
-int stepsPerRev = 200;
+int stepsPerRev = 400;
 char knownHeaders[] = {'w', 's', 'e', 'm', 'r'};
-int knownValues[] = {0, 50, 1, 128, 200};
+int knownValues[] = {0, 50, 1, 64, ((51200*3)*2)};
 int knownCount = 5;
 
 // motor variables
@@ -126,8 +126,8 @@ void setup(void) {
 
   dashState = 0;
 
-  stepper.setMaxSpeed(interpFullStep * 100);
-  stepper.setSpeed(interpFullStep * 100);
+  stepper.setMaxSpeed(interpFullStep * 1000);
+  stepper.setSpeed(interpFullStep * 1000);
   stepper.setAcceleration(interpFullStep * 10);
 }
 
@@ -155,7 +155,7 @@ void loop() {
     refreshScreen(curScreen);
   }
   pollMotorChange();
-  bool giveReward = digitalRead(rewardPin);
+  bool giveReward = knownValues[0];//digitalRead(rewardPin);
 
   if (giveReward == 1) {
     knownValues[0] = 1;
@@ -177,6 +177,7 @@ void loop() {
       TS_Point p = ts.getPoint();
       // Scale using the calibration #'s
       // and rotate coordinate system
+      Serial.println(p.x);
       p.x = map(p.x, TS_MINY, TS_MAXY, 0, tft.height());
       p.y = map(p.y, TS_MINX, TS_MAXX, 0, tft.width());
       int y = tft.height() - p.x;
@@ -311,8 +312,8 @@ int flagReceive(char varAr[], int valAr[]) {
   int selectedVar = 0;
   int newData = 0;
 
-  while (Serial2.available() > 0 && newData == 0) {
-    rc = Serial2.read();
+  while (Serial.available() > 0 && newData == 0) {
+    rc = Serial.read();
     if (recvInProgress == false) {
       for ( int i = 0; i < knownCount; i++) {
         if (rc == varAr[i]) {

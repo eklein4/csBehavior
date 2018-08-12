@@ -8,8 +8,6 @@
 #include "HX711.h"
 
 
-
-
 #define calibration_factor 440000
 #define zero_factor 8421804
 
@@ -21,11 +19,10 @@
 #define lickPinA  21      // Lick/Touch Sensor A 
 #define lickPinB  20      // Lick/Touch Sensor B 
 #define forcePin 17
-#define genA0 A21
-#define genA1 A22
+#define genA0 A2
+#define genA1 A3
 
 // b) Digital Input Pins
-#define scopePin 24       // State of 2P Scope (Digital)
 #define scaleData  29
 #define scaleClock  28
 
@@ -45,12 +42,13 @@
 
 // f) True DACs (I define as an array object to loop later)
 // on a teensy 3.2 A14 is the only DAC
+
 #define DAC1 A21
 #define DAC2 A22
 
 // **** Make neopixel object
 // if rgbw use top line, if rgb use second.
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(15, neoStripPin, NEO_GRBW + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, neoStripPin, NEO_GRBW + NEO_KHZ800);
 //Adafruit_NeoPixel strip = Adafruit_NeoPixel(15, neoStripPin, NEO_GRB + NEO_KHZ800);
 uint32_t maxBrightness = 255;
 
@@ -70,7 +68,7 @@ uint32_t genAnalogInput0 = 0;
 uint32_t genAnalogInput1 = 0;
 
 // a) Set DAC and ADC resolution in bits.
-uint32_t adcResolution = 10;
+uint32_t adcResolution = 12;
 uint32_t dacResolution = 12;
 
 // b) Position Encoder
@@ -171,35 +169,43 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 
 void setup() {
+  // lux sensor:
+
 
   // todo: Setup Cyclops
   // Start the device
   strip.begin();
   strip.show();
   strip.setBrightness(1);
-  setStrip(3);
+  setStrip(2);
 
   scale.set_scale(calibration_factor);
   scale.set_offset(zero_factor);
   scale.tare();
 
-  // ****** Setup Analog Out
+  // ****** Setup Analog In/Out
+  analogReadResolution(12);
   analogWriteResolution(12);
+
   attachInterrupt(motionPin, rising, RISING);
   attachInterrupt(framePin, frameCount, RISING);
+
   pinMode(syncPin, OUTPUT);
   digitalWrite(syncPin, LOW);
-  pinMode(scopePin, INPUT);
+
+
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
 
   dashSerial.begin(115200);
   visualSerial.begin(115200);
   Serial.begin(19200);
-  delay(1000);
+  delay(100);
+
   dashSerial.println("m64>");
   delay(10);
   dashSerial.println("w1>");
+
   FlexiTimer2::set(1, evalEverySample / sampsPerSecond, vStates);
   FlexiTimer2::start();
 }
@@ -243,7 +249,7 @@ void vStates() {
     // b) body for state 0
     genericStateBody();
     stimTrainState_DAC1(0);
-    stimTrainState_DAC2(0);
+    //    stimTrainState_DAC2(0);
 
   }
 
@@ -283,7 +289,7 @@ void vStates() {
       }
       genericStateBody();
       stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
+      //      stimTrainState_DAC2(0);
 
     }
 
@@ -295,6 +301,7 @@ void vStates() {
         genericHeader(2);
         visStim(1);
         blockStateChange = 0;
+
       }
       genericStateBody();
       stimTrainState_DAC1(0);
@@ -438,9 +445,9 @@ void dataReport() {
   Serial.print(',');
   Serial.print(pulseCount);
   Serial.print(',');
-  Serial.print(genAnalogInput1);
+  Serial.print(genAnalogInput0);
   Serial.print(',');
-  Serial.println(pulseTrain_chanB[7]);
+  Serial.println(genAnalogInput1);
 }
 
 int flagReceive(char varAr[], uint32_t valAr[]) {
@@ -585,7 +592,6 @@ void genericStateBody() {
   // knownValues[17] = analogRead(forcePin);
   genAnalogInput0 = analogRead(genA0);
   genAnalogInput1 = analogRead(genA1);
-  scopeState = digitalRead(scopePin);
   if (scale.is_ready()) {
     scaleVal = scale.get_units() * 22000; // this scale factor gives hundreths of a gram as the least significant int
     knownValues[17] = scaleVal;

@@ -6,7 +6,7 @@
 # critical: reference to TVs in task!
 # 
 # 
-# 8/10/2018
+# 8/11/2018
 # Chris Deister - cdeister@brown.edu
 # Anything that is licenseable is governed by a MIT License found in the github directory. 
 
@@ -183,15 +183,14 @@ class csGUI(object):
 		print(self.tc['state'])
 
 		btnRw=20
-		self.tcS = Button(self.taskBar,text="Task: Sinda",width=c1Wd,command=lambda: self.closeup(varDict))
-		self.tcS.grid(row=btnRw,column=1)
-		self.tcS['state'] = 'normal'
 
 		self.quitButton = Button(self.taskBar,text="Quit",width=c1Wd,command=lambda: self.closeup(varDict))
 		self.quitButton.grid(row=btnRw+1,column=0)
-		self.stimButton = Button(self.taskBar,text="Stim",width=c1Wd,command=lambda: self.closeup(varDict))
+		
+		self.stimButton = Button(self.taskBar,text="Stim",width=c1Wd,command= lambda: self.makeDevControl(varDict))
 		self.stimButton.grid(row=btnRw+1,column=1)
 		self.taskBar.pack(side=TOP, fill=X)
+
 	def getPath(self,varDict):
 		try:
 			selectPath = fd.askdirectory(title ="what what?")
@@ -278,10 +277,224 @@ class csGUI(object):
 			# else exit
 			except:
 				os._exit(1)
+	
 	# This just decouples
 	def do_task(self):
 		runDetectionTask()
 
+	def commandTeensy(self,varDict,commandStr):
+		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
+		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
+		teensy.write("{}".format(commandStr).encode('utf-8'))
+		teensy.close()
+		return varDict
+		
+	def deltaTeensy(self,varDict,commandHeader,delta):
+		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
+		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
+		[cVal,sChecked]=csSer.checkVariable(teensy,"{}".format(commandHeader),0.005)
+		cVal=cVal+delta
+		if cVal<=0:
+			cVal=1
+		comString=commandHeader+str(cVal)+'>'
+		teensy.write(comString.encode('utf-8'))
+		teensy.close()
+
+	def rampTeensyChan(self,varDict,rampAmp,rampDur,interRamp,rampCount,chanNum,stimType):
+		varDelay = 0.01
+		totalStimTime=(rampDur*rampCount)+(interRamp*rampCount)
+		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
+		teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
+		if chanNum == 1:
+			time.sleep(varDelay)
+			time.sleep(varDelay)
+			teensy.write("g{}>".format(stimType).encode('utf-8'))
+			time.sleep(varDelay)
+			time.sleep(varDelay)
+			teensy.write("f{}>".format(rampAmp).encode('utf-8'))
+			time.sleep(varDelay)
+			teensy.write("e{}>".format(rampDur).encode('utf-8'))
+			time.sleep(varDelay)
+			teensy.write("m{}>".format(rampCount).encode('utf-8'))
+			time.sleep(varDelay)
+			teensy.write("d{}>".format(interRamp).encode('utf-8'))
+			time.sleep(varDelay)
+			teensy.write("j0>".format(interRamp).encode('utf-8'))
+			time.sleep(varDelay)
+			teensy.write("p0>".format(interRamp).encode('utf-8'))
+			time.sleep(varDelay)
+		elif chanNum == 2:
+			time.sleep(varDelay)
+			time.sleep(varDelay)
+			teensy.write("k{}>".format(stimType).encode('utf-8'))
+			time.sleep(varDelay)
+			time.sleep(varDelay)
+			teensy.write("j{}>".format(rampAmp).encode('utf-8'))
+			time.sleep(varDelay)
+			teensy.write("i{}>".format(rampDur).encode('utf-8'))
+			time.sleep(varDelay)
+			teensy.write("p{}>".format(rampCount).encode('utf-8'))
+			time.sleep(varDelay)
+			teensy.write("h{}>".format(interRamp).encode('utf-8'))
+			time.sleep(varDelay)
+			teensy.write("f0>".format(interRamp).encode('utf-8'))
+			time.sleep(varDelay)
+			teensy.write("m0>".format(interRamp).encode('utf-8'))
+			time.sleep(varDelay)
+		[cVal,sChecked]=csSer.checkVariable(teensy,"k",0.005)
+		teensy.write("a7>".encode('utf-8'))
+		time.sleep(totalStimTime/1000)
+		time.sleep(0.2)
+		teensy.write("a0>".encode('utf-8'))
+		csSer.flushBuffer(teensy)
+		time.sleep(varDelay)
+		teensy.close()
+
+	def markOffset(self,varDict):
+		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
+		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
+		wVals=[]
+		lIt=0
+		while lIt<=50:
+			[rV,vN]=csSer.checkVariable(teensy,'w',0.002)
+			if vN:
+				wVals.append(rV)
+				lIt=lIt+1
+		varDict['loadBaseline']=np.mean(wVals)
+		self.offsetTV.set(float(np.mean(wVals)))
+		print(float(np.mean(wVals)))
+		teensy.close()
+		return varDict
+
+	def makeDevControl(self,varDict):
+		dCBWd = 12
+		self.deviceControl_frame = Toplevel(self.master)
+		self.deviceControl_frame.title('Other Dev Control')
+
+		odStart = 0
+
+		self.weightOffsetBtn = Button(self.deviceControl_frame,text="Offset",width=dCBWd,\
+			command=lambda: self.markOffset(varDict))
+		self.weightOffsetBtn.grid(row=0,column=2)
+		self.weightOffsetBtn['state'] = 'normal'
+
+		self.offsetTV=StringVar(self.deviceControl_frame)
+		self.offsetTV.set(varDict['loadBaseline'])
+		self.offsetTV_Entry = Entry(self.deviceControl_frame,width=8,textvariable=self.offsetTV)
+		self.offsetTV_Entry.grid(row=0,column=3)
+
+		self.testRewardBtn = Button(self.deviceControl_frame,text="Rwd",width=dCBWd,\
+			command=lambda: self.commandTeensy(varDict,"z26>"))
+		self.testRewardBtn.grid(row=0,column=0)
+		self.testRewardBtn['state'] = 'normal'
+
+		self.triggerBtn = Button(self.deviceControl_frame,text="Trig",width=dCBWd,\
+			command=lambda: self.commandTeensy(varDict,"z25>"))
+		self.triggerBtn.grid(row=0,column=1)
+		self.triggerBtn['state'] = 'normal'
+
+
+		# ******* Neopixel Stuff
+		self.pDur_label = Label(self.deviceControl_frame,text="Neopixels:",justify=LEFT)
+		self.pDur_label.grid(row=1, column=0)
+
+		self.whiteLightBtn = Button(self.deviceControl_frame,text="NP:White",width=dCBWd,\
+			command=lambda: self.commandTeensy(varDict,"n2>"))
+		self.whiteLightBtn.grid(row=2,column=0)
+		self.whiteLightBtn['state'] = 'normal'
+
+		self.clearLightBtn = Button(self.deviceControl_frame,text="NP:Clear",width=dCBWd,\
+			command=lambda: self.commandTeensy(varDict,"n1>")) 
+		self.clearLightBtn.grid(row=2,column=1)
+		self.clearLightBtn['state'] = 'normal'
+
+		self.redLightBtn = Button(self.deviceControl_frame,text="NP:Red",width=dCBWd,\
+			command=lambda: self.commandTeensy(varDict,"n3>")) 
+		self.redLightBtn.grid(row=3,column=0)
+		self.redLightBtn['state'] = 'normal'
+
+		self.greenLightBtn = Button(self.deviceControl_frame,text="NP:Green",width=dCBWd,\
+			command=lambda: self.commandTeensy(varDict,"n4>")) 
+		self.greenLightBtn.grid(row=3,column=1)
+		self.greenLightBtn['state'] = 'normal'
+
+		self.greenLightBtn = Button(self.deviceControl_frame,text="NP:Blue",width=dCBWd,\
+			command=lambda: self.commandTeensy(varDict,"n5>")) 
+		self.greenLightBtn.grid(row=4,column=0)
+		self.greenLightBtn['state'] = 'normal'
+
+		self.greenLightBtn = Button(self.deviceControl_frame,text="NP:Purp",width=dCBWd,\
+			command=lambda: self.commandTeensy(varDict,"n6>")) 
+		self.greenLightBtn.grid(row=4,column=1)
+		self.greenLightBtn['state'] = 'normal'
+
+		self.incBrightnessBtn = Button(self.deviceControl_frame,text="NP: +",width=dCBWd,\
+			command=lambda: self.deltaTeensy(varDict,'b',10))
+		self.incBrightnessBtn.grid(row=5,column=0)
+		self.incBrightnessBtn['state'] = 'normal'
+
+		self.decBrightnessBtn = Button(self.deviceControl_frame,text="NP: -",width=dCBWd,\
+			command=lambda: self.deltaTeensy(varDict,'b',-10))
+		self.decBrightnessBtn.grid(row=5,column=1)
+		self.decBrightnessBtn['state'] = 'normal'
+
+	def makePulse(self,varDict):
+
+			self.dC_Pulse = Toplevel(self.master)
+			self.dC_Pulse.title('Stim Control')
+
+			self.ramp1DurTV=StringVar(self.dC_Pulse)
+			self.ramp1DurTV.set(int(varDict['ramp1Dur']))
+			self.ramp1AmpTV=StringVar(self.dC_Pulse)
+			self.ramp1AmpTV.set(int(varDict['ramp1Amp']))
+			self.ramp2DurTV=StringVar(self.dC_Pulse)
+			self.ramp2DurTV.set(int(varDict['ramp2Dur']))
+			self.ramp2AmpTV=StringVar(self.dC_Pulse)
+			self.ramp2AmpTV.set(int(varDict['ramp1Amp']))
+
+			dCBWd = 12
+			
+			ptst=0
+			self.pDur_label = Label(self.dC_Pulse,text="Dur (ms):",justify=LEFT)
+			self.pDur_label.grid(row=0, column=ptst+2)
+
+			self.amplitude_label = Label(self.dC_Pulse,text="Amp:",justify=LEFT)
+			self.amplitude_label.grid(row=0, column=ptst+3)
+
+			self.pulseTrainDac1Btn = Button(self.dC_Pulse,text="Pulses DAC1",width=dCBWd,\
+				command=lambda: self.rampTeensyChan(varDict,int(self.ramp1AmpTV.get()),int(self.ramp1DurTV.get()),90,10,1,0))
+			self.pulseTrainDac1Btn.grid(row=1,column=ptst)
+			self.pulseTrainDac1Btn['state'] = 'normal'
+
+			self.rampDAC1Btn = Button(self.dC_Pulse,text="Ramp DAC1",width=dCBWd,\
+				command=lambda: self.rampTeensyChan(int(self.ramp1AmpTV.get()),int(self.ramp1DurTV.get()),100,1,1,1)) 
+			self.rampDAC1Btn.grid(row=1,column=ptst+1)
+			self.rampDAC1Btn['state'] = 'normal'
+
+			
+			self.ramp1DurTV_Entry = Entry(self.dC_Pulse,width=8,textvariable=self.ramp1DurTV)
+			self.ramp1DurTV_Entry.grid(row=1,column=ptst+2)
+
+
+			self.ramp1AmpTV_Entry = Entry(self.dC_Pulse,width=8,textvariable=self.ramp1AmpTV)
+			self.ramp1AmpTV_Entry.grid(row=1,column=ptst+3)
+
+			self.pulseTrainDac2Btn = Button(dC_Pulse,text="Pulses DAC2",width=dCBWd,\
+				command=lambda: self.rampTeensyChan(int(self.ramp2AmpTV.get()),int(self.ramp2DurTV.get()),90,10,2,0)) 
+			self.pulseTrainDac2Btn.grid(row=2,column=ptst)
+			self.pulseTrainDac2Btn['state'] = 'normal'
+
+			self.rampDAC2Btn = Button(self.dC_Pulse,text="Ramp DAC2",width=dCBWd,\
+				command=lambda: rampTeensyChan(int(self.ramp2AmpTV.get()),int(self.ramp2DurTV.get()),100,1,2,1)) 
+			self.rampDAC2Btn.grid(row=2,column=ptst+1)
+			self.rampDAC2Btn['state'] = 'normal'
+
+			
+			self.ramp2DurTV_Entry = Entry(self.dC_Pulse,width=8,textvariable=self.ramp2DurTV)
+			self.ramp2DurTV_Entry.grid(row=2,column=ptst+2)
+
+			self.ramp2AmpTV_Entry = Entry(self.dC_Pulse,width=8,textvariable=self.ramp2AmpTV)
+			self.ramp2AmpTV_Entry.grid(row=2,column=ptst+3)
 class csVariables(object):
 	def __init__(self,sesVarDict={},stimVars={}):
 
@@ -558,6 +771,7 @@ class csSerial(object):
 			self.returnVar=0
 		return self.returnVar,self.dNew
 class csPlot(object):
+	
 	def __init__(self,stPlotX={},stPlotY={},stPlotRel={},pClrs={},pltX=[],pltY=[]):
 		
 		# initial y bounds for oscope plot
@@ -757,6 +971,7 @@ def runDetectionTask():
 	# A) Update the dict from gui, in case the user changed things.
 
 	csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
+	print(csVar.sesVarDict['logMQTT'])
 	
 
 	# C) Create a com object to talk to the main Teensy. 
@@ -863,7 +1078,6 @@ def runDetectionTask():
 	csVar.sesVarDict['maxDur']=3600*2*csVar.sesVarDict['sampRate']
 	# Determine the max samples. We preallocate a numpy array to this depth.
 	npSamps=csVar.sesVarDict['maxDur']
-	# sesData=np.zeros([npSamps,csVar.sesVarDict['dStreams']])
 	sesData = np.memmap('cur.npy', mode='w+',dtype=np.int32,shape=(npSamps,csVar.sesVarDict['dStreams']))
 	np.save('sesData.npy',sesData)
 
@@ -1282,224 +1496,7 @@ def runDetectionTask():
 	csVar.sesVarDict['canQuit']=1
 	csGui.quitButton['text']="Quit"
 
-def commandTeensy(commandStr):
-	csVar.sesVarDict['comPath_teensy']=comPath_teensy_TV.get()
-	teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
-	teensy.write("{}".format(commandStr).encode('utf-8'))
-	teensy.close()
-	
-def deltaTeensy(commandHeader,delta):
-	csVar.sesVarDict['comPath_teensy']=comPath_teensy_TV.get()
-	teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
-	[cVal,sChecked]=csSer.checkVariable(teensy,"{}".format(commandHeader),0.005)
-	cVal=cVal+delta
-	if cVal<=0:
-		cVal=1
-	comString=commandHeader+str(cVal)+'>'
-	teensy.write(comString.encode('utf-8'))
-	teensy.close()
 
-def rampTeensyChan(rampAmp,rampDur,interRamp,rampCount,chanNum,stimType):
-	varDelay = 0.01
-	totalStimTime=(rampDur*rampCount)+(interRamp*rampCount)
-	csVar.sesVarDict['comPath_teensy']=comPath_teensy_TV.get()
-	teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
-	if chanNum == 1:
-		time.sleep(varDelay)
-		time.sleep(varDelay)
-		teensy.write("g{}>".format(stimType).encode('utf-8'))
-		time.sleep(varDelay)
-		time.sleep(varDelay)
-		teensy.write("f{}>".format(rampAmp).encode('utf-8'))
-		time.sleep(varDelay)
-		teensy.write("e{}>".format(rampDur).encode('utf-8'))
-		time.sleep(varDelay)
-		teensy.write("m{}>".format(rampCount).encode('utf-8'))
-		time.sleep(varDelay)
-		teensy.write("d{}>".format(interRamp).encode('utf-8'))
-		time.sleep(varDelay)
-		teensy.write("j0>".format(interRamp).encode('utf-8'))
-		time.sleep(varDelay)
-		teensy.write("p0>".format(interRamp).encode('utf-8'))
-		time.sleep(varDelay)
-	elif chanNum == 2:
-		time.sleep(varDelay)
-		time.sleep(varDelay)
-		teensy.write("k{}>".format(stimType).encode('utf-8'))
-		time.sleep(varDelay)
-		time.sleep(varDelay)
-		teensy.write("j{}>".format(rampAmp).encode('utf-8'))
-		time.sleep(varDelay)
-		teensy.write("i{}>".format(rampDur).encode('utf-8'))
-		time.sleep(varDelay)
-		teensy.write("p{}>".format(rampCount).encode('utf-8'))
-		time.sleep(varDelay)
-		teensy.write("h{}>".format(interRamp).encode('utf-8'))
-		time.sleep(varDelay)
-		teensy.write("f0>".format(interRamp).encode('utf-8'))
-		time.sleep(varDelay)
-		teensy.write("m0>".format(interRamp).encode('utf-8'))
-		time.sleep(varDelay)
-	[cVal,sChecked]=csSer.checkVariable(teensy,"k",0.005)
-	teensy.write("a7>".encode('utf-8'))
-	time.sleep(totalStimTime/1000)
-	time.sleep(0.2)
-	teensy.write("a0>".encode('utf-8'))
-	csSer.flushBuffer(teensy)
-	time.sleep(varDelay)
-	teensy.close()
-
-def markOffset():
-	csVar.sesVarDict['comPath_teensy']=comPath_teensy_TV.get()
-	teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
-
-	wVals=[]
-	lIt=0
-	while lIt<=50:
-		[rV,vN]=csSer.checkVariable(teensy,'w',0.002)
-		if vN:
-			wVals.append(rV)
-			lIt=lIt+1
-	csVar.sesVarDict['loadBaseline']=np.mean(wVals)
-	offsetTV.set(float(np.mean(wVals)))
-	teensy.close()
-
-def makeDevControl():
-		dCBWd = 12
-		deviceControl_frame = Toplevel()
-		deviceControl_frame.title('Other Dev Control')
-
-
-		odStart = 0
-
-
-		weightOffsetBtn = Button(deviceControl_frame,text="Offset",width=dCBWd,command=lambda: markOffset())
-		weightOffsetBtn.grid(row=0,column=2)
-		weightOffsetBtn['state'] = 'normal'
-
-		offsetTV=StringVar(deviceControl_frame)
-		offsetTV.set(csVar.sesVarDict['loadBaseline'])
-		offsetTV_Entry = Entry(deviceControl_frame,width=8,textvariable=offsetTV)
-		offsetTV_Entry.grid(row=0,column=3)
-
-		testRewardBtn = Button(deviceControl_frame,text="Rwd",width=dCBWd,command=lambda: commandTeensy("z26>"))
-		testRewardBtn.grid(row=0,column=0)
-		testRewardBtn['state'] = 'normal'
-
-		triggerBtn = Button(deviceControl_frame,text="Trig",width=dCBWd,command=lambda: commandTeensy("z25>"))
-		triggerBtn.grid(row=0,column=1)
-		triggerBtn['state'] = 'normal'
-
-
-		# ******* Neopixel Stuff
-		pDur_label = Label(deviceControl_frame,text="Neopixels:",justify=LEFT)
-		pDur_label.grid(row=1, column=0)
-
-		
-
-		whiteLightBtn = Button(deviceControl_frame,text="NP:White",width=dCBWd,command=lambda: commandTeensy("n2>"))
-		whiteLightBtn.grid(row=2,column=0)
-		whiteLightBtn['state'] = 'normal'
-
-		clearLightBtn = Button(deviceControl_frame,text="NP:Clear",width=dCBWd,command=lambda: commandTeensy("n1>")) 
-		clearLightBtn.grid(row=2,column=1)
-		clearLightBtn['state'] = 'normal'
-
-		redLightBtn = Button(deviceControl_frame,text="NP:Red",width=dCBWd,command=lambda: commandTeensy("n3>")) 
-		redLightBtn.grid(row=3,column=0)
-		redLightBtn['state'] = 'normal'
-
-		greenLightBtn = Button(deviceControl_frame,text="NP:Green",width=dCBWd,command=lambda: commandTeensy("n4>")) 
-		greenLightBtn.grid(row=3,column=1)
-		greenLightBtn['state'] = 'normal'
-
-		greenLightBtn = Button(deviceControl_frame,text="NP:Blue",width=dCBWd,command=lambda: commandTeensy("n5>")) 
-		greenLightBtn.grid(row=4,column=0)
-		greenLightBtn['state'] = 'normal'
-
-		greenLightBtn = Button(deviceControl_frame,text="NP:Purp",width=dCBWd,command=lambda: commandTeensy("n6>")) 
-		greenLightBtn.grid(row=4,column=1)
-		greenLightBtn['state'] = 'normal'
-
-		incBrightnessBtn = Button(deviceControl_frame,text="NP: +",width=dCBWd,command=lambda: deltaTeensy('b',10))
-		incBrightnessBtn.grid(row=5,column=0)
-		incBrightnessBtn['state'] = 'normal'
-
-		decBrightnessBtn = Button(deviceControl_frame,text="NP: -",width=dCBWd,command=lambda: deltaTeensy('b',-10))
-		decBrightnessBtn.grid(row=5,column=1)
-		decBrightnessBtn['state'] = 'normal'
-
-def makePulse():
-
-		# ####> A) Pulse Train Stuff: dC_Pulse
-		# Make Pulse Controller
-		dC_Pulse = Toplevel()
-		dC_Pulse.title('Stim Control')
-
-		ramp1DurTV=StringVar(dC_Pulse)
-		ramp1DurTV.set(int(csVar.sesVarDict['ramp1Dur']))
-		ramp1AmpTV=StringVar(dC_Pulse)
-		ramp1AmpTV.set(int(csVar.sesVarDict['ramp1Amp']))
-		ramp2DurTV=StringVar(dC_Pulse)
-		ramp2DurTV.set(int(csVar.sesVarDict['ramp2Dur']))
-		ramp2AmpTV=StringVar(dC_Pulse)
-		ramp2AmpTV.set(int(csVar.sesVarDict['ramp1Amp']))
-
-		def update_DCVars():
-			csVar.sesVarDict['ramp1Dur']=int(ramp1DurTV.get())
-			csVar.sesVarDict['ramp1Amp']=int(ramp2DurTV.get())
-			csVar.sesVarDict['ramp2Dur']=int(ramp1AmpTV.get())
-			csVar.sesVarDict['ramp2Amp']=int(ramp2AmpTV.get())
-		
-		dCBWd = 12
-		
-		ptst=0
-		pDur_label = Label(dC_Pulse,text="Dur (ms):",justify=LEFT)
-		pDur_label.grid(row=0, column=ptst+2)
-
-		amplitude_label = Label(dC_Pulse,text="Amp:",justify=LEFT) #justify=LEFT
-		amplitude_label.grid(row=0, column=ptst+3)
-
-		pulseTrainDac1Btn = Button(dC_Pulse,text="Pulses DAC1",width=dCBWd,\
-			command=lambda: rampTeensyChan(int(ramp1AmpTV.get()),int(ramp1DurTV.get()),90,10,1,0))
-		pulseTrainDac1Btn.grid(row=1,column=ptst)
-		pulseTrainDac1Btn['state'] = 'normal'
-
-		rampDAC1Btn = Button(dC_Pulse,text="Ramp DAC1",width=dCBWd,\
-			command=lambda: rampTeensyChan(int(ramp1AmpTV.get()),int(ramp1DurTV.get()),100,1,1,1)) 
-		rampDAC1Btn.grid(row=1,column=ptst+1)
-		rampDAC1Btn['state'] = 'normal'
-
-		
-		ramp1DurTV_Entry = Entry(dC_Pulse,width=8,textvariable=ramp1DurTV)
-		ramp1DurTV_Entry.grid(row=1,column=ptst+2)
-
-
-		ramp1AmpTV_Entry = Entry(dC_Pulse,width=8,textvariable=ramp1AmpTV)
-		ramp1AmpTV_Entry.grid(row=1,column=ptst+3)
-
-		pulseTrainDac2Btn = Button(dC_Pulse,text="Pulses DAC2",width=dCBWd,\
-			command=lambda: rampTeensyChan(int(ramp2AmpTV.get()),int(ramp2DurTV.get()),90,10,2,0)) 
-		pulseTrainDac2Btn.grid(row=2,column=ptst)
-		pulseTrainDac2Btn['state'] = 'normal'
-
-		rampDAC2Btn = Button(dC_Pulse,text="Ramp DAC2",width=dCBWd,\
-			command=lambda: rampTeensyChan(int(ramp2AmpTV.get()),int(ramp2DurTV.get()),100,1,2,1)) 
-		rampDAC2Btn.grid(row=2,column=ptst+1)
-		rampDAC2Btn['state'] = 'normal'
-
-		
-		ramp2DurTV_Entry = Entry(dC_Pulse,width=8,textvariable=ramp2DurTV)
-		ramp2DurTV_Entry.grid(row=2,column=ptst+2)
-
-		
-		ramp2AmpTV_Entry = Entry(dC_Pulse,width=8,textvariable=ramp2AmpTV)
-		ramp2AmpTV_Entry.grid(row=2,column=ptst+3)
-
-		updateDCVarBtn = Button(dC_Pulse,text="Store Vars",width=dCBWd,\
-			command=lambda: update_DCVars())
-		updateDCVarBtn.grid(row=0,column=ptst)
-		updateDCVarBtn['state'] = 'normal'
 
 
 
