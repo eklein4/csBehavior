@@ -1,6 +1,8 @@
 # csBehavior
 
-Tools for running behavioral tasks and/or delivering stimuli using microcontrollers and python.
+Tools for running behavioral experiments with Python and Teensy (and related) microcontrollers.
 
-v0.9 (highly functional and precise, but not totally polished) 
-cdeister@brown.edu
+v0.95 (highly functional and precise, but not totally polished) 
+
+questions: cdeister@brown.edu
+contributors: Chris Deister, Sinda Fekir
