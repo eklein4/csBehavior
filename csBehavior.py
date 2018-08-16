@@ -22,6 +22,7 @@
 
 from tkinter import *
 import tkinter.filedialog as fd
+from pathlib import Path
 import serial
 import numpy as np
 import h5py
@@ -598,16 +599,11 @@ class csVariables(object):
 class csHDF(object):
 	def __init__(self,a):
 		self.a=1
-	
 	def makeHDF(self,basePath,subID,dateStamp):
-		cStr=datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-		fe=os.path.isfile(basePath+"{}_behav_{}.hdf".format(subID,cStr))
-		if fe:
-			os.path.isfile(basePath+"{}_behav_{}.hdf".format(subID,cStr))
-			self.sesHDF = h5py.File(basePath+"{}_behav_{}_dup.hdf".format(subID,cStr), "a")
-		elif fe==0:
-			self.sesHDF = h5py.File(basePath+"{}_behav_{}.hdf".format(subID,cStr), "a")
+		cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+		self.sesHDF = h5py.File(Path(basePath+"{}_behav_{}.hdf".format(subID,cStr)),"a")
 		return self.sesHDF
+
 class csMQTT(object):
 	def __init__(self,dStamp):
 		self.dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
@@ -1530,7 +1526,7 @@ def runDetectionTask():
 	csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
 	csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
 	csVar.sesVarDict['canQuit']=1
-	csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'csVar.sesVarDict.csv')
+	csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
 
 	csSer.flushBuffer(teensy)
 	teensy.close()
@@ -1992,7 +1988,7 @@ def runTrialOptoTask():
 			csVar.updateDictFromGUI(csVar.sesVarDict)
 			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
 			csVar.sesVarDict['canQuit']=1
-			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'csVar.sesVarDict.csv')
+			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
 
 			csSer.flushBuffer(teensy) 
 			teensy.close()

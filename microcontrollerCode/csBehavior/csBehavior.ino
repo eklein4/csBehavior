@@ -16,11 +16,12 @@
 //-----------------------------
 //
 // a) Analog Input Pins
-#define lickPinA  21      // Lick/Touch Sensor A 
-#define lickPinB  20      // Lick/Touch Sensor B 
-#define forcePin 17
-#define genA0 A2
-#define genA1 A3
+#define lickPinA  23      // Lick/Touch Sensor A 
+#define lickPinB  22      // Lick/Touch Sensor B 
+#define genA0 A0
+#define genA1 A1
+#define genA2 A2
+#define genA3 A3
 
 // b) Digital Input Pins
 #define scaleData  29
@@ -33,7 +34,7 @@
 // d) Digital Output Pins
 #define syncPin  25    // Trigger other things like a microscope and/or camera
 #define rewardPin  26  // Trigger/signal a reward
-# define neoStripPin 14
+#define neoStripPin 2
 
 
 // e) UARTs (Hardware Serial Lines)
