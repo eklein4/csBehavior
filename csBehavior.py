@@ -531,7 +531,7 @@ class csVariables(object):
 	def __init__(self,sesVarDict={},stimVars={}):
 
 		self.sesVarDict={'curSession':1,'comPath_teensy':'/dev/cu.usbmodem4589151',\
-		'baudRate_teensy':19200,'subjID':'an1','taskType':'detect','totalTrials':10,\
+		'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':10,\
 		'logMQTT':1,'mqttUpDel':0.05,'curWeight':20,'rigGMTZoneDif':5,'volPerRwd':0.01,\
 		'waterConsumed':0,'consumpTarg':1.5,'dirPath':'/Users/Deister/BData',\
 		'hashPath':'/Users/cad','trialNum':0,'sessionOn':1,'canQuit':1,\

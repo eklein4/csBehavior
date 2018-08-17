@@ -51,8 +51,8 @@ int stepsPerRev = 200;
 //200 for most steppers; 400 for some
 
 char knownHeaders[] = {'r', 's', 'a', 'm', 'd'};
-int knownValues[] = {0, 25600, 5000, 1600, 0};
-int lastValues[] = {0, 25600, 5000, 1600, 0};
+int knownValues[] = {0, 25600, 10000, 1600, 0};
+int lastValues[] = {0, 25600, 10000, 1600, 0};
 bool varChanged[] = {0, 0, 0, 0, 0};
 int knownCount = 5;
 
@@ -107,22 +107,22 @@ void setup(void) {
   delay(100);
   Serial2.begin(115200);  // HW UART1
   delay(100);
-  Serial.println();
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+//  Serial.println();
+//  Serial.println();
+//  Serial.print("Connecting to ");
+//  Serial.println(ssid);
+//
+//  WiFi.begin(ssid, password);
+//
+//  while (WiFi.status() != WL_CONNECTED) {
+//    delay(500);
+//    Serial.print(".");
+//  }
+//
+//  Serial.println("");
+//  Serial.println("WiFi connected");
+//  Serial.println("IP address: ");
+//  Serial.println(WiFi.localIP());
   initializeStepper();
   resetStepper();
   tft.begin();
@@ -620,7 +620,7 @@ void s9Btn(bool selState) {
       tft.setTextSize(1);
       tft.print("steps +");
       int tlVal = knownValues[3];
-      knownValues[3] = knownValues[3] + 16;
+      knownValues[3] = knownValues[3] + 800;
       tft.setTextColor(ILI9341_BLACK);
       tft.setCursor(0, (textHeight + rowBuf) * 4);
       tft.print("steps: ");
@@ -659,9 +659,9 @@ void s10Btn(bool selState) {
       tft.setTextSize(1);
       tft.print("steps -");
       int tlVal = knownValues[3];
-      knownValues[3] = knownValues[3] - 16;
-      if (knownValues[3] <= 0) {
-        knownValues[3] = 16;
+      knownValues[3] = knownValues[3] - 800;
+      if (knownValues[3] <= 800) {
+        knownValues[3] = 800;
       }
       tft.setTextColor(ILI9341_BLACK);
       tft.setCursor(0, (textHeight + rowBuf) * 4);
@@ -895,6 +895,69 @@ int flagReceive(char varAr[], int valAr[]) {
   }
   return newData; // tells us if a valid variable arrived.
 }
+
+
+
+//int dashFlagReceive(char dVarAr[], uint32_t dValAr[]) {
+//  static boolean dRecvInProgress = false;
+//  static byte ddx = 0;
+//  char dEndMarker = '>';
+//  char dFeedbackMarker = '<';
+//  char drc;
+//  int dnVal;
+//  const byte dNumChars = 32;
+//  char dWriteChar[numChars];
+//  int dSelectedVar = 0;
+//  int dNewData = 0;
+//
+//  while (Serial2.available() > 0 && dNewData == 0) {
+//    drc = Serial2.read();
+//    if (dRecvInProgress == false) {
+//      for ( int i = 0; i < knownDashCount; i++) {
+//        if (drc == dVarAr[i]) {
+//          dSelectedVar = i;
+//          dRecvInProgress = true;
+//        }
+//      }
+//    }
+//
+//    else if (dRecvInProgress == true) {
+//      if (drc == dEndMarker ) {
+//        dWriteChar[ddx] = '\0'; // terminate the string
+//        dRecvInProgress = false;
+//        ddx = 0;
+//        dNewData = 1;
+//
+//        dnVal = int(String(dWriteChar).toInt());
+//        dValAr[dSelectedVar] = dnVal;
+//
+//      }
+//      else if (drc == dFeedbackMarker) {
+//        dWriteChar[ddx] = '\0'; // terminate the string
+//        dRecvInProgress = false;
+//        ddx = 0;
+//        dNewData = 1;
+//        Serial2.print("echo");
+//        Serial2.print(',');
+//        Serial2.print(dVarAr[dSelectedVar]);
+//        Serial2.print(',');
+//        Serial2.print(dValAr[dSelectedVar]);
+//        Serial2.print(',');
+//        Serial2.println('~');
+//      }
+//
+//      else if (drc != dFeedbackMarker || drc != dEndMarker) {
+//        dWriteChar[ddx] = drc;
+//        ndx++;
+//        if (ndx >= numChars) {
+//          ndx = numChars - 1;
+//        }
+//      }
+//    }
+//  }
+//  return newData; // tells us if a valid variable arrived.
+//}
+
 
 
 uint32_t estimateVolume(int stepVol, int uRes, int tMuSteps) {

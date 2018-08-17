@@ -67,6 +67,8 @@ float scaleVal = 0;
 uint32_t lickSensorAValue = 0;
 uint32_t genAnalogInput0 = 0;
 uint32_t genAnalogInput1 = 0;
+uint32_t genAnalogInput2 = 0;
+uint32_t genAnalogInput3 = 0;
 
 // a) Set DAC and ADC resolution in bits.
 uint32_t adcResolution = 12;
@@ -331,7 +333,7 @@ void vStates() {
         genericHeader(4);
         visStim(0);
         rewarding = 0;
-        blockStateChange = 1;
+        blockStateChange = 0;
       }
       genericStateBody();
       stimTrainState_DAC1(0);
@@ -342,9 +344,8 @@ void vStates() {
         digitalWrite(rewardPin, HIGH);
         rewarding = 1;
       }
-      if (stateTime >= uint32_t(knownValues[1])) {
+      if (stateTime >= 5) {
         digitalWrite(rewardPin, LOW);
-        blockStateChange = 0;
       }
     }
 
@@ -448,7 +449,7 @@ void dataReport() {
   Serial.print(',');
   Serial.print(genAnalogInput0);
   Serial.print(',');
-  Serial.println(genAnalogInput1);
+  Serial.print(genAnalogInput1);
 }
 
 int flagReceive(char varAr[], uint32_t valAr[]) {
