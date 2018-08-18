@@ -231,7 +231,7 @@ class csGUI(object):
 		self.offsetTV_Entry.grid(row=0,column=3)
 
 		self.testRewardBtn = Button(self.deviceControl_frame,text="Rwd",width=dCBWd,\
-			command=lambda: self.commandTeensy(varDict,"z26>"))
+			command=lambda: self.commandTeensy(varDict,"z27>"))
 		self.testRewardBtn.grid(row=0,column=0)
 		self.testRewardBtn['state'] = 'normal'
 
@@ -448,7 +448,7 @@ class csGUI(object):
 	def deltaTeensy(self,varDict,commandHeader,delta):
 		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
 		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
-		[cVal,sChecked]=csSer.checkVariable(teensy,"{}".format(commandHeader),0.005)
+		[cVal,sChecked]=csSer.checkVariable(teensy,"{}".format(commandHeader),0.01)
 		cVal=cVal+delta
 		if cVal<=0:
 			cVal=1

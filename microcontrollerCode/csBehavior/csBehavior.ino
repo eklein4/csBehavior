@@ -33,9 +33,15 @@
 
 // d) Digital Output Pins
 #define syncPin  25    // Trigger other things like a microscope and/or camera
-#define rewardPin  26  // Trigger/signal a reward
+#define rewardPin  27  // Trigger/signal a reward
 #define neoStripPin 2
+#define extRelay 26
+#define extRelay2 24
 
+bool relayState;
+uint32_t relayTimer = 0;
+bool relayState2;
+uint32_t relayTimer2 = 0;
 
 // e) UARTs (Hardware Serial Lines)
 #define visualSerial Serial1 // out to a computer running psychopy
@@ -49,8 +55,8 @@
 
 // **** Make neopixel object
 // if rgbw use top line, if rgb use second.
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, neoStripPin, NEO_GRBW + NEO_KHZ800);
-//Adafruit_NeoPixel strip = Adafruit_NeoPixel(15, neoStripPin, NEO_GRB + NEO_KHZ800);
+//Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, neoStripPin, NEO_GRBW + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(30, neoStripPin, NEO_GRB + NEO_KHZ800);
 uint32_t maxBrightness = 255;
 
 //--------------------------------
@@ -179,7 +185,7 @@ void setup() {
   // Start the device
   strip.begin();
   strip.show();
-  strip.setBrightness(1);
+  strip.setBrightness(100);
   setStrip(2);
 
   scale.set_scale(calibration_factor);
@@ -196,9 +202,15 @@ void setup() {
   pinMode(syncPin, OUTPUT);
   digitalWrite(syncPin, LOW);
 
-
+  pinMode(extRelay, INPUT);
+  digitalWrite(extRelay, LOW);
+   pinMode(extRelay2, INPUT);
+  digitalWrite(extRelay2, LOW);
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
+
+  bool relayState;
+  uint32_t relayTimer = 0;
 
   dashSerial.begin(115200);
   visualSerial.begin(115200);
@@ -253,6 +265,29 @@ void vStates() {
     genericStateBody();
     stimTrainState_DAC1(0);
     //    stimTrainState_DAC2(0);
+    if ((relayState == 1) && (relayTimer == 0)) {
+      digitalWrite(syncPin, HIGH);
+      relayTimer++;
+    }
+    else if (relayTimer > 0) {
+      relayTimer++;
+    }
+    if (relayTimer >= trigTime) {
+      digitalWrite(syncPin, LOW);
+      relayTimer = 0;
+    }
+
+    if ((relayState2 == 1) && (relayTimer2 == 0)) {
+      digitalWrite(rewardPin, HIGH);
+      relayTimer2++;
+    }
+    else if (relayTimer2 > 0) {
+      relayTimer2++;
+    }
+    if (relayTimer2 >= trigTime) {
+      digitalWrite(rewardPin, LOW);
+      relayTimer2 = 0;
+    }
 
   }
 
@@ -449,7 +484,7 @@ void dataReport() {
   Serial.print(',');
   Serial.print(genAnalogInput0);
   Serial.print(',');
-  Serial.print(genAnalogInput1);
+  Serial.println(genAnalogInput1);
 }
 
 int flagReceive(char varAr[], uint32_t valAr[]) {
@@ -594,6 +629,8 @@ void genericStateBody() {
   // knownValues[17] = analogRead(forcePin);
   genAnalogInput0 = analogRead(genA0);
   genAnalogInput1 = analogRead(genA1);
+  relayState = digitalRead(extRelay);
+  relayState2 = digitalRead(extRelay2);
   if (scale.is_ready()) {
     scaleVal = scale.get_units() * 22000; // this scale factor gives hundreths of a gram as the least significant int
     knownValues[17] = scaleVal;
@@ -774,7 +811,7 @@ void setStrip(uint32_t stripState) {
       strip.setPixelColor(i, strip.Color(0, 0, 0));
     }
     else if (stripState == 2) {
-      strip.setPixelColor(i, strip.Color(0, 0, 0, 255));
+      strip.setPixelColor(i, strip.Color(255, 255, 200));
     }
     else if (stripState == 3) {
       strip.setPixelColor(i, strip.Color(255, 0, 0));
@@ -814,17 +851,8 @@ void pollColorChange() {
     strip.setBrightness(knownValues[7]);
     strip.show();
     lastBrightness = knownValues[7];
-    knownDashValues[0] = lastBrightness;
   }
-  if (knownDashValues[0] != lastBrightness) {
-    if (knownDashValues[0] > maxBrightness) {
-      knownDashValues[0] = maxBrightness;
-    }
-    strip.setBrightness(knownDashValues[0]);
-    strip.show();
-    lastBrightness = knownDashValues[0];
-    knownValues[7] = lastBrightness;
-  }
+
 
 
   // b) Handle color changes.
@@ -834,14 +862,6 @@ void pollColorChange() {
   }
   else {
     knownValues[8] = 0;
-  }
-
-  if (knownDashValues[1] > 0 && knownDashValues[1] < 8) {
-    setStrip(knownDashValues[1]);
-    knownDashValues[1] = 0;
-  }
-  else {
-    knownDashValues[1] = 0;
   }
 }
 
