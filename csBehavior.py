@@ -10,7 +10,11 @@
 # *** > Still Todo: 
 # __ fully decouple engine from UI parsearg in txt file? 
 # __ asyncio (i more or less have manual yields already)
-# -- Update MQTT logging to conform to new API.
+# __ Update MQTT logging to conform to new API.
+# __ Syringe Pump Dev Control
+# __ Update Relays and make GUI versions of each.
+# __ Block dev control calls when not in task, or augment to not open serial controller. 
+# __ Fully 
 # 
 # 
 # 8/12/2018
@@ -39,7 +43,6 @@ import pandas as pd
 from scipy.stats import norm
 import pygsheets
 from Adafruit_IO import Client
-
 
 root = Tk()
 
@@ -131,6 +134,22 @@ class csGUI(object):
 		self.minStimTime_entry.grid(row=cpRw,column=0,padx=0,sticky=E)
 
 		cpRw=cpRw+1
+		self.plotSamps_label=Label(self.taskBar, text="Samps to Plot:", justify=LEFT)
+		self.plotSamps_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.plotSamps_TV=StringVar(self.taskBar)
+		self.plotSamps_TV.set(varDict['plotSamps'])
+		self.plotSamps_entry=Entry(self.taskBar, width=10, textvariable=self.plotSamps_TV)
+		self.plotSamps_entry.grid(row=cpRw,column=0,padx=0,sticky=E)
+
+		cpRw=cpRw+1
+		self.updateCount_label=Label(self.taskBar, text="Plot Update Rate:", justify=LEFT)
+		self.updateCount_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.updateCount_TV=StringVar(self.taskBar)
+		self.updateCount_TV.set(varDict['updateCount'])
+		self.updateCount_entry=Entry(self.taskBar, width=10, textvariable=self.updateCount_TV)
+		self.updateCount_entry.grid(row=cpRw,column=0,padx=0,sticky=E)
+
+		cpRw=cpRw+1
 		self.shapingTrial_TV=IntVar()
 		self.shapingTrial_TV.set(varDict['shapingTrial'])
 		self.shapingTrial_Toggle=Checkbutton(self.taskBar,text="Shaping Trial",\
@@ -212,7 +231,9 @@ class csGUI(object):
 		# Finish the window
 		self.taskBar.pack(side=TOP, fill=X)
 	
-	# b) Other windows
+	# b) Functions that make other windows
+	def makeParentWindow(self,master,varDict):
+		pass
 	def makeDevControl(self,varDict):
 		dCBWd = 12
 		self.deviceControl_frame = Toplevel(self.master)
@@ -407,6 +428,7 @@ class csGUI(object):
 				g=1
 		return varDict
 	def dictToPandas(self,varDict):
+			
 			curKey=[]
 			curVal=[]
 			for key in list(varDict.keys()):
@@ -528,7 +550,7 @@ class csGUI(object):
 		
 		runTrialOptoTask()
 class csVariables(object):
-	def __init__(self,sesVarDict={},stimVars={}):
+	def __init__(self,sesVarDict={},sesSensDict={}):
 
 		self.sesVarDict={'curSession':1,'comPath_teensy':'/dev/cu.usbmodem4589151',\
 		'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':10,\
@@ -540,10 +562,86 @@ class csVariables(object):
 		'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStimTime':1500,\
 		'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':0,'loadScale':1,\
 		'serBufSize':4096,'ramp1Dur':2000,'ramp1Amp':4095,'ramp2Dur':2000,'ramp2Amp':4095,\
-		'detectPlotNum':100}
+		'detectPlotNum':100,'updateCount':500,'plotSamps':200}
 
-		self.stimVars={'contrast':1,'sFreq':4,'orientation':0}
+		self.sesSensDict={'trialLength':1000,'vis_contrast_null':0,'vis_contrast_max':100,\
+		'vis_contrast_steps':[1,2,5,10,20,30,50,70],'vis_contrast_nullProb':0.47,'vis_contrast_maxProb':0.31,\
+		'vis_orientation_null':0,'vis_orientation_max':270,\
+		'vis_orientation_steps':[90],'vis_orientation_nullProb':0.33,'vis_orientation_maxProb':0.33,\
+		'vis_spatialFreq_null':3,'vis_spatialFreq_max':1,\
+		'vis_spatialFreq_steps':[],'vis_spatialFreq_nullProb':0.5,'vis_spatialFreq_maxProb':0.5,\
+		'trial_wait_null':1999,'trial_wait_max':11000,'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
+		'lick_wait_null':999,'lick_wait_max':5999,'lick_wait_maxProb':0.0,'lick_wait_nullProb':0.0}
 
+		self.sesSensDict['trial_wait_steps']=np.arange(self.sesSensDict['trial_wait_null'],self.sesSensDict['trial_wait_max'])
+		self.sesSensDict['lick_wait_steps']=np.arange(self.sesSensDict['lick_wait_null'],self.sesSensDict['lick_wait_max'])
+
+		
+		self.sesTimingDict={'trialLength':1000,'trial_wait_null':3000,'trial_wait_max':11000,'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
+		'lick_wait_null':599,'lick_wait_max':2999,'lick_wait_maxProb':0.0,'lick_wait_nullProb':0.0}
+
+		self.sesTimingDict['trial_wait_steps']=np.arange(self.sesTimingDict['trial_wait_null'],self.sesTimingDict['trial_wait_max'])
+		self.sesTimingDict['lick_wait_steps']=np.arange(self.sesTimingDict['lick_wait_null'],self.sesTimingDict['lick_wait_max'])
+
+		self.timeVars=['trial_wait','lick_wait']
+		self.sensVars = ['vis_contrast','vis_orientation','vis_spatialFreq']
+
+
+	def getFeatureProb(self,probDict,labelList):
+		
+		trLen = probDict['trialLength']
+		tempArray = np.zeros((trLen,len(labelList)))
+		tempCountArray = np.zeros((3,len(labelList)))
+		for x in range(len(labelList)):
+			curStr = labelList[x]
+	
+
+			availIndicies = np.arange(trLen)
+			curAvail=len(availIndicies)
+
+			curNull=eval('probDict["{}_null"]'.format(curStr))
+			curNullProb=eval('probDict["{}_nullProb"]'.format(curStr))
+			curNullCount = int(np.round(curAvail*curNullProb))
+			tempCountArray[0,x]=curNullCount
+
+			
+			curMax=eval('probDict["{}_max"]'.format(curStr))
+			curMaxProb=eval('probDict["{}_maxProb"]'.format(curStr))
+			curMaxCount = int(np.round(curAvail*curMaxProb))
+			tempCountArray[1,x]=curMaxCount
+		
+			curSteps = eval('probDict["{}_steps"]'.format(curStr))
+			curStepProb=1-(curMaxProb+curNullProb)
+			curStepCount = int(np.round(curAvail*curStepProb))
+			tempCountArray[2,x]=curStepCount
+
+			for h in range(0,curNullCount):
+				tInd=np.random.randint(curAvail)
+				tempArray[tInd,x]=curNull
+				availIndicies=np.setdiff1d(availIndicies,tInd)
+				curAvail=len(availIndicies)
+
+			for h in range(0,curMaxCount):
+				tInd=np.random.randint(curAvail)
+				tempArray[tInd,x]=curMax
+				availIndicies=np.setdiff1d(availIndicies,tInd)
+				curAvail=len(availIndicies)
+
+			# curMaxIndicies = np.random.randint(curMaxProb,size=len(availIndicies))
+			# availIndicies = np.setdiff1d(availIndicies,curMaxIndicies)
+			# tempArray[curMaxIndicies] = curMax
+
+			# C) compute steps
+			curSteps = eval('probDict["{}_steps"]'.format(curStr))
+			if len(curSteps)>0:
+				for g in range(0,len(availIndicies)):
+					tempArray[availIndicies[g],x] = curSteps[np.random.randint(len(curSteps))]
+			elif len(curSteps)==0 and len(availIndicies)>0:
+				for g in range(0,len(availIndicies)):
+					tempRand=[curMax,curNull]
+					tempArray[availIndicies[g],x] = tempRand[np.random.randint(2)]
+
+		return tempArray,tempCountArray
 
 	def getRig(self):
 		# returns a string that is the hostname
@@ -603,7 +701,6 @@ class csHDF(object):
 		cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 		self.sesHDF = h5py.File(Path(basePath+"{}_behav_{}.hdf".format(subID,cStr)),"a")
 		return self.sesHDF
-
 class csMQTT(object):
 	def __init__(self,dStamp):
 		self.dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
@@ -726,13 +823,11 @@ class csSerial(object):
 	def __init__(self,a):
 		
 		self.a=1
-
 	def connectComObj(self,comPath,baudRate):
 		self.comObj = serial.Serial(comPath,baudRate,timeout=0)
 		self.comObj.close()
 		self.comObj.open()
 		return self.comObj
-
 	def readSerialBuffer(self,comObj,curBuf,bufMaxSize):
 		
 		comObj.timeOut=0
@@ -765,7 +860,6 @@ class csSerial(object):
 		self.echoLine = eR
 		self.dataLine = sR
 		return self.curBuf,self.echoLine,self.dataLine
-
 	def readSerialData(self,comObj,headerString,varCount):
 		sR=[]
 		newData=0
@@ -781,12 +875,10 @@ class csSerial(object):
 		self.newData=newData
 		self.bytesAvail = bytesAvail
 		return self.sR,self.newData,self.bytesAvail
-
 	def flushBuffer(self,comObj):
 		while comObj.inWaiting()>0:
 			sR=comObj.readline().strip().decode()
 			sR=[]
-
 	def checkVariable(self,comObj,headChar,fltDelay):
 		comObj.write('{}<'.format(headChar).encode('utf-8'))
 		time.sleep(fltDelay)
@@ -970,7 +1062,6 @@ csSer=csSerial(1)
 csPlt=csPlot(1)
 csGui = csGUI(root,csVar.sesVarDict)
 
-
 # This is Chris' Detection Task
 def runDetectionTask():
 
@@ -979,23 +1070,22 @@ def runDetectionTask():
 	dStamp=cTime.strftime("%m_%d_%Y")
 	curMachine=csVar.getRig()
 
-	# ****************************
-	# ***** trial data logging ***
-	# ****************************
+	# ******************************
+	# ***** trial data logging *****
+	# ******************************
 
 	# pre-alloc lists for variables that only change across trials.
-
 	contrastList=[]
 	orientationList=[]
 	spatialFreqs=[]
 	waitPad=[]
+	actualWaitPad = []
 
 	csPlt.makeTrialFig(csVar.sesVarDict['detectPlotNum'])
 	# A) Update the dict from gui, in case the user changed things.
 
 	csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
 	
-
 	# C) Create a com object to talk to the main Teensy. 
 	# todo: create a timeout
 	teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
@@ -1003,34 +1093,9 @@ def runDetectionTask():
 	# D) Task specific: preallocate sensory variables that need randomization.
 	# prealloc random stuff (assume no more than 1k trials)
 	maxTrials=1000
-	csVar.sesVarDict['contrastChange']=1
-	if csVar.sesVarDict['contrastChange']:
-		contList=np.array([0,0,0,1,2,5,10,20,40,50,70,90,100,100])
-		randContrasts=contList[np.random.randint(0,len(contList),size=maxTrials)]
-	elif csVar.sesVarDict['contrastChange']==0:
-		defaultContrast=100
-		randContrasts=defaultContrast*np.ones(maxTrials)
-		teensy.write('c{}>'.format(defaultContrast).encode('utf-8'))
-	csVar.sesVarDict['orientationChange']=1
-	if csVar.sesVarDict['orientationChange']:
-		orientList=np.array([90,0,270])
-		# orientList=np.array([0,45,90,120,180,225,270,315])
-		randOrientations=orientList[np.random.randint(0,len(orientList),size=maxTrials)]
-	elif csVar.sesVarDict['orientationChange']==0:
-		defaultOrientation=0
-		randOrientations=defaultOrientation*np.ones(maxTrials)
-		teensy.write('o{}>'.format(defaultOrientation).encode('utf-8'))
-	randSpatialContinuous=0
-	csVar.sesVarDict['spatialChange']=1
-	if csVar.sesVarDict['spatialChange']:
-		randSpatials=np.random.randint(0,5,size=maxTrials)
-	elif csVar.sesVarDict['spatialChange']==0:
-		defaultSpatial=1
-		randSpatials=defaultSpatial*np.ones(maxTrials)
-		teensy.write('s{}>'.format(defaultSpatial).encode('utf-8'))
+	[trialVars_vStim,_]=csVar.getFeatureProb(csVar.sesSensDict,csVar.sensVars)
+	[trialVars_timing,_]=csVar.getFeatureProb(csVar.sesTimingDict,csVar.timeVars)
 
-	randWaitTimePad=np.random.randint(csVar.sesVarDict['minTrialVar'],\
-		csVar.sesVarDict['maxTrialVar'],size=maxTrials)
 
 	# D) Flush the teensy serial buffer. Send it to the init state (#0).
 	csSer.flushBuffer(teensy)
@@ -1140,7 +1205,6 @@ def runDetectionTask():
 	while csVar.sesVarDict['sessionOn']:
 		# try to execute the task.
 		try:
-			
 			# # a) Do we keep running?
 			csVar.sesVarDict['totalTrials']=int(csGui.totalTrials_TV.get())
 			try:
@@ -1172,8 +1236,8 @@ def runDetectionTask():
 				loopCnt=loopCnt+1
 				
 				# Plot updates.
-				plotSamps=200
-				updateCount=500
+				plotSamps=csVar.sesVarDict['plotSamps']
+				updateCount=csVar.sesVarDict['updateCount']
 				lyMin=-1
 				lyMax=1025
 				if csVar.sesVarDict['chanPlot']==9 or csVar.sesVarDict['chanPlot']==7:
@@ -1227,47 +1291,56 @@ def runDetectionTask():
 
 						# reset counters that track state stuff.
 						lickCounter=0
+						lastLickCount = 0
 						lastLick=0                    
 						outSyncCount=0
 						# get contrast and orientation
 						# trials are 0 until incremented, so incrementing
 						# trial after these picks ensures 0 indexing without -1.
-						tContrast=randContrasts[csVar.sesVarDict['trialNum']]
-						tOrientation=randOrientations[csVar.sesVarDict['trialNum']]
-						tSpatial=randSpatials[csVar.sesVarDict['trialNum']]
-						preTime=randWaitTimePad[csVar.sesVarDict['trialNum']]
+						
+						tContrast=int(trialVars_vStim[csVar.sesVarDict['trialNum'],0])
+						tOrientation=int(trialVars_vStim[csVar.sesVarDict['trialNum'],1])
+						tSpatial=int(trialVars_vStim[csVar.sesVarDict['trialNum'],2])
+						preTime=int(trialVars_timing[csVar.sesVarDict['trialNum'],0])
+						minNoLickTime=int(trialVars_timing[csVar.sesVarDict['trialNum'],1])
 
 						contrastList.append(tContrast)
 						orientationList.append(tOrientation)
 						spatialFreqs.append(tSpatial)
 						waitPad.append(preTime)
+						actualWaitPad.append(preTime)
 
 						# update visual stim params
-						teensy.write('c{}>'.format(tContrast).encode('utf-8'))
+						teensy.write('c{}>'.format(int(tContrast)).encode('utf-8'))
 						teensy.write('o{}>'.format(tOrientation).encode('utf-8'))
 						teensy.write('s{}>'.format(tSpatial).encode('utf-8'))
 					   
 						# update the trial
 						print('start trial #{}'.format(csVar.sesVarDict['trialNum']))
 						print('contrast: {:0.2f} orientation: {}'.format(tContrast,tOrientation))
+						print('min no lick = {}'.format(minNoLickTime))
 
 						# close the header and flip the others open.
 						sHeaders[pyState]=1
 						sHeaders[np.setdiff1d(sList,pyState)]=0
 					
-					# exit if we've waited long enough (preTime) and animal isn't licking.
-					if (tStateTime-lastLick)>csVar.sesVarDict['minNoLickTime'] and tStateTime>preTime:
-						# we know we will be out of sync
+					if lickCounter>lastLickCount:
+						lastLickCount=lickCounter
+						# if the lick happens such that the minimum lick time will go over the pre time, 
+						# then we advance pre-time by the minumum
+						if tStateTime>(preTime-minNoLickTime):
+							preTime = tStateTime + minNoLickTime
+							actualWaitPad[-1]=preTime
+
+					if tStateTime>preTime:
 						stateSync=0
-						# we set python to new state.
 						if tContrast>0:
 							pyState=2
-							# we ask teensy to go to new state.
 							teensy.write('a2>'.encode('utf-8'))
 						elif tContrast==0:
 							pyState=3
-							# we ask teensy to go to new state.
 							teensy.write('a3>'.encode('utf-8'))
+
 				if pyState == 2 and stateSync==1:
 					if sHeaders[pyState]==0:
 						csPlt.updateStateFig(pyState)
@@ -1452,6 +1525,7 @@ def runDetectionTask():
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['orientations']=orientationList
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['spatialFreqs']=spatialFreqs
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['waitTimePads']=waitPad
+	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['actualWaitPads']=actualWaitPad
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['trialDurs']=sampLog
 
 	
@@ -1533,543 +1607,10 @@ def runDetectionTask():
 	
 	csGui.quitButton['text']="Quit"
 
-# Trial Opto is Sinda's Task
 def runTrialOptoTask():
 	
 	# datestamp/rig id/session variables
 	cTime = datetime.datetime.now()
-	dStamp=cTime.strftime("%m_%d_%Y")
-	curMachine=csVar.getRig()
-
-	# cad: This changed. I make a plot in the task, in case we want distinct plots
-	csPlt.makeTrialFig(csVar.sesVarDict['detectPlotNum'])
-	# cad: This changed. csVar.sesVarDict is the master dict, but I pass a copy to 
-	# the gui creation class when we subclass it. It modifies some variables, but this 
-	# function will return the GUI's copy.  
-	csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-
-
-	# C) Create a com object to talk to the main Teensy.
-	csVar.sesVarDict['comPath_teensy']=comPath_teensy_TV.get()
-	teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
-
-	# D) Task specific: preallocate sensory variables that need randomization.
-	# prealloc random stuff (assume no more than 1k trials)
-	maxTrials=1000
-	### edit below code when it's time to randomize stim amp/time
-
-	### make sure 'minTrialVar' and 'maxTrialVar' are in the gui 
-	randWaitTimePad=np.random.randint(csVar.sesVarDict['minTrialVar'],\
-		csVar.sesVarDict['maxTrialVar'],size=maxTrials)
-
-	# D) Flush the teensy serial buffer. Send it to the init state (#0).
-	csSer.flushBuffer(teensy)
-	teensy.write('a0>'.encode('utf-8'))
-	time.sleep(0.01)
-
-	# E) Make sure the main Teensy is actually in state 0.
-	# check the state.
-	sChecked=0
-	while sChecked==0:
-		[tTeensyState,sChecked]=csSer.checkVariable(teensy,'a',0.005)
-
-	while tTeensyState != 0:
-		print("not in 0, will force")
-		teensy.write('a0>'.encode('utf-8'))
-		time.sleep(0.005)
-		cReturn=csSer.checkVariable(teensy,'a',0.005)
-		if cReturn(1)==1:
-			tTeensyState=cReturn(0)
-
-	# F) Get lick sensor and load cell baseline. Estimate and log weight. (SF: lick code lower)
-	try: 
-		wVals=[]
-		lIt=0
-		while lIt<=50:
-			[rV,vN]=csSer.checkVariable(teensy,'w',0.002)
-			if vN:
-				wVals.append(rV)
-				lIt=lIt+1
-		csVar.sesVarDict['curWeight']=(np.mean(wVals)-csVar.sesVarDict['loadBaseline'])*csVar.sesVarDict['loadScale'];
-		preWeight=csVar.sesVarDict['curWeight']
-	except:
-		csVar.sesVarDict['curWeight']=20
-
-	# Optional: Update MQTT Feeds
-	if csVar.sesVarDict['logMQTT']:
-		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/cdIO.txt'
-		# aio is csAIO's mq broker object.
-		aio=csAIO.connectBroker(aioHashPath)
-		try:
-			csAIO.rigOnLog(aio,csVar.sesVarDict['subjID'],csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
-		except:
-			print('no mqtt logging')
-		# [csVar.sesVarDict['waterConsumed'],hrDiff]=csAIO.getDailyConsumption(aio,csVar.sesVarDict['subjID'],\
-		#     csVar.sesVarDict['rigGMTZoneDif'],12)
-		# print('{} already had {} ml'.format(csVar.sesVarDict['subjID'],csVar.sesVarDict['waterConsumed']))
-
-		try:
-			print('logging to sheet')
-			gHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/client_secret.json'
-			gSheet=csAIO.openGoogleSheet(gHashPath)
-			csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],'Weight Pre',csVar.sesVarDict['curWeight'])
-			print('logged to sheet')
-		except:
-			print('did not log to google sheet')
-
-
-	# F) Set some session flow variables before the task begins
-	# Turn the session on. 
-	csVar.sesVarDict['sessionOn']=1
-	# Set the state of the quit button to 0, it now ends the session.
-	# This is part of the scheme to ensure data always gets saved. 
-	csVar.sesVarDict['canQuit']=0
-	quitButton['text']="End Ses"
-	# For reference, confirm the Teensy's interrupt (sampling) rate. 
-	csVar.sesVarDict['sampRate']=1000
-	# Set maxDur to be two hours.
-	csVar.sesVarDict['maxDur']=60*60*csVar.sesVarDict['sampRate']*2
-	# Determine the max samples. We preallocate a numpy array to this depth.
-	npSamps=csVar.sesVarDict['maxDur']
-	sesData=np.zeros([npSamps,csVar.sesVarDict['dStreams']])
-	dStreamLables=['interrupt','trialTime','stateTime','teensyState','lick0_Data',\
-	'lick1_Data','pythonState','thrLicksA','motion','contrast','orientation']
-
-	# Temp Trial Variability
-	csVar.sesVarDict['curSession']=int(curSession_TV.get())
-	f=csSesHDF.makeHDF(csVar.sesVarDict['dirPath']+'/',csVar.sesVarDict['subjID'] + '_ses{}'.\
-		format(csVar.sesVarDict['curSession']),dStamp)
-
-	### (SF: measure licks below) 
-	pyState=1
-
-	### SF: put lick code back in later when relevant 
-	### SF: change the tContrast and tOrientation code later when I want to change stim amplitude etc 
-	# =============================================================================
-	#     lastLick=0
-	#     lickCounter=0
-	#     
-	#     tContrast=0
-	#     tOrientation=0
-	# =============================================================================
-
-	### SF: the number of headers (0's) needed depends on how many states are used in the task 
-	sHeaders=np.array([0,0,0])
-	sList=[0,1,2]
-	trialSamps=[0,0]
-
-	serialBuf=bytearray()
-	sampLog=[]
-	csGui.toggleTaskButtons(0)
-
-	#stimResponses=[]
-	stimTrials=[]
-	#noStimResponses=[]
-	#noStimTrials=[]
-	loopCnt=0
-	csVar.sesVarDict['trialNum']=0
-	#csVar.sesVarDict['lickLatchA']=0
-	outSyncCount=0
-
-
-	# Send to 1, wait state.
-	teensy.write('a1>'.encode('utf-8')) 
-	while csVar.sesVarDict['sessionOn']:
-		# try to execute the task.
-		try:
-			
-			# a) Do we keep running?
-			csVar.sesVarDict['totalTrials']=int(totalTrials_TV.get())
-			### SF: no shaping trials in this task 
-	# =============================================================================
-	#             try:
-	#                 csVar.sesVarDict['shapingTrial']=int(shapingTrial_TV.get())
-	#             except:
-	#                 csVar.sesVarDict['shapingTrial']=0
-	#                 shapingTrial_TV.set('0')
-	# =============================================================================
-			#csVar.sesVarDict['lickAThr']=int(lickAThr_TV.get())
-			#csVar.sesVarDict['chanPlot']=chanPlotIV.get()
-			
-			
-	##################################################################################
-	##################################################################################
-	### SF: think about whether I want to use minStimTime_TV to control timing of this task. Actually; may not need minStimTime if 
-			csVar.sesVarDict['minStimTime']=int(minStimTime_TV.get())
-			if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
-				csVar.sesVarDict['sessionOn']=0
-
-			
-			# b) Look for teensy data.
-			[tString,dNew]=csSer.readSerialData(teensy,'tData',9)
-			if dNew:
-				tStateTime=int(tString[3])
-				tTeensyState=int(tString[4])
-		
-
-				tFrameCount=0  # Todo: frame counter in.
-				for x in range(0,csVar.sesVarDict['dStreams']-2):
-					sesData[loopCnt,x]=int(tString[x+1])
-				sesData[loopCnt,8]=pyState # The state python wants to be.
-				#sesData[loopCnt,9]=0 # Thresholded licks
-				loopCnt=loopCnt+1
-				
-				# Plot updates.
-				plotSamps=200
-				updateCount=500
-				lyMin=-1
-				lyMax=1025
-				if csVar.sesVarDict['chanPlot']==9 or csVar.sesVarDict['chanPlot']==7:
-					lyMin=-0.1
-					lyMax=1.1
-				if loopCnt>plotSamps and np.mod(loopCnt,updateCount)==0:
-					csPlt.updateTrialFig(np.arange(len(sesData[loopCnt-plotSamps:loopCnt,csVar.sesVarDict['chanPlot']])),\
-						sesData[loopCnt-plotSamps:loopCnt,csVar.sesVarDict['chanPlot']],csVar.sesVarDict['trialNum'],\
-						csVar.sesVarDict['totalTrials'],tTeensyState,[lyMin,lyMax])
-
-	 ### SF: maybe useful later 
-	# =============================================================================
-	#                 # look for licks
-	#                 latchTime=50
-	#                 if sesData[loopCnt-1,5]>=csVar.sesVarDict['lickAThr'] and csVar.sesVarDict['lickLatchA']==0:
-	#                     sesData[loopCnt-1,9]=1
-	#                     csVar.sesVarDict['lickLatchA']=latchTime
-	#                     # these are used in states
-	#                     lickCounter=lickCounter+1
-	#                     lastLick=tStateTime
-	# 
-	#                 elif csVar.sesVarDict['lickLatchA']>0:
-	#                     csVar.sesVarDict['lickLatchA']=csVar.sesVarDict['lickLatchA']-1
-	# =============================================================================
-
-				# 2) Does pyState match tState?
-				if pyState == tTeensyState:
-					stateSync=1
-
-				elif pyState != tTeensyState:
-					stateSync=0
-				
-				
-				# If we are out of sync for too long, push another change.
-				if stateSync==0:
-					outSyncCount=outSyncCount+1
-					if outSyncCount>=100:
-						teensy.write('a{}>'.format(pyState).encode('utf-8'))  
-
-	###################################################################################
-	###################################################################################
-	###################################################################################
-	### SF: PICK UP HERE-W/TIMING OF STIM PERIOD (STATE 7). REMOVE CONDITIONAL STATE CHANGES (EXCEPT TIMING BASED CHANGES)
-	### MINSTIMTIME(HOW MUCH TIME TO WAIT UNTIL GIVING A REWARD) = NOT NECESSARY; PRETIME(HOW MUCH TIME SPENT IN STATE 1 BEFORE MOVING TO 2/3-MODIFY TO BE STATE 7 TIME CONTROL)
-							
-				# 4) Now look at what state you are in and evaluate accordingly
-				if pyState == 1 and stateSync==1:
-					
-					if sHeaders[pyState]==0:
-						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
-						
-						
-						#csVar.sesVarDict['minNoLickTime']=np.random.randint(900,2900)
-						csPlt.updateStateFig(1)
-						trialSamps[0]=loopCnt-1
-
-						# reset counters that track state stuff.
-						pulse_start=0
-						
-	# =============================================================================
-	#                         # get contrast and orientation
-	#                         # trials are 0 until incremented, so incrementing
-	#                         # trial after these picks ensures 0 indexing without -1.
-	#                         tContrast=randContrasts[csVar.sesVarDict['trialNum']]
-	#                         tOrientation=randOrientations[csVar.sesVarDict['trialNum']]
-	#                         tSpatial=randSpatials[csVar.sesVarDict['trialNum']]
-	# =============================================================================
-						preTime=randWaitTimePad[csVar.sesVarDict['trialNum']]
-
-	# =============================================================================
-	#                         contrastList.append(tContrast)
-	#                         orientationList.append(tOrientation)
-	#                         spatialFreqs.append(tSpatial)
-	# =============================================================================
-						waitPad.append(preTime)
-
-						# update visual stim params
-						teensy.write('c{}>'.format(tContrast).encode('utf-8'))
-						teensy.write('o{}>'.format(tOrientation).encode('utf-8'))
-						teensy.write('s{}>'.format(tSpatial).encode('utf-8'))
-					   
-						# update the trial
-						print('start trial #{}'.format(csVar.sesVarDict['trialNum']))
-						print('contrast: {:0.2f} orientation: {}'.format(tContrast,tOrientation))
-
-						# close the header and flip the others open.
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0
-					
-					# exit if we've waited long enough (preTime) 
-					if tStateTime>preTime:
-						# we know we will be out of sync
-						stateSync=0
-						# we set python to new state.
-						if tContrast>0:
-							pyState=2
-							# we ask teensy to go to new state.
-							teensy.write('a2>'.encode('utf-8'))
-						elif tContrast==0:
-							pyState=3
-							# we ask teensy to go to new state.
-							teensy.write('a3>'.encode('utf-8'))
-							
-							
-				if pyState == 2 and stateSync==1:
-					if sHeaders[pyState]==0:
-						csPlt.updateStateFig(pyState)
-						reported=0
-						lickCounter=0
-						lastLick=0
-						outSyncCount=0
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0                        
-	 
-					if lastLick>0.02:
-						reported=1
-
-					if tStateTime>csVar.sesVarDict['minStimTime']:
-						if reported==1 or csVar.sesVarDict['shapingTrial']:
-							stimTrials.append(csVar.sesVarDict['trialNum'])
-							stimResponses.append(1)
-							stateSync=0
-							pyState=4
-							teensy.write('a4>'.encode('utf-8'))
-							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-								csVar.sesVarDict['totalTrials'])
-						elif reported==0:
-							stimTrials.append(csVar.sesVarDict['trialNum'])
-							stimResponses.append(0)
-							stateSync=0
-							pyState=1
-							trialSamps[1]=loopCnt
-							sampLog.append(np.diff(trialSamps)[0])
-							teensy.write('a1>'.encode('utf-8'))
-							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-								csVar.sesVarDict['totalTrials'])
-							print('miss: last trial took: {} seconds'.format(sampLog[-1]/1000))
-
-				
-				if pyState == 3 and stateSync==1:
-					if sHeaders[pyState]==0:
-						csPlt.updateStateFig(pyState)
-						reported=0
-						lickCounter=0
-						lastLick=0
-						outSyncCount=0
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0
-	 
-					if lastLick>0.005:
-						reported=1
-
-					if tStateTime>csVar.sesVarDict['minStimTime']:
-						if reported==1:
-							noStimTrials.append(csVar.sesVarDict['trialNum'])
-							noStimResponses.append(1)
-							stateSync=0
-							pyState=5
-							teensy.write('a5>'.encode('utf-8'))
-							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-								csVar.sesVarDict['totalTrials'])
-						elif reported==0:
-							noStimTrials.append(csVar.sesVarDict['trialNum'])
-							noStimResponses.append(0)
-							stateSync=0
-							pyState=1
-							trialSamps[1]=loopCnt
-							sampLog.append(np.diff(trialSamps)[0])
-							teensy.write('a1>'.encode('utf-8'))
-							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-								csVar.sesVarDict['totalTrials'])
-							print('cor rejection: last trial took: {} seconds'.format(sampLog[-1]/1000))
-
-				if pyState == 4 and stateSync==1:
-					if sHeaders[pyState]==0:
-						csPlt.updateStateFig(pyState)
-						lickCounter=0
-						lastLick=0
-						outSyncCount=0
-						csVar.sesVarDict['waterConsumed']=csVar.sesVarDict['waterConsumed']+csVar.sesVarDict['volPerRwd']
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0
-					
-					# exit
-					if tStateTime>csVar.sesVarDict['rewardDur']:
-						trialSamps[1]=loopCnt
-						sampLog.append(np.diff(trialSamps)[0])
-						stateSync=0
-						pyState=1
-						outSyncCount=0
-						teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(sampLog[-1]/1000))
-
-				if pyState == 5 and stateSync==1:
-					if sHeaders[pyState]==0:
-						csPlt.updateStateFig(pyState)
-						lickCounter=0
-						lastLick=0
-						outSyncCount=0
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0
-					
-					# exit
-					if tStateTime>csVar.sesVarDict['toTime']:
-						trialSamps[1]=loopCnt
-						sampLog.append(np.diff(trialSamps)[0])
-						stateSync=0
-						pyState=1
-						teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(sampLog[-1]/1000))
-		except:
-			#cad: you may have taken out for a reason, but habbit
-			sesData.flush()
-			np.save('sesData.npy',sesData)
-			print(x)
-			print(loopCnt)
-			print(tString)
-
-			# cad: this changed, I toggle all task butttons using a method in csGUI
-			csGui.toggleTaskButtons(1)
-			csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-			# cad: this changed as csGui owns the text variables now		
-			csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
-			teensy.write('a0>'.encode('utf-8'))
-			time.sleep(0.05)
-			teensy.write('a0>'.encode('utf-8'))
-
-			print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
-			csVar.sesVarDict['trialNum']=0
-			# cad: this changed, like way above to get a fresh version of what the
-			# GUI thinks has changed.
-			csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
-			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
-
-			f["session_{}".format(csVar.sesVarDict['curSession']-1)]=sesData[0:loopCnt,:]
-			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['contrasts']=contrastList
-			f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['stimResponses']=stimResponses
-			f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['stimTrials']=stimTrials
-			f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['noStimResponses']=noStimResponses
-			f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['noStimTrials']=noStimTrials
-			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['orientations']=orientationList
-			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['spatialFreqs']=spatialFreqs
-			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['waitTimePads']=waitPad
-			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['trialDurs']=sampLog
-			f.close()
-
-			
-
-			# Update MQTT Feeds
-			if csVar.sesVarDict['logMQTT']:
-				try:
-					csVar.sesVarDict['curWeight']=(np.mean(sesData[-200:-1,4])-csVar.sesVarDict['loadBaseline'])*csVar.sesVarDict['loadScale']
-				except:
-					csVar.sesVarDict['curWeight']=21
-				csAIO.rigOffLog(aio,csVar.sesVarDict['subjID'],csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
-
-				# update animal's water consumed feed.
-				csVar.sesVarDict['waterConsumed']=int(csVar.sesVarDict['waterConsumed']*10000)/10000
-				aio.send('{}_waterConsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
-				topAmount=csVar.sesVarDict['consumpTarg']-csVar.sesVarDict['waterConsumed']
-				topAmount=int(topAmount*10000)/10000
-				if topAmount<0:
-					topAmount=0
-			 
-				print('give {:0.3f} ml later by 12 hrs from now'.format(topAmount))
-				aio.send('{}_topVol'.format(csVar.sesVarDict['subjID']),topAmount)
-			
-			csVar.updateDictFromGUI(csVar.sesVarDict)
-			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
-			csVar.sesVarDict['canQuit']=1
-			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
-
-			csSer.flushBuffer(teensy) 
-			teensy.close()
-			
-			quitButton['text']="Quit"
-						 
-
-	f["session_{}".format(csVar.sesVarDict['curSession'])]=sesData[0:loopCnt,:]
-	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['contrasts']=contrastList
-	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['stimResponses']=stimResponses
-	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['stimTrials']=stimTrials
-	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['noStimResponses']=noStimResponses
-	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['noStimTrials']=noStimTrials
-	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['orientations']=orientationList
-	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['spatialFreqs']=spatialFreqs
-	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['waitTimePads']=waitPad
-	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['trialDurs']=sampLog
-
-
-	f.close()
-
-	tc_2['state'] = 'normal'
-	csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-	curSession_TV.set(csVar.sesVarDict['curSession'])
-	teensy.write('a0>'.encode('utf-8'))
-	time.sleep(0.05)
-	teensy.write('a0>'.encode('utf-8'))
-
-	print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
-	csVar.sesVarDict['trialNum']=0
-
-
-
-	# Update MQTT Feeds
-	if csVar.sesVarDict['logMQTT']==1:
-		try:
-			csVar.sesVarDict['curWeight']=(np.mean(sesData[loopCnt-plotSamps:loopCnt,4])-csVar.sesVarDict['loadBaseline'])*\
-			csVar.sesVarDict['loadScale'];
-		except:
-			csVar.sesVarDict['curWeight']=21
-
-		csVar.sesVarDict['waterConsumed']=int(csVar.sesVarDict['waterConsumed']*10000)/10000
-		topAmount=csVar.sesVarDict['consumpTarg']-csVar.sesVarDict['waterConsumed']
-		topAmount=int(topAmount*10000)/10000
-		if topAmount<0:
-			topAmount=0
-		print('give {:0.3f} ml later by 12 hrs from now'.format(topAmount))
-
-		try:
-			csAIO.rigOffLog(aio,csVar.sesVarDict['subjID'],csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
-			aio.send('{}_waterConsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
-			aio.send('{}_topVol'.format(csVar.sesVarDict['subjID']),topAmount)
-		except:
-			print('failed to log mqtt info')
-	   
-		# update animal's water consumed feed.
-
-		try:
-			gDStamp=datetime.datetime.now().strftime("%m/%d/%Y")
-			gTStamp=datetime.datetime.now().strftime("%H:%M:%S")
-			print('debug in sheet')
-			# gHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/client_secret.json'
-			gSheet=csAIO.openGoogleSheet(gHashPath)
-			csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],'Weight Post',csVar.sesVarDict['curWeight'])
-			csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],'Delivered',csVar.sesVarDict['waterConsumed'])
-			csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],'Place',curMachine)
-			csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],'Date Stamp',gDStamp)
-			csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],'Time Stamp',gTStamp)
-		except:
-			print('did not log to google sheet')
-
-	# cad: changed see above (2x)
-	csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-	csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
-	csVar.sesVarDict['canQuit']=1
-	csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
-
-	csSer.flushBuffer(teensy)
-	teensy.close()
-	
-	csGui.quitButton['text']="Quit"
 
 mainloop()
 

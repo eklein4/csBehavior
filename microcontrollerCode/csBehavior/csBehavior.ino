@@ -42,6 +42,15 @@ bool relayState;
 uint32_t relayTimer = 0;
 bool relayState2;
 uint32_t relayTimer2 = 0;
+// session header
+bool startSession = 0;
+
+elapsedMillis trialTime;
+elapsedMillis stateTime;
+elapsedMicros headerTime;
+elapsedMicros loopTime;
+
+
 
 // e) UARTs (Hardware Serial Lines)
 #define visualSerial Serial1 // out to a computer running psychopy
@@ -75,6 +84,9 @@ uint32_t genAnalogInput0 = 0;
 uint32_t genAnalogInput1 = 0;
 uint32_t genAnalogInput2 = 0;
 uint32_t genAnalogInput3 = 0;
+
+uint32_t microTimer;
+uint32_t microTimer2;
 
 // a) Set DAC and ADC resolution in bits.
 uint32_t adcResolution = 12;
@@ -147,18 +159,15 @@ uint32_t pulseTrain_chanA[] = {1, 1, knownValues[9], knownValues[10], 0, knownVa
 uint32_t pulseTrain_chanB[] = {1, 1, knownValues[13], knownValues[14], 0, knownValues[15], knownValues[16], 0, 0};
 
 
-
-
 // g) Reward Params
 uint32_t rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulus
 
 // h) Various State Related Things
 uint32_t lastState = knownValues[0];  // We keep track of current state "knownValues[0]" and the last state.
 uint32_t loopCount = 0; // Count state machine interrupts
-uint32_t timeOffs;      // Mark an offset time from when we began the state machine.
-uint32_t stateTimeOffs; // Mark an offset time from when we enter a new state.
-uint32_t trialTime;     // Mark time for each trial (state 1 to state 1).
-uint32_t stateTime;     // Mark time for each state.
+//uint32_t timeOffs;      // Mark an offset time from when we began the state machine.
+//uint32_t stateTimeOffs; // Mark an offset time from when we enter a new state.
+//uint32_t trialTime;     // Mark time for each trial (state 1 to state 1).
 uint32_t trigTime = 10; // Duration (in interrupt time) of a sync out trigger.
 uint32_t lastBrightness = 10;
 bool trigStuff = 0;      // Keeps track of whether we triggered things.
@@ -178,7 +187,6 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 
 void setup() {
-  // lux sensor:
 
 
   // todo: Setup Cyclops
@@ -204,7 +212,7 @@ void setup() {
 
   pinMode(extRelay, INPUT);
   digitalWrite(extRelay, LOW);
-   pinMode(extRelay2, INPUT);
+  pinMode(extRelay2, INPUT);
   digitalWrite(extRelay2, LOW);
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
@@ -225,11 +233,15 @@ void setup() {
   FlexiTimer2::start();
 }
 
+
+
 void loop() {
   // This is interupt based so nothing here.
 }
 
+
 void vStates() {
+  loopTime = 0;
 
   // sometimes we block state changes, so let's log the last state.
   lastState = knownValues[0];
@@ -256,9 +268,12 @@ void vStates() {
       visStim(2);
       genericHeader(0);
       loopCount = 0;
-      setStrip(3);
+      setStrip(3); // red
       pulseCount = 0;
+      // reset session header
+      startSession = 0;
     }
+
     pollColorChange();
     pollToggle();
     // b) body for state 0
@@ -300,7 +315,6 @@ void vStates() {
     // This should be the start of the trial, regardless of state we start in.
     // Also, trigger anything that needs to be in sync.
     if (loopCount == 0) {
-      timeOffs = millis();
       trigStuff = 0;
       digitalWrite(syncPin, HIGH);
     }
@@ -315,19 +329,26 @@ void vStates() {
     //@@@@@@ Start Non-Boot State Definitions.
     //******************************************
 
+
     // **************************
     // State 1: Boot/Init State
     // **************************
     if (knownValues[0] == 1) {
+      // run this stuff once per session
+      if (startSession == 0) {
+        setStrip(1);
+        startSession = 1;
+        trialTime = 0;
+      }
+
       if (headerStates[1] == 0) {
         visStim(0);
         genericHeader(1);
         blockStateChange = 0;
-        setStrip(1);
       }
       genericStateBody();
       stimTrainState_DAC1(0);
-      //      stimTrainState_DAC2(0);
+      stimTrainState_DAC2(0);
 
     }
 
@@ -339,7 +360,6 @@ void vStates() {
         genericHeader(2);
         visStim(1);
         blockStateChange = 0;
-
       }
       genericStateBody();
       stimTrainState_DAC1(0);
@@ -373,7 +393,6 @@ void vStates() {
       genericStateBody();
       stimTrainState_DAC1(0);
       stimTrainState_DAC2(0);
-
 
       if (rewardDelivTypeA == 0 && rewarding == 0) {
         digitalWrite(rewardPin, HIGH);
@@ -455,8 +474,7 @@ void vStates() {
       }
     }
 
-    // ******* Stuff we do for all non-boot states.
-    trialTime = millis() - timeOffs;
+    // ******* Stuff we do for all non-boot states at the end.
     dataReport();
     loopCount++;
   }
@@ -482,9 +500,9 @@ void dataReport() {
   Serial.print(',');
   Serial.print(pulseCount);
   Serial.print(',');
-  Serial.print(genAnalogInput0);
+  Serial.print(loopTime);
   Serial.print(',');
-  Serial.println(genAnalogInput1);
+  Serial.println(headerTime);
 }
 
 int flagReceive(char varAr[], uint32_t valAr[]) {
@@ -617,18 +635,21 @@ void resetHeaders() {
 }
 
 void genericHeader(int stateNum) {
-  stateTimeOffs = millis();
+  headerTime = 0;
   resetHeaders();
   headerStates[stateNum] = 1;
   resetStimTrains();
+  stateTime = 0;
 }
 
 void genericStateBody() {
-  stateTime = millis() - stateTimeOffs;
+ 
   lickSensorAValue = analogRead(lickPinA);
-  // knownValues[17] = analogRead(forcePin);
+  lickSensorAValue = analogRead(lickPinB);
   genAnalogInput0 = analogRead(genA0);
   genAnalogInput1 = analogRead(genA1);
+  genAnalogInput2 = analogRead(genA2);
+  genAnalogInput3 = analogRead(genA3);
   relayState = digitalRead(extRelay);
   relayState2 = digitalRead(extRelay2);
   if (scale.is_ready()) {
