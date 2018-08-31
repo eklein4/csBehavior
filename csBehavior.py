@@ -43,8 +43,25 @@ import pandas as pd
 from scipy.stats import norm
 import pygsheets
 from Adafruit_IO import Client
+import configparser
 
-root = Tk()
+try:
+	config = configparser.ConfigParser()
+	config.read(sys.argv[1])
+	useGUI = int(config['settings']['useGUI'])
+	taskType = config['settings']['task']
+	temp_comPath_teensy = config['sesVars']['comPath_teensy']
+	temp_savePath = config['sesVars']['savePath']
+	temp_hashPath = config['sesVars']['hashPath']
+	if useGUI==1:
+		print("using gui ...")
+		root = Tk()
+	if useGUI == 0:
+		print("not using gui")
+except: 
+	print("using gui ...")
+	root = Tk()
+
 
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 # $$$$$$$$$$$$$ Class Definituions $$$$$$$$$$$$$$$
@@ -53,7 +70,7 @@ root = Tk()
 class csGUI(object):
 	
 	# a) Init will make primary window.
-	def __init__(self, master, varDict):
+	def __init__(self, master, varDict,timingDict,timingLabels,sesDict,sesLabels):
 		
 		self.master = master
 
@@ -62,7 +79,7 @@ class csGUI(object):
 		cpRw=0
 
 		self.taskBar = Frame(self.master)
-		self.master.title("csVisual")
+		self.master.title("csBehavior")
 		
 		self.tb = Button(self.taskBar,text="set path",justify=LEFT,width=c1Wd,command=lambda: self.getPath(varDict))
 		self.tb.grid(row=cpRw+1,column=1,sticky=W,padx=10)
@@ -74,19 +91,13 @@ class csGUI(object):
 		self.dirPath_entry.grid(row=cpRw+1,column=0,padx=0,columnspan=1,sticky=W)
 		
 		cpRw=2
-		self.comPath_teensy_label=Label(self.taskBar, text="COM (Teensy) path/Baud Rate:", justify=LEFT)
+		self.comPath_teensy_label=Label(self.taskBar, text="COM Port:", justify=LEFT)
 		self.comPath_teensy_label.grid(row=cpRw,column=0,padx=0,sticky=W)
 		self.comPath_teensy_TV=StringVar(self.taskBar)
 		self.comPath_teensy_TV.set(varDict['comPath_teensy'])
 		self.comPath_teensy_entry=Entry(self.taskBar, width=22, textvariable=self.comPath_teensy_TV)
-		self.comPath_teensy_entry.grid(row=cpRw+1,column=0,padx=0,columnspan=1,sticky=W)
+		self.comPath_teensy_entry.grid(row=cpRw+1,column=0,padx=0,sticky=W)
 		
-		self.baudSelected=IntVar(self.taskBar)
-		self.baudSelected.set(19200)
-		self.baudPick = OptionMenu(self.taskBar,self.baudSelected,19200,115200,9600,500000)
-		self.baudPick.width=c1Wd+4
-		self.baudPick.grid(row=cpRw+1, column=1,sticky=W,padx=10)
-		self.baudPick.config(width=8)
 
 		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
 		self.blL.grid(row=cpRw+2,column=0,padx=0,sticky=W)
@@ -134,7 +145,7 @@ class csGUI(object):
 		self.minStimTime_entry.grid(row=cpRw,column=0,padx=0,sticky=E)
 
 		cpRw=cpRw+1
-		self.plotSamps_label=Label(self.taskBar, text="Samps to Plot:", justify=LEFT)
+		self.plotSamps_label=Label(self.taskBar, text="Samps per Plot:", justify=LEFT)
 		self.plotSamps_label.grid(row=cpRw,column=0,padx=0,sticky=W)
 		self.plotSamps_TV=StringVar(self.taskBar)
 		self.plotSamps_TV.set(varDict['plotSamps'])
@@ -142,7 +153,7 @@ class csGUI(object):
 		self.plotSamps_entry.grid(row=cpRw,column=0,padx=0,sticky=E)
 
 		cpRw=cpRw+1
-		self.updateCount_label=Label(self.taskBar, text="Plot Update Rate:", justify=LEFT)
+		self.updateCount_label=Label(self.taskBar, text="Plot Update:", justify=LEFT)
 		self.updateCount_label.grid(row=cpRw,column=0,padx=0,sticky=W)
 		self.updateCount_TV=StringVar(self.taskBar)
 		self.updateCount_TV.set(varDict['updateCount'])
@@ -170,7 +181,7 @@ class csGUI(object):
 		Radiobutton(self.taskBar, text="Scope", \
 			variable=self.chanPlotIV, value=8).grid(row=anOrigin+3,column=1,padx=10,sticky=W)
 		Radiobutton(self.taskBar, text="Thr Licks", \
-			variable=self.chanPlotIV, value=9).grid(row=anOrigin+4,column=1,padx=10,sticky=W)
+			variable=self.chanPlotIV, value=11).grid(row=anOrigin+4,column=1,padx=10,sticky=W)
 		Radiobutton(self.taskBar, text="Nothing", \
 			variable=self.chanPlotIV, value=0).grid(row=anOrigin+5,column=1,padx=10,sticky=W)
 
@@ -178,7 +189,7 @@ class csGUI(object):
 		# MQTT Stuff
 		cpRw=cpRw+1
 		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
-		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)		
 
 		cpRw=cpRw+1
 		self.logMQTT_TV=IntVar()
@@ -187,6 +198,7 @@ class csGUI(object):
 			variable=self.logMQTT_TV,onvalue=1,offvalue=0)
 		self.logMQTT_Toggle.grid(row=cpRw,column=0,sticky=W)
 		self.logMQTT_Toggle.select()
+
 
 		self.tBtn_detection = Button(self.taskBar,text="Task:Detection",justify=LEFT,width=c1Wd,command=self.do_detection)
 		self.tBtn_detection.grid(row=cpRw,column=1,padx=10,sticky=W)
@@ -222,22 +234,83 @@ class csGUI(object):
 			command= lambda: self.makeDevControl(varDict))
 		self.devControlButton.grid(row=cpRw,column=1,padx=10,sticky=W)
 
+
 		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
 		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)
 		cpRw=cpRw+1
 		self.quitButton = Button(self.taskBar,text="Quit",width=c1Wd,command=lambda: self.closeup(varDict))
 		self.quitButton.grid(row=cpRw,column=0,padx=10,pady=5,sticky=W)
 		
+		self.tBtn_timeWin = Button(self.taskBar,text="Options: Timing",justify=LEFT,width=c1Wd,\
+			command=lambda: self.makeTimingWindow(self,timingDict,timingLabels))
+		self.tBtn_timeWin.grid(row=cpRw,column=1,padx=10,pady=5,sticky=W)
 		# Finish the window
 		self.taskBar.pack(side=TOP, fill=X)
 	
 	# b) Functions that make other windows
+
+	def makeTimingWindow(self,master,timeDict,timeLabels):
+		print(timeDict['trialLength'])
+		print(timeLabels)
+		dCBWd = 12
+		self.timingControl_frame = Toplevel(self.master)
+		self.timingControl_frame.title('Session/Trial Timing')
+
+		self.maxTVLabel = Label(self.timingControl_frame,text="Max Trials:",justify=LEFT)
+		self.maxTVLabel.grid(row=0,column=0)
+		self.maxTrialsTV=StringVar(self.timingControl_frame)
+		self.maxTrialsTV.set(timeDict['trialLength'])
+		self.maxTrialsTV_Entry = Entry(self.timingControl_frame,\
+			width=8,textvariable=self.maxTrialsTV)
+		self.maxTrialsTV_Entry.grid(row=0,column=1)
+
+		self.minTVLabel = Label(self.timingControl_frame,text="Min ISI (ms):",justify=LEFT)
+		self.minTVLabel.grid(row=1,column=0)
+		self.minISI_TV=StringVar(self.timingControl_frame)
+		self.minISI_TV.set(timeDict['trial_wait_null'])
+		self.minISI_TV_Entry = Entry(self.timingControl_frame,\
+			width=8,textvariable=self.minISI_TV)
+		self.minISI_TV_Entry.grid(row=1,column=1)
+
+		self.maxTVLabel = Label(self.timingControl_frame,text="Max ISI (ms):",justify=LEFT)
+		self.maxTVLabel.grid(row=2,column=0)
+		self.maxISI_TV=StringVar(self.timingControl_frame)
+		self.maxISI_TV.set(timeDict['trial_wait_max'])
+		self.maxISI_TV_Entry = Entry(self.timingControl_frame,\
+			width=8,textvariable=self.maxISI_TV)
+		self.maxISI_TV_Entry.grid(row=2,column=1)
+
+		self.minNoLickTVLabel = Label(self.timingControl_frame,text="Min No-Lick (ms):",justify=LEFT)
+		self.minNoLickTVLabel.grid(row=3,column=0)
+		self.minNoLick_TV=StringVar(self.timingControl_frame)
+		self.minNoLick_TV.set(timeDict['lick_wait_null'])
+		self.minNoLick_TV_Entry = Entry(self.timingControl_frame,\
+			width=8,textvariable=self.minNoLick_TV)
+		self.minNoLick_TV_Entry.grid(row=3,column=1)
+
+		self.maxNoLickTVLabel = Label(self.timingControl_frame,text="Max No-Lick (ms):",justify=LEFT)
+		self.maxNoLickTVLabel.grid(row=4,column=0)
+		self.maxNoLick_TV=StringVar(self.timingControl_frame)
+		self.maxNoLick_TV.set(timeDict['lick_wait_max'])
+		self.maxNoLick_TV_Entry = Entry(self.timingControl_frame,\
+			width=8,textvariable=self.maxNoLick_TV)
+		self.maxNoLick_TV_Entry.grid(row=4,column=1)
+
+		self.updateTimingBtn = Button(self.timingControl_frame,text="Update Vars",width=dCBWd,\
+			command=lambda: self.updateTiming(timeDict))
+		self.updateTimingBtn.grid(row=5,column=1)
+
+		self.updateTimingProbsBtn = Button(self.timingControl_frame,text="Update Probs",width=dCBWd,\
+			command=lambda: self.updateTiming(timeDict))
+		self.updateTimingProbsBtn.grid(row=5,column=0)
+		# self.updateTimingBtn['state'] = 'normal'
 	def makeParentWindow(self,master,varDict):
 		pass
 	def makeDevControl(self,varDict):
 		dCBWd = 12
 		self.deviceControl_frame = Toplevel(self.master)
 		self.deviceControl_frame.title('Other Dev Control')
+
 
 		odStart = 0
 
@@ -250,6 +323,16 @@ class csGUI(object):
 		self.offsetTV.set(varDict['loadBaseline'])
 		self.offsetTV_Entry = Entry(self.deviceControl_frame,width=8,textvariable=self.offsetTV)
 		self.offsetTV_Entry.grid(row=0,column=3)
+
+		self.commandTV=StringVar(self.deviceControl_frame)
+		self.commandTV.set("a1>")
+		self.commandTV_Entry = Entry(self.deviceControl_frame,width=8,textvariable=self.commandTV)
+		self.commandTV_Entry.grid(row=1,column=3)
+		self.commandBtn = Button(self.deviceControl_frame,text="Command",width=dCBWd,\
+			command=lambda: self.commandTeensy(varDict,self.commandTV.get()))
+		self.commandBtn.grid(row=1,column=2)
+		self.commandBtn['state'] = 'normal'
+
 
 		self.testRewardBtn = Button(self.deviceControl_frame,text="Rwd",width=dCBWd,\
 			command=lambda: self.commandTeensy(varDict,"z27>"))
@@ -427,8 +510,16 @@ class csGUI(object):
 			except:
 				g=1
 		return varDict
+	def updateTiming(self,timeDict):
+		timeDict['trialLength']=int(self.maxTrialsTV.get())
+		timeDict['trial_wait_null']=int(self.minISI_TV.get())
+		timeDict['trial_wait_max']=int(self.maxISI_TV.get())
+		timeDict['lick_wait_null']=int(self.minNoLick_TV.get())
+		timeDict['lick_wait_max']=int(self.maxNoLick_TV.get())
+		timeDict['trial_wait_steps']=np.arange(timeDict['trial_wait_null'],timeDict['trial_wait_max'])
+		timeDict['lick_wait_steps']=np.arange(timeDict['lick_wait_null'],timeDict['lick_wait_max'])
+		return timeDict
 	def dictToPandas(self,varDict):
-			
 			curKey=[]
 			curVal=[]
 			for key in list(varDict.keys()):
@@ -477,7 +568,8 @@ class csGUI(object):
 		comString=commandHeader+str(cVal)+'>'
 		teensy.write(comString.encode('utf-8'))
 		teensy.close()
-	def rampTeensyChan(self,varDict,rampAmp,rampDur,interRamp,rampCount,chanNum,stimType):
+	def rampTeensyChan(self,varDict,rampAmp,rampDur,\
+		interRamp,rampCount,chanNum,stimType):
 		varDelay = 0.01
 		totalStimTime=(rampDur*rampCount)+(interRamp*rampCount)
 		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
@@ -553,12 +645,12 @@ class csVariables(object):
 	def __init__(self,sesVarDict={},sesSensDict={}):
 
 		self.sesVarDict={'curSession':1,'comPath_teensy':'/dev/cu.usbmodem4589151',\
-		'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':10,\
+		'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':100,\
 		'logMQTT':1,'mqttUpDel':0.05,'curWeight':20,'rigGMTZoneDif':5,'volPerRwd':0.01,\
 		'waterConsumed':0,'consumpTarg':1.5,'dirPath':'/Users/Deister/BData',\
 		'hashPath':'/Users/cad','trialNum':0,'sessionOn':1,'canQuit':1,\
 		'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':12,\
-		'rewardDur':500,'lickAThr':900,'lickLatchA':0,'minNoLickTime':1000,\
+		'rewardDur':500,'lickAThr':3900,'lickLatchA':0,'minNoLickTime':1000,\
 		'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStimTime':1500,\
 		'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':0,'loadScale':1,\
 		'serBufSize':4096,'ramp1Dur':2000,'ramp1Amp':4095,'ramp2Dur':2000,'ramp2Amp':4095,\
@@ -569,12 +661,7 @@ class csVariables(object):
 		'vis_orientation_null':0,'vis_orientation_max':270,\
 		'vis_orientation_steps':[90],'vis_orientation_nullProb':0.33,'vis_orientation_maxProb':0.33,\
 		'vis_spatialFreq_null':3,'vis_spatialFreq_max':1,\
-		'vis_spatialFreq_steps':[],'vis_spatialFreq_nullProb':0.5,'vis_spatialFreq_maxProb':0.5,\
-		'trial_wait_null':1999,'trial_wait_max':11000,'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
-		'lick_wait_null':999,'lick_wait_max':5999,'lick_wait_maxProb':0.0,'lick_wait_nullProb':0.0}
-
-		self.sesSensDict['trial_wait_steps']=np.arange(self.sesSensDict['trial_wait_null'],self.sesSensDict['trial_wait_max'])
-		self.sesSensDict['lick_wait_steps']=np.arange(self.sesSensDict['lick_wait_null'],self.sesSensDict['lick_wait_max'])
+		'vis_spatialFreq_steps':[],'vis_spatialFreq_nullProb':0.5,'vis_spatialFreq_maxProb':0.5,}
 
 		
 		self.sesTimingDict={'trialLength':1000,'trial_wait_null':3000,'trial_wait_max':11000,'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
@@ -867,6 +954,7 @@ class csSerial(object):
 
 		if bytesAvail>0:
 			sR=comObj.readline().strip().decode()
+			print(sR)
 			sR=sR.split(',')
 			if len(sR)==varCount and sR[0]==headerString:
 				newData=1
@@ -1054,13 +1142,18 @@ class csPlot(object):
 # $$$$$$$$$$$$$ Main Program Body $$$$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
+
+
+
 # initialize class instances and some flags.
 csVar=csVariables(1)
 csSesHDF=csHDF(1)
 csAIO=csMQTT(1)
 csSer=csSerial(1)
 csPlt=csPlot(1)
-csGui = csGUI(root,csVar.sesVarDict)
+if useGUI==1:
+	csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.timeVars,csVar.sesSensDict,csVar.sensVars)
+
 
 # This is Chris' Detection Task
 def runDetectionTask():
@@ -1081,13 +1174,14 @@ def runDetectionTask():
 	waitPad=[]
 	actualWaitPad = []
 
-	csPlt.makeTrialFig(csVar.sesVarDict['detectPlotNum'])
-	# A) Update the dict from gui, in case the user changed things.
-
-	csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
+	if useGUI==1:
+		csPlt.makeTrialFig(csVar.sesVarDict['detectPlotNum'])
+		csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
+	elif useGUI==0:
+		csVar.sesVarDict['comPath_teensy']=temp_comPath_teensy
+		csVar.sesVarDict['dirPath']=temp_savePath
+		csVar.sesVarDict['hashPath']=temp_hashPath
 	
-	# C) Create a com object to talk to the main Teensy. 
-	# todo: create a timeout
 	teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
 	
 	# D) Task specific: preallocate sensory variables that need randomization.
@@ -1157,17 +1251,16 @@ def runDetectionTask():
 	# F) Set some session flow variables before the task begins
 	# Turn the session on. 
 	csVar.sesVarDict['sessionOn']=1
-	# Set the state of the quit button to 0, it now ends the session.
-	# This is part of the scheme to ensure data always gets saved. 
 	csVar.sesVarDict['canQuit']=0
-	csGui.quitButton['text']="End Ses"
-	# For reference, confirm the Teensy's interrupt (sampling) rate. 
+
+	if useGUI==1:
+		csGui.quitButton['text']="End Ses"
+	
 	csVar.sesVarDict['sampRate']=1000
-	# Set maxDur to be two hours.
 	csVar.sesVarDict['maxDur']=3600*2*csVar.sesVarDict['sampRate']
-	# Determine the max samples. We preallocate a numpy array to this depth.
 	npSamps=csVar.sesVarDict['maxDur']
-	sesData = np.memmap('cur.npy', mode='w+',dtype=np.int32,shape=(npSamps,csVar.sesVarDict['dStreams']))
+	sesData = np.memmap('cur.npy', mode='w+',dtype=np.int32,\
+		shape=(npSamps,csVar.sesVarDict['dStreams']))
 	np.save('sesData.npy',sesData)
 
 	dStreamLables=['interrupt','trialTime','stateTime','teensyState','lick0_Data',\
@@ -1190,7 +1283,8 @@ def runDetectionTask():
 	
 	serialBuf=bytearray()
 	sampLog=[]
-	csGui.toggleTaskButtons(0)
+	if useGUI==1:
+		csGui.toggleTaskButtons(0)
 	stimResponses=[]
 	stimTrials=[]
 	noStimResponses=[]
@@ -1206,15 +1300,16 @@ def runDetectionTask():
 		# try to execute the task.
 		try:
 			# # a) Do we keep running?
-			csVar.sesVarDict['totalTrials']=int(csGui.totalTrials_TV.get())
-			try:
-				csVar.sesVarDict['shapingTrial']=int(csGui.shapingTrial_TV.get())
-			except:
-				csVar.sesVarDict['shapingTrial']=0
-				shapingTrial_TV.set('0')
-			csVar.sesVarDict['lickAThr']=int(csGui.lickAThr_TV.get())
-			csVar.sesVarDict['chanPlot']=csGui.chanPlotIV.get()
-			csVar.sesVarDict['minStimTime']=int(csGui.minStimTime_TV.get())
+			if useGUI==1:
+				csVar.sesVarDict['totalTrials']=int(csGui.totalTrials_TV.get())
+				try:
+					csVar.sesVarDict['shapingTrial']=int(csGui.shapingTrial_TV.get())
+				except:
+					csVar.sesVarDict['shapingTrial']=0
+					shapingTrial_TV.set('0')
+				csVar.sesVarDict['lickAThr']=int(csGui.lickAThr_TV.get())
+				csVar.sesVarDict['chanPlot']=csGui.chanPlotIV.get()
+				csVar.sesVarDict['minStimTime']=int(csGui.minStimTime_TV.get())
 			if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
 				csVar.sesVarDict['sessionOn']=0
 
@@ -1236,22 +1331,23 @@ def runDetectionTask():
 				loopCnt=loopCnt+1
 				
 				# Plot updates.
-				plotSamps=csVar.sesVarDict['plotSamps']
-				updateCount=csVar.sesVarDict['updateCount']
-				lyMin=-1
-				lyMax=1025
-				if csVar.sesVarDict['chanPlot']==9 or csVar.sesVarDict['chanPlot']==7:
-					lyMin=-0.1
-					lyMax=1.1
-				if loopCnt>plotSamps and np.mod(loopCnt,updateCount)==0:
-					if csVar.sesVarDict['chanPlot']==0:
-						csPlt.quickUpdateTrialFig(csVar.sesVarDict['trialNum'],\
-							csVar.sesVarDict['totalTrials'],tTeensyState)
-					elif csVar.sesVarDict['chanPlot'] != 0:
-						csPlt.updateTrialFig(np.arange(len(sesData[loopCnt-plotSamps:loopCnt,\
-							csVar.sesVarDict['chanPlot']])),sesData[loopCnt-plotSamps:loopCnt,\
-						csVar.sesVarDict['chanPlot']],csVar.sesVarDict['trialNum'],\
-							csVar.sesVarDict['totalTrials'],tTeensyState,[lyMin,lyMax])
+				if useGUI==1:
+					plotSamps=csVar.sesVarDict['plotSamps']
+					updateCount=csVar.sesVarDict['updateCount']
+					lyMin=-1
+					lyMax=4098
+					if csVar.sesVarDict['chanPlot']==11 or csVar.sesVarDict['chanPlot']==7:
+						lyMin=-0.1
+						lyMax=1.1
+					if loopCnt>plotSamps and np.mod(loopCnt,updateCount)==0:
+						if csVar.sesVarDict['chanPlot']==0:
+							csPlt.quickUpdateTrialFig(csVar.sesVarDict['trialNum'],\
+								csVar.sesVarDict['totalTrials'],tTeensyState)
+						elif csVar.sesVarDict['chanPlot'] != 0:
+							csPlt.updateTrialFig(np.arange(len(sesData[loopCnt-plotSamps:loopCnt,\
+								csVar.sesVarDict['chanPlot']])),sesData[loopCnt-plotSamps:loopCnt,\
+							csVar.sesVarDict['chanPlot']],csVar.sesVarDict['trialNum'],\
+								csVar.sesVarDict['totalTrials'],tTeensyState,[lyMin,lyMax])
 
 
 				# look for licks
@@ -1286,7 +1382,8 @@ def runDetectionTask():
 					if sHeaders[pyState]==0:
 						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
 						csVar.sesVarDict['minNoLickTime']=np.random.randint(900,2900)
-						csPlt.updateStateFig(1)
+						if useGUI==1:
+							csPlt.updateStateFig(1)
 						trialSamps[0]=loopCnt-1
 
 						# reset counters that track state stuff.
@@ -1343,7 +1440,8 @@ def runDetectionTask():
 
 				if pyState == 2 and stateSync==1:
 					if sHeaders[pyState]==0:
-						csPlt.updateStateFig(pyState)
+						if useGUI==1:
+							csPlt.updateStateFig(pyState)
 						reported=0
 						lickCounter=0
 						lastLick=0
@@ -1361,8 +1459,9 @@ def runDetectionTask():
 							stateSync=0
 							pyState=4
 							teensy.write('a4>'.encode('utf-8'))
-							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-								csVar.sesVarDict['totalTrials'])
+							if useGUI==1:
+								csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
+									csVar.sesVarDict['totalTrials'])
 						elif reported==0:
 							stimTrials.append(csVar.sesVarDict['trialNum'])
 							stimResponses.append(0)
@@ -1371,14 +1470,16 @@ def runDetectionTask():
 							trialSamps[1]=loopCnt
 							sampLog.append(np.diff(trialSamps)[0])
 							teensy.write('a1>'.encode('utf-8'))
-							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-								csVar.sesVarDict['totalTrials'])
+							if useGUI==1:
+								csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
+									csVar.sesVarDict['totalTrials'])
 							print('miss: last trial took: {} seconds'.format(sampLog[-1]/1000))
 
 				
 				if pyState == 3 and stateSync==1:
 					if sHeaders[pyState]==0:
-						csPlt.updateStateFig(pyState)
+						if useGUI==1:
+							csPlt.updateStateFig(pyState)
 						reported=0
 						lickCounter=0
 						lastLick=0
@@ -1397,24 +1498,26 @@ def runDetectionTask():
 							stateSync=0
 							pyState=5
 							teensy.write('a5>'.encode('utf-8'))
-							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-								csVar.sesVarDict['totalTrials'])
+							if useGUI==1:
+								csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
+									csVar.sesVarDict['totalTrials'])
 						elif reported==0:
 							noStimTrials.append(csVar.sesVarDict['trialNum'])
 							noStimResponses.append(0)
-							# aio.send('{}_trial'.format(csVar.sesVarDict['subjID']),4)
 							stateSync=0
 							pyState=1
 							trialSamps[1]=loopCnt
 							sampLog.append(np.diff(trialSamps)[0])
 							teensy.write('a1>'.encode('utf-8'))
-							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-								csVar.sesVarDict['totalTrials'])
+							if useGUI==1:
+								csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
+									csVar.sesVarDict['totalTrials'])
 							print('cor rejection: last trial took: {} seconds'.format(sampLog[-1]/1000))
 
 				if pyState == 4 and stateSync==1:
 					if sHeaders[pyState]==0:
-						csPlt.updateStateFig(pyState)
+						if useGUI==1:
+							csPlt.updateStateFig(pyState)
 						lickCounter=0
 						lastLick=0
 						outSyncCount=0
@@ -1434,7 +1537,8 @@ def runDetectionTask():
 
 				if pyState == 5 and stateSync==1:
 					if sHeaders[pyState]==0:
-						csPlt.updateStateFig(pyState)
+						if useGUI==1:
+							csPlt.updateStateFig(pyState)
 						lickCounter=0
 						lastLick=0
 						outSyncCount=0
@@ -1456,10 +1560,12 @@ def runDetectionTask():
 			print(loopCnt)
 			print(tString)
 			sesData[intNum,x]=int(tString[x+1])
-			csGui.toggleTaskButtons(1)
+			if useGUI==1:
+				csGui.toggleTaskButtons(1)
 			
 			csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-			csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
+			if useGUI:
+				csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
 
 			teensy.write('a0>'.encode('utf-8'))
 			time.sleep(0.05)
@@ -1467,7 +1573,8 @@ def runDetectionTask():
 
 			print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
 			csVar.sesVarDict['trialNum']=0
-			csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
+			if useGUI==1:
+				csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
 			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
 			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
 			print(stimResponses)
@@ -1505,15 +1612,16 @@ def runDetectionTask():
 					aio.send('{}_topVol'.format(csVar.sesVarDict['subjID']),topAmount)
 				except:
 					pass
-			
-			csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
+			if useGUI==1:
+				csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
 			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
 			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
 
 			csSer.flushBuffer(teensy) 
 			teensy.close()
 			csVar.sesVarDict['canQuit']=1
-			csGui.quitButton['text']="Quit"
+			if useGUI==1:
+				csGui.quitButton['text']="Quit"
 						 
 	
 	f["session_{}".format(csVar.sesVarDict['curSession'])]=sesData[0:loopCnt,:]
@@ -1530,11 +1638,12 @@ def runDetectionTask():
 
 	
 	f.close()
-
-	csGui.toggleTaskButtons(1)
+	if useGUI==1:
+		csGui.toggleTaskButtons(1)
 	
 	csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-	csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
+	if useGUI==1:
+		csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
 	
 	teensy.write('a0>'.encode('utf-8'))
 	time.sleep(0.05)
@@ -1597,21 +1706,28 @@ def runDetectionTask():
 			print("failed to log")
 
 	print('finished your session')
-	csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
+	if useGUI==1:
+		csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
 	csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
 	csVar.sesVarDict['canQuit']=1
 	csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
 
 	csSer.flushBuffer(teensy)
 	teensy.close()
-	
-	csGui.quitButton['text']="Quit"
+	if useGUI==1:
+		csGui.quitButton['text']="Quit"
 
 def runTrialOptoTask():
 	
 	# datestamp/rig id/session variables
 	cTime = datetime.datetime.now()
 
-mainloop()
+
+if useGUI==1:
+	mainloop()
+
+elif useGUI==0:
+	if taskType=='detectionTask':
+		runDetectionTask()
 
 

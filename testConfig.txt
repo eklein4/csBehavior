@@ -1,0 +1,9 @@
+[settings]
+useGUI = 0
+host = abc.com
+task = detectionTask
+
+[sesVars]
+comPath_teensy = /dev/cu.usbmodem2762721
+savePath = /Users/cad/Desktop/cad/
+hashPath = /Users/cad/

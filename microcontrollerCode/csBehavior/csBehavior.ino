@@ -45,12 +45,12 @@ uint32_t relayTimer2 = 0;
 // session header
 bool startSession = 0;
 
+uint32_t vStim_xPos = 800;
+
 elapsedMillis trialTime;
 elapsedMillis stateTime;
 elapsedMicros headerTime;
 elapsedMicros loopTime;
-
-
 
 // e) UARTs (Hardware Serial Lines)
 #define visualSerial Serial1 // out to a computer running psychopy
@@ -71,7 +71,6 @@ uint32_t maxBrightness = 255;
 //--------------------------------
 // ~~~~~~~ Variable Block ~~~~~~~~
 //--------------------------------
-
 
 // make a loadcell object and set variables
 HX711 scale(scaleData, scaleClock);
@@ -233,8 +232,6 @@ void setup() {
   FlexiTimer2::start();
 }
 
-
-
 void loop() {
   // This is interupt based so nothing here.
 }
@@ -385,10 +382,10 @@ void vStates() {
     // **************************************
     else if (knownValues[0] == 4) {
       if (headerStates[4] == 0) {
+        blockStateChange = 0;
         genericHeader(4);
         visStim(0);
         rewarding = 0;
-        blockStateChange = 0;
       }
       genericStateBody();
       stimTrainState_DAC1(0);
@@ -408,19 +405,15 @@ void vStates() {
     // **************************************
     else if (knownValues[0] == 5) {
       if (headerStates[5] == 0) {
+        blockStateChange = 0;
         genericHeader(5);
         visStim(0);
-        blockStateChange = 1;
       }
 
       genericStateBody();
       stimTrainState_DAC1(0);
       stimTrainState_DAC2(0);
 
-      // trap the state in time-out til timeout time over.
-      if (stateTime >= uint32_t(knownValues[2])) {
-        blockStateChange = 0;
-      }
     }
 
     // **************************************
@@ -480,7 +473,6 @@ void vStates() {
   }
 }
 
-
 void dataReport() {
   Serial.print("tData");
   Serial.print(',');
@@ -506,7 +498,6 @@ void dataReport() {
 }
 
 int flagReceive(char varAr[], uint32_t valAr[]) {
-  static boolean recvInProgress = false;
   static byte ndx = 0;
   char endMarker = '>';
   char feedbackMarker = '<';
@@ -515,10 +506,13 @@ int flagReceive(char varAr[], uint32_t valAr[]) {
   const byte numChars = 32;
   char writeChar[numChars];
   int selectedVar = 0;
-  int newData = 0;
+
+  static boolean recvInProgress = false;
+  bool newData = 0;
 
   while (Serial.available() > 0 && newData == 0) {
     rc = Serial.read();
+
     if (recvInProgress == false) {
       for ( int i = 0; i < knownCount; i++) {
         if (rc == varAr[i]) {
@@ -643,7 +637,7 @@ void genericHeader(int stateNum) {
 }
 
 void genericStateBody() {
- 
+
   lickSensorAValue = analogRead(lickPinA);
   lickSensorAValue = analogRead(lickPinB);
   genAnalogInput0 = analogRead(genA0);
@@ -663,7 +657,8 @@ void genericStateBody() {
 // ****************************************************************
 
 void visStim(int stimType) {
-  //0 is off
+  uint32_t vStim_yPos=1;
+  uint32_t vStim_xPos=1;
   if (stimType == 0) {
     visualSerial.print('v');
     visualSerial.print(',');
@@ -673,7 +668,11 @@ void visStim(int stimType) {
     visualSerial.print(',');
     visualSerial.print(0);
     visualSerial.print(',');
-    visualSerial.println(0);
+    visualSerial.print(0);
+    visualSerial.print(',');
+    visualSerial.print(vStim_xPos);
+    visualSerial.print(',');
+    visualSerial.println(vStim_yPos);
   }
   //1 is on
   if (stimType == 2) {
@@ -685,8 +684,11 @@ void visStim(int stimType) {
     visualSerial.print(',');
     visualSerial.print(knownValues[5]);
     visualSerial.print(',');
-    visualSerial.println(knownValues[6]);
-
+    visualSerial.print(knownValues[6]);
+    visualSerial.print(',');
+    visualSerial.print(vStim_xPos);
+    visualSerial.print(',');
+    visualSerial.println(vStim_yPos);
   }
   //2 is end
   if (stimType == 3) {
@@ -699,6 +701,10 @@ void visStim(int stimType) {
     visualSerial.print(0);
     visualSerial.print(',');
     visualSerial.println(0);
+    visualSerial.print(',');
+    visualSerial.print(vStim_xPos);
+    visualSerial.print(',');
+    visualSerial.println(vStim_yPos);
   }
 }
 
