@@ -64,8 +64,8 @@ elapsedMicros loopTime;
 
 // **** Make neopixel object
 // if rgbw use top line, if rgb use second.
-//Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, neoStripPin, NEO_GRBW + NEO_KHZ800);
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(30, neoStripPin, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, neoStripPin, NEO_GRBW + NEO_KHZ800);
+//Adafruit_NeoPixel strip = Adafruit_NeoPixel(30, neoStripPin, NEO_GRB + NEO_KHZ800);
 uint32_t maxBrightness = 255;
 
 //--------------------------------
@@ -838,7 +838,7 @@ void setStrip(uint32_t stripState) {
       strip.setPixelColor(i, strip.Color(0, 0, 0));
     }
     else if (stripState == 2) {
-      strip.setPixelColor(i, strip.Color(255, 255, 200));
+      strip.setPixelColor(i, strip.Color(0, 0, 0,255));
     }
     else if (stripState == 3) {
       strip.setPixelColor(i, strip.Color(255, 0, 0));
