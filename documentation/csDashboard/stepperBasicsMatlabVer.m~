@@ -90,7 +90,7 @@ dispense.volPer32nd = dispense.volPerMicrostep * 8
 % Which is 22.9 nl or 11.44 nl, respectivley.
 
 % I've set csDashboard to start with a bolus of 1600 microsteps; which
-% would be 100 1/16th steps. This will give 
+% would be 10 1/16th steps. This will give 
 dispense.defaultBolusSize = 1600;
 dispense.volPerBolus_default = dispense.defaultBolusSize * dispense.volPerMicrostep
 % This gives 2.3 ul per reward. 
@@ -98,7 +98,7 @@ dispense.volPerBolus_default = dispense.defaultBolusSize * dispense.volPerMicros
 % ability to control acceleration etc.
 % By default, csDashboard will move in 800 step increments, so if you go to
 % the 800 you will get a 1.15 ul drop. 
-% I will set the default increment to be 160 instead of 800
+% I will set the default increment to be 
 
 
 
