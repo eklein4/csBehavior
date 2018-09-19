@@ -6,7 +6,12 @@
 #include <FlexiTimer2.h>
 #include <Adafruit_NeoPixel.h>
 #include "HX711.h"
+#include <Adafruit_MCP4725.h>
 
+
+// ~~~ MCP DACs
+Adafruit_MCP4725 dac3;
+Adafruit_MCP4725 dac4;
 
 #define calibration_factor 440000
 #define zero_factor 8421804
@@ -187,7 +192,8 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 void setup() {
 
-
+  dac3.begin(0x63); //adafruit A0 pulled high
+  dac4.begin(0x60); // sparkfun A0 pulled low
   // todo: Setup Cyclops
   // Start the device
   strip.begin();
@@ -215,6 +221,12 @@ void setup() {
   digitalWrite(extRelay2, LOW);
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
+  pinMode(scaleData, INPUT);
+  pinMode(scaleClock, INPUT);
+  digitalWrite(scaleData, HIGH);
+  digitalWrite(scaleClock, HIGH);
+  digitalWrite(scaleData, LOW);
+  digitalWrite(scaleClock, LOW);
 
   bool relayState;
   uint32_t relayTimer = 0;
@@ -346,6 +358,8 @@ void vStates() {
       genericStateBody();
       stimTrainState_DAC1(0);
       stimTrainState_DAC2(0);
+      stimTrainState_DAC3(0);
+      stimTrainState_DAC4(0);
 
     }
 
@@ -361,6 +375,8 @@ void vStates() {
       genericStateBody();
       stimTrainState_DAC1(0);
       stimTrainState_DAC2(0);
+      stimTrainState_DAC3(0);
+      stimTrainState_DAC4(0);
     }
 
     // **************************************
@@ -375,6 +391,8 @@ void vStates() {
       genericStateBody();
       stimTrainState_DAC1(0);
       stimTrainState_DAC2(0);
+      stimTrainState_DAC3(0);
+      stimTrainState_DAC4(0);
     }
 
     // **************************************
@@ -390,6 +408,8 @@ void vStates() {
       genericStateBody();
       stimTrainState_DAC1(0);
       stimTrainState_DAC2(0);
+      stimTrainState_DAC3(0);
+      stimTrainState_DAC4(0);
 
       if (rewardDelivTypeA == 0 && rewarding == 0) {
         digitalWrite(rewardPin, HIGH);
@@ -413,6 +433,8 @@ void vStates() {
       genericStateBody();
       stimTrainState_DAC1(0);
       stimTrainState_DAC2(0);
+      stimTrainState_DAC3(0);
+      stimTrainState_DAC4(0);
 
     }
 
@@ -428,6 +450,8 @@ void vStates() {
       genericStateBody();
       stimTrainState_DAC1(0);
       stimTrainState_DAC2(0);
+      stimTrainState_DAC3(0);
+      stimTrainState_DAC4(0);
 
 
       if (rewardDelivTypeA == 0 && rewarding == 0) {
@@ -465,6 +489,22 @@ void vStates() {
       else {
         stimTrainState_DAC2(1);
       }
+
+      // if we have done enough pulses on A then stop
+      if (pulseTrain_chanA[8] >= knownValues[18]) {
+        stimTrainState_DAC3(0);
+      }
+      else {
+        stimTrainState_DAC3(1);
+      }
+
+      // if we have done enough pulses on A then stop
+      if (pulseTrain_chanB[8] >= knownValues[18]) {
+        stimTrainState_DAC4(0);
+      }
+      else {
+        stimTrainState_DAC4(1);
+      }
     }
 
     // ******* Stuff we do for all non-boot states at the end.
@@ -494,7 +534,13 @@ void dataReport() {
   Serial.print(',');
   Serial.print(loopTime);
   Serial.print(',');
-  Serial.println(headerTime);
+  Serial.print(genAnalogInput0);
+  Serial.print(',');
+  Serial.print(genAnalogInput1);
+  Serial.print(',');
+  Serial.print(genAnalogInput2);
+  Serial.print(',');
+  Serial.println(genAnalogInput3);
 }
 
 int flagReceive(char varAr[], uint32_t valAr[]) {
@@ -657,8 +703,8 @@ void genericStateBody() {
 // ****************************************************************
 
 void visStim(int stimType) {
-  uint32_t vStim_yPos=1;
-  uint32_t vStim_xPos=1;
+  uint32_t vStim_yPos = 1;
+  uint32_t vStim_xPos = 1;
   if (stimType == 0) {
     visualSerial.print('v');
     visualSerial.print(',');
@@ -761,6 +807,29 @@ void stimTrainState_DAC2(bool shouldPulse) {
     analogWrite(DAC2, pulseTrain_chanB[7]);
   }
 }
+//
+////void stimTrainState_DAC3(bool shouldPulse) {
+////  if (shouldPulse == 0) {
+////    stimGen(pulseTrain_chanA);
+////    dac3.setVoltage(0,0);
+////  }
+////  else if (shouldPulse == 1) {
+////    stimGen(pulseTrain_chanA);
+////    dac3.setVoltage(pulseTrain_chanA[7],0);
+////  }
+////}
+////
+////void stimTrainState_DAC4(bool shouldPulse) {
+////  if (shouldPulse == 0) {
+////    stimGen(pulseTrain_chanB);
+////    dac4.setVoltage(0,0);
+////  }
+////  else if (shouldPulse == 1) {
+////    stimGen(pulseTrain_chanB);
+////    dac4.setVoltage(pulseTrain_chanA[7],0);
+////  }
+////}
+
 
 
 void stimGen(uint32_t pulseTracker[]) {
@@ -838,7 +907,7 @@ void setStrip(uint32_t stripState) {
       strip.setPixelColor(i, strip.Color(0, 0, 0));
     }
     else if (stripState == 2) {
-      strip.setPixelColor(i, strip.Color(0, 0, 0,255));
+      strip.setPixelColor(i, strip.Color(0, 0, 0, 255));
     }
     else if (stripState == 3) {
       strip.setPixelColor(i, strip.Color(255, 0, 0));
@@ -892,4 +961,25 @@ void pollColorChange() {
   }
 }
 
+void stimTrainState_DAC3(bool shouldPulse) {
+  if (shouldPulse == 0) {
+    stimGen(pulseTrain_chanA);
+    dac3.setVoltage(0, 0);
+  }
+  else if (shouldPulse == 1) {
+    stimGen(pulseTrain_chanA);
+    dac3.setVoltage(pulseTrain_chanA[7], 0);
+  }
+}
+
+void stimTrainState_DAC4(bool shouldPulse) {
+  if (shouldPulse == 0) {
+    stimGen(pulseTrain_chanB);
+    dac4.setVoltage(0, 0);
+  }
+  else if (shouldPulse == 1) {
+    stimGen(pulseTrain_chanB);
+    dac4.setVoltage(pulseTrain_chanB[7], 0);
+  }
+}
 
