@@ -1,6 +1,6 @@
-from picamera import PiCamera
+
 import datetime
-import RPi.GPIO as GPIO
+
 import io
 import sys
 from psychopy import visual, core, event, data, clock 
@@ -53,18 +53,8 @@ except:
     win_y1=900
     init_contrast = 0.0
     init_orientation = 0
-    useSerial = 1
+    useSerial = 0
 
-# ******** Make a raspberry pi camera object if using a pi
-camera = PiCamera()
-camera.resolution = (res_X,res_Y)
-camera.framerate = frameRate
-camera.exposure = iso
-
-# ******** initialize Pi GPIO To Control Camera
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(11, GPIO.IN,pull_up_down=GPIO.PUD_DOWN) # 11, GPIO17 is on trigger
-GPIO.setup(12, GPIO.IN,pull_up_down=GPIO.PUD_DOWN) # 12, GPIO18 is off trigger
 
 # ****** Make a serial object.
 if useSerial==1:
@@ -98,27 +88,8 @@ grating1= visual.GratingStim(win=mywin, mask=gabor_1['mask'],
 grating1.contrast = gabor_1['contrast']
 grating1.autoDraw=True
 
-def startCamera():
-    cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    output = np.empty((res_Y,res_X,3),dtype=np.uint12)
-    filename = savePath + animalID + 'video_' + cStr + '.h264'
-    camera.start_recording(filename,sps_timing=True)
-
-def stopCamera():
-    camera.stop_recording()
-
 # ******* This is the program main loop 
 while runSession:
-    cam_onPin=GPIO.input(onPin)
-    cam_offPin=GPIO.input(offPin)
-
-    if cameraOn == 0 and cam_onPin==1:
-        cameraOn = 1
-        startCamera()
-    elif cameraOn == 1 and cam_offPin==1:
-        cameraOn = 0
-        stopCamera()
-        runSession = 0
     if useSerial==1:
         serTrack=0
         bytesAvail=teensyObj.inWaiting()

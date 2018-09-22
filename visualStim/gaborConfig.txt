@@ -1,0 +1,25 @@
+[settings]
+useGUI = 0
+
+[sesVars]
+animalID = 'cad'
+savePath = '/home/pi/captures/'
+serialPath = "/dev/ttyS0"
+serialBaud = 115200
+useSerial = 1
+
+[camera]
+res_X = 1640
+res_Y = 1232
+frameRate = 30
+iso = 0
+
+[visual]
+win_x1 = 500
+win_y1 = 500
+init_contrast = 1.0
+init_orientation = 0
+
+[GPIO]
+onPin = 11
+offPin = 12

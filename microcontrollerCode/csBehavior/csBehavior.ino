@@ -205,6 +205,7 @@ void setup() {
   scale.set_offset(zero_factor);
   scale.tare();
 
+
   // ****** Setup Analog In/Out
   analogReadResolution(12);
   analogWriteResolution(12);
@@ -221,12 +222,9 @@ void setup() {
   digitalWrite(extRelay2, LOW);
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
-  pinMode(scaleData, INPUT);
-  pinMode(scaleClock, INPUT);
-  digitalWrite(scaleData, HIGH);
-  digitalWrite(scaleClock, HIGH);
-  digitalWrite(scaleData, LOW);
-  digitalWrite(scaleClock, LOW);
+
+ 
+
 
   bool relayState;
   uint32_t relayTimer = 0;
@@ -373,10 +371,7 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
-      stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
-      stimTrainState_DAC3(0);
-      stimTrainState_DAC4(0);
+      fullPulseTrial();
     }
 
     // **************************************
@@ -474,42 +469,46 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
-      // if we have done enough pulses on A then stop
-      if (pulseTrain_chanA[8] >= knownValues[18]) {
-        stimTrainState_DAC1(0);
-      }
-      else {
-        stimTrainState_DAC1(1);
-      }
-
-      // if we have done enough pulses on B then stop
-      if (pulseTrain_chanB[8] >= knownValues[19]) {
-        stimTrainState_DAC2(0);
-      }
-      else {
-        stimTrainState_DAC2(1);
-      }
-
-      // if we have done enough pulses on A then stop
-      if (pulseTrain_chanA[8] >= knownValues[18]) {
-        stimTrainState_DAC3(0);
-      }
-      else {
-        stimTrainState_DAC3(1);
-      }
-
-      // if we have done enough pulses on A then stop
-      if (pulseTrain_chanB[8] >= knownValues[18]) {
-        stimTrainState_DAC4(0);
-      }
-      else {
-        stimTrainState_DAC4(1);
-      }
+      fullPulseTrial();
     }
 
     // ******* Stuff we do for all non-boot states at the end.
     dataReport();
     loopCount++;
+  }
+}
+
+void fullPulseTrial() {
+  // if we have done enough pulses on A then stop
+  if (pulseTrain_chanA[8] >= knownValues[18]) {
+    stimTrainState_DAC1(0);
+  }
+  else {
+    stimTrainState_DAC1(1);
+  }
+
+  // if we have done enough pulses on B then stop
+  if (pulseTrain_chanB[8] >= knownValues[19]) {
+    stimTrainState_DAC2(0);
+  }
+  else {
+    stimTrainState_DAC2(1);
+  }
+
+  // if we have done enough pulses on A then stop
+  if (pulseTrain_chanA[8] >= knownValues[18]) {
+    stimTrainState_DAC3(0);
+  }
+  else {
+    stimTrainState_DAC3(1);
+  }
+
+  // if we have done enough pulses on A then stop
+  if (pulseTrain_chanB[8] >= knownValues[18]) {
+    stimTrainState_DAC4(0);
+  }
+  else {
+    stimTrainState_DAC4(1);
   }
 }
 
@@ -808,27 +807,7 @@ void stimTrainState_DAC2(bool shouldPulse) {
   }
 }
 //
-////void stimTrainState_DAC3(bool shouldPulse) {
-////  if (shouldPulse == 0) {
-////    stimGen(pulseTrain_chanA);
-////    dac3.setVoltage(0,0);
-////  }
-////  else if (shouldPulse == 1) {
-////    stimGen(pulseTrain_chanA);
-////    dac3.setVoltage(pulseTrain_chanA[7],0);
-////  }
-////}
-////
-////void stimTrainState_DAC4(bool shouldPulse) {
-////  if (shouldPulse == 0) {
-////    stimGen(pulseTrain_chanB);
-////    dac4.setVoltage(0,0);
-////  }
-////  else if (shouldPulse == 1) {
-////    stimGen(pulseTrain_chanB);
-////    dac4.setVoltage(pulseTrain_chanA[7],0);
-////  }
-////}
+
 
 
 
