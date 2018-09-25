@@ -1,7 +1,23 @@
-// csStateBehavior v0.93 -- 32 bit version (teensy)
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// changes: added a stimGen function which is currently accessible in state 0.
+// csStateBehavior v0.98 -- 32 bit version (teensy)
+// 
+// Interrupt timed state machine for running behavior tasks and delivering stimuli etc. with a Teensy
+// Intended to be used with a python program (csBehavior.py) that enables:
+// a) on-demand insturment control
+// b) data saving
+// c) state-flow logic
+// By default, csStateBehavior runs at 1KHz. 
 //
+// Questions: Chris Deister --> cdeister@brown.edu
+// 9/22/2018
+//
+//
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// ****************************************
+// ***** Initialize All The Things ********
+// ****************************************
 //
 //
 // Builtin Libraries 
@@ -176,9 +192,6 @@ uint32_t rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulu
 // h) Various State Related Things
 uint32_t lastState = knownValues[0];  // We keep track of current state "knownValues[0]" and the last state.
 uint32_t loopCount = 0; // Count state machine interrupts
-//uint32_t timeOffs;      // Mark an offset time from when we began the state machine.
-//uint32_t stateTimeOffs; // Mark an offset time from when we enter a new state.
-//uint32_t trialTime;     // Mark time for each trial (state 1 to state 1).
 uint32_t trigTime = 10; // Duration (in interrupt time) of a sync out trigger.
 uint32_t lastBrightness = 10;
 bool trigStuff = 0;      // Keeps track of whether we triggered things.
@@ -317,17 +330,13 @@ void vStates() {
       digitalWrite(rewardPin, LOW);
       relayTimer2 = 0;
     }
-
   }
 
-
-  // ******* ******************************
-  // Some things we do for all non-boot states before the state code:
+  // **************************
+  // State != 0: (in task)
+  // **************************
   if (knownValues[0] != 0) {
 
-    // Get a time offset from when we arrived from 0.
-    // This should be the start of the trial, regardless of state we start in.
-    // Also, trigger anything that needs to be in sync.
     if (loopCount == 0) {
       trigStuff = 0;
       digitalWrite(syncPin, HIGH);
@@ -361,10 +370,7 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
-      stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
-      stimTrainState_DAC3(0);
-      stimTrainState_DAC4(0);
+      fullPulseTrial(0);
 
     }
 
@@ -378,7 +384,7 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
-      fullPulseTrial();
+      fullPulseTrial(1);
     }
 
     // **************************************
@@ -391,10 +397,7 @@ void vStates() {
         visStim(1);
       }
       genericStateBody();
-      stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
-      stimTrainState_DAC3(0);
-      stimTrainState_DAC4(0);
+      fullPulseTrial(0);
     }
 
     // **************************************
@@ -408,10 +411,7 @@ void vStates() {
         rewarding = 0;
       }
       genericStateBody();
-      stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
-      stimTrainState_DAC3(0);
-      stimTrainState_DAC4(0);
+      fullPulseTrial(0);
 
       if (rewardDelivTypeA == 0 && rewarding == 0) {
         digitalWrite(rewardPin, HIGH);
@@ -433,10 +433,7 @@ void vStates() {
       }
 
       genericStateBody();
-      stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
-      stimTrainState_DAC3(0);
-      stimTrainState_DAC4(0);
+      fullPulseTrial(0);
 
     }
 
@@ -450,10 +447,7 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
-      stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
-      stimTrainState_DAC3(0);
-      stimTrainState_DAC4(0);
+      fullPulseTrial(0);
 
 
       if (rewardDelivTypeA == 0 && rewarding == 0) {
@@ -476,46 +470,12 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
-      fullPulseTrial();
+      fullPulseTrial(1);
     }
 
     // ******* Stuff we do for all non-boot states at the end.
     dataReport();
     loopCount++;
-  }
-}
-
-void fullPulseTrial() {
-  // if we have done enough pulses on A then stop
-  if (pulseTrain_chanA[8] >= knownValues[18]) {
-    stimTrainState_DAC1(0);
-  }
-  else {
-    stimTrainState_DAC1(1);
-  }
-
-  // if we have done enough pulses on B then stop
-  if (pulseTrain_chanB[8] >= knownValues[19]) {
-    stimTrainState_DAC2(0);
-  }
-  else {
-    stimTrainState_DAC2(1);
-  }
-
-  // if we have done enough pulses on A then stop
-  if (pulseTrain_chanA[8] >= knownValues[18]) {
-    stimTrainState_DAC3(0);
-  }
-  else {
-    stimTrainState_DAC3(1);
-  }
-
-  // if we have done enough pulses on A then stop
-  if (pulseTrain_chanB[8] >= knownValues[18]) {
-    stimTrainState_DAC4(0);
-  }
-  else {
-    stimTrainState_DAC4(1);
   }
 }
 
@@ -760,7 +720,6 @@ void visStim(int stimType) {
   }
 }
 
-
 // **************************************************************
 // **************  Motion Interrupts  ***************************
 // **************************************************************
@@ -778,7 +737,6 @@ void falling() {
 void frameCount() {
   pulseCount++;
 }
-
 
 // ****************************************************************
 // **************  Pulse Train Function ***************************
@@ -835,9 +793,6 @@ void stimTrainState_DAC4(bool shouldPulse) {
     dac4.setVoltage(pulseTrain_chanD[7], 0);
   }
 }
-
-
-
 
 void stimGen(uint32_t pulseTracker[]) {
   if (pulseTracker[6] == 0) {
@@ -903,6 +858,52 @@ void stimGen(uint32_t pulseTracker[]) {
   pulseTracker[1] = pulseTracker[1] + 1;
 }
 
+void fullPulseTrial(bool shouldPulse) {
+  
+  if (shouldPulse==1) {
+    
+    // if we have done enough pulses on A then stop
+    if (pulseTrain_chanA[8] >= knownValues[18]) {
+      stimTrainState_DAC1(0);
+    }
+    else {
+      stimTrainState_DAC1(1);
+    }
+
+    // if we have done enough pulses on B then stop
+    if (pulseTrain_chanB[8] >= knownValues[19]) {
+      stimTrainState_DAC2(0);
+    }
+    else {
+      stimTrainState_DAC2(1);
+    }
+
+    // if we have done enough pulses on A then stop
+    if (pulseTrain_chanA[8] >= knownValues[18]) {
+      stimTrainState_DAC3(0);
+    }
+    else {
+      stimTrainState_DAC3(1);
+    }
+
+    // if we have done enough pulses on A then stop
+    if (pulseTrain_chanB[8] >= knownValues[18]) {
+      stimTrainState_DAC4(0);
+    }
+    else {
+      stimTrainState_DAC4(1);
+    }
+
+  }
+
+  else if (shouldPulse==0){
+    stimTrainState_DAC1(0);
+    stimTrainState_DAC2(0);
+    stimTrainState_DAC3(0);
+    stimTrainState_DAC4(0);
+
+  }
+}
 
 // ----------------------------------------------
 // ---------- NEOPIXEL FUNCTIONS ----------------

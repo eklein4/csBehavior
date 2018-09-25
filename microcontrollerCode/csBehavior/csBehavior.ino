@@ -1,20 +1,34 @@
-// csStateBehavior v0.93 -- 32 bit version (teensy)
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// changes: added a stimGen function which is currently accessible in state 0.
+// csStateBehavior v0.98 -- 32 bit version (teensy)
+// 
+// Interrupt timed state machine for running behavior tasks and delivering stimuli etc. with a Teensy
+// Intended to be used with a python program (csBehavior.py) that enables:
+// a) on-demand insturment control
+// b) data saving
+// c) state-flow logic
+// By default, csStateBehavior runs at 1KHz. 
+//
+// Questions: Chris Deister --> cdeister@brown.edu
+// 9/22/2018
+//
+//
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+// ****************************************
+// ***** Initialize All The Things ********
+// ****************************************
+//
+//
+// Builtin Libraries 
 #include <Wire.h>
 #include <FlexiTimer2.h>
+
+// Other people's libraries 
 #include <Adafruit_NeoPixel.h>
 #include "HX711.h"
 #include <Adafruit_MCP4725.h>
 
-
-//// ~~~ MCP DACs
-//Adafruit_MCP4725 dac3;
-//Adafruit_MCP4725 dac4;
-
-#define calibration_factor 440000
-#define zero_factor 8421804
 
 //-----------------------------
 // ~~~~~~~ IO Pin Defs ~~~~~~~~
@@ -43,10 +57,11 @@
 #define extRelay 26
 #define extRelay2 24
 
-bool relayState;
+bool relayState = 0;
 uint32_t relayTimer = 0;
-bool relayState2;
+bool relayState2 = 0;
 uint32_t relayTimer2 = 0;
+
 // session header
 bool startSession = 0;
 
@@ -67,6 +82,10 @@ elapsedMicros loopTime;
 #define DAC1 A21
 #define DAC2 A22
 
+// ~~~ MCP DACs
+Adafruit_MCP4725 dac3;
+Adafruit_MCP4725 dac4;
+
 // **** Make neopixel object
 // if rgbw use top line, if rgb use second.
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, neoStripPin, NEO_GRBW + NEO_KHZ800);
@@ -78,6 +97,9 @@ uint32_t maxBrightness = 255;
 //--------------------------------
 
 // make a loadcell object and set variables
+#define calibration_factor 440000
+#define zero_factor 8421804
+
 HX711 scale(scaleData, scaleClock);
 uint32_t weightOffset = 0;
 float scaleVal = 0;
@@ -129,7 +151,7 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // n/8: color of neopixels (1: all white; 2: all red; 3) all green;
 // --------> 4) all blue; 5) all purple (the best color) 6) random; 7) pulse rainbows for a bit
 // ____ DAC Stim Train Related
-// d/9: baseline duration of train a
+// d/9: interpulse duration of train A end the call with the DAC# so d1001 will set the IPI of DAC1 to 100.
 // e/10: pulse duration of train a
 // f/11: pulse amplitude of train a
 // g/12: stim type of train a
@@ -144,7 +166,7 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // z/20: toggle a pin
 
 char knownHeaders[] = {'a', 'r', 't', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'w', 'm', 'p', 'z'};
-uint32_t knownValues[] = {0, 5, 8000, 0, 0, 0, 0, 10, 0, 57, 10, 4095, 1, 57, 10, 4095, 1, 0, 38, 38, 0};
+uint32_t knownValues[] = {0, 5, 8000, 0, 0, 0, 0, 10, 0, 40, 4095, 4095, 1, 40, 4095, 4095, 1, 0, 20, 20, 0};
 int knownCount = 21;
 
 
@@ -159,8 +181,10 @@ int knownCount = 21;
 // 7: Write Value (determined by the pulseGen function and is what we write to the DAC each interrupt).
 // 8: completed pulses
 // todo: swap 7 and 8
-uint32_t pulseTrain_chanA[] = {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0};
-uint32_t pulseTrain_chanB[] = {1, 1, knownValues[13], knownValues[14], 0, knownValues[15], knownValues[16], 0, 0};
+uint32_t pulseTrain_chan1[] = {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0};
+uint32_t pulseTrain_chan2[] = {1, 1, knownValues[9], knownValues[14], 0, knownValues[15], knownValues[16], 0, 0};
+uint32_t pulseTrain_chan3[] = {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0};
+uint32_t pulseTrain_chan4[] = {1, 1, knownValues[9], knownValues[14], 0, knownValues[15], knownValues[16], 0, 0};
 
 
 // g) Reward Params
@@ -169,9 +193,6 @@ uint32_t rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulu
 // h) Various State Related Things
 uint32_t lastState = knownValues[0];  // We keep track of current state "knownValues[0]" and the last state.
 uint32_t loopCount = 0; // Count state machine interrupts
-//uint32_t timeOffs;      // Mark an offset time from when we began the state machine.
-//uint32_t stateTimeOffs; // Mark an offset time from when we enter a new state.
-//uint32_t trialTime;     // Mark time for each trial (state 1 to state 1).
 uint32_t trigTime = 10; // Duration (in interrupt time) of a sync out trigger.
 uint32_t lastBrightness = 10;
 bool trigStuff = 0;      // Keeps track of whether we triggered things.
@@ -189,33 +210,41 @@ int stateCount = 8;
 uint32_t knownDashValues[] = {10, 0, 10};
 //int knownDashCount = 3;
 
+bool relayState;
+uint32_t relayTimer = 0;
+
 
 void setup() {
-
+  // Start MCP DACs
   dac3.begin(0x63); //adafruit A0 pulled high
   dac4.begin(0x60); // sparkfun A0 pulled low
+  
   // todo: Setup Cyclops
   // Start the device
+  
+  // neopixels
   strip.begin();
   strip.show();
   strip.setBrightness(100);
   setStrip(2);
 
+  // loadcell
   scale.set_scale(calibration_factor);
   scale.set_offset(zero_factor);
   scale.tare();
 
 
-  // ****** Setup Analog In/Out
+  // Analog In/Out
   analogReadResolution(12);
   analogWriteResolution(12);
 
+  // Interrupts
   attachInterrupt(motionPin, rising, RISING);
   attachInterrupt(framePin, frameCount, RISING);
 
+  // DIO Pin States
   pinMode(syncPin, OUTPUT);
   digitalWrite(syncPin, LOW);
-
   pinMode(extRelay, INPUT);
   digitalWrite(extRelay, LOW);
   pinMode(extRelay2, INPUT);
@@ -223,21 +252,13 @@ void setup() {
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
 
- 
-
-
-  bool relayState;
-  uint32_t relayTimer = 0;
-
+  // Serial Lines
   dashSerial.begin(115200);
   visualSerial.begin(115200);
   Serial.begin(19200);
-  delay(100);
+  delay(20);
 
-  dashSerial.println("m64>");
-  delay(10);
-  dashSerial.println("w1>");
-
+  // Start Program Timer
   FlexiTimer2::set(1, evalEverySample / sampsPerSecond, vStates);
   FlexiTimer2::start();
 }
@@ -310,17 +331,13 @@ void vStates() {
       digitalWrite(rewardPin, LOW);
       relayTimer2 = 0;
     }
-
   }
 
-
-  // ******* ******************************
-  // Some things we do for all non-boot states before the state code:
+  // **************************
+  // State != 0: (in task)
+  // **************************
   if (knownValues[0] != 0) {
 
-    // Get a time offset from when we arrived from 0.
-    // This should be the start of the trial, regardless of state we start in.
-    // Also, trigger anything that needs to be in sync.
     if (loopCount == 0) {
       trigStuff = 0;
       digitalWrite(syncPin, HIGH);
@@ -354,10 +371,7 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
-      stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
-      stimTrainState_DAC3(0);
-      stimTrainState_DAC4(0);
+      fullPulseTrial(0);
 
     }
 
@@ -371,7 +385,7 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
-      fullPulseTrial();
+      fullPulseTrial(1);
     }
 
     // **************************************
@@ -384,8 +398,7 @@ void vStates() {
         visStim(1);
       }
       genericStateBody();
-      stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
+      fullPulseTrial(0);
     }
 
     // **************************************
@@ -399,10 +412,7 @@ void vStates() {
         rewarding = 0;
       }
       genericStateBody();
-      stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
-      stimTrainState_DAC3(0);
-      stimTrainState_DAC4(0);
+      fullPulseTrial(0);
 
       if (rewardDelivTypeA == 0 && rewarding == 0) {
         digitalWrite(rewardPin, HIGH);
@@ -424,10 +434,7 @@ void vStates() {
       }
 
       genericStateBody();
-      stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
-      stimTrainState_DAC3(0);
-      stimTrainState_DAC4(0);
+      fullPulseTrial(0);
 
     }
 
@@ -441,10 +448,7 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
-      stimTrainState_DAC1(0);
-      stimTrainState_DAC2(0);
-      stimTrainState_DAC3(0);
-      stimTrainState_DAC4(0);
+      fullPulseTrial(0);
 
 
       if (rewardDelivTypeA == 0 && rewarding == 0) {
@@ -467,46 +471,12 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
-      fullPulseTrial();
+      fullPulseTrial(1);
     }
 
     // ******* Stuff we do for all non-boot states at the end.
     dataReport();
     loopCount++;
-  }
-}
-
-void fullPulseTrial() {
-  // if we have done enough pulses on A then stop
-  if (pulseTrain_chanA[8] >= knownValues[18]) {
-    stimTrainState_DAC1(0);
-  }
-  else {
-    stimTrainState_DAC1(1);
-  }
-
-  // if we have done enough pulses on B then stop
-  if (pulseTrain_chanB[8] >= knownValues[19]) {
-    stimTrainState_DAC2(0);
-  }
-  else {
-    stimTrainState_DAC2(1);
-  }
-
-  // if we have done enough pulses on A then stop
-  if (pulseTrain_chanA[8] >= knownValues[18]) {
-    stimTrainState_DAC3(0);
-  }
-  else {
-    stimTrainState_DAC3(1);
-  }
-
-  // if we have done enough pulses on A then stop
-  if (pulseTrain_chanB[8] >= knownValues[18]) {
-    stimTrainState_DAC4(0);
-  }
-  else {
-    stimTrainState_DAC4(1);
   }
 }
 
@@ -751,7 +721,6 @@ void visStim(int stimType) {
   }
 }
 
-
 // **************************************************************
 // **************  Motion Interrupts  ***************************
 // **************************************************************
@@ -770,44 +739,61 @@ void frameCount() {
   pulseCount++;
 }
 
-
 // ****************************************************************
 // **************  Pulse Train Function ***************************
 // ****************************************************************
 void resetStimTrains() {
-  uint32_t pulseTrain_chanA_defs[] = {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0};
-  uint32_t pulseTrain_chanB_defs[] = {1, 1, knownValues[13], knownValues[14], 0, knownValues[15], knownValues[16], 0, 0};
+  uint32_t pulseTrain_chan1_defs[] = {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0};
+  uint32_t pulseTrain_chan2_defs[] = {1, 1, knownValues[13], knownValues[14], 0, knownValues[15], knownValues[16], 0, 0};
   for ( int i = 0; i < 9; i++) {
-    pulseTrain_chanA[i] = pulseTrain_chanA_defs[i];
-    pulseTrain_chanB[i] = pulseTrain_chanB_defs[i];
+    pulseTrain_chan1[i] = pulseTrain_chan1_defs[i];
+    pulseTrain_chan2[i] = pulseTrain_chan2_defs[i];
   }
 }
 
 void stimTrainState_DAC1(bool shouldPulse) {
   if (shouldPulse == 0) {
-    stimGen(pulseTrain_chanA);
+    stimGen(pulseTrain_chan1);
     analogWrite(DAC1, 0);
   }
   else if (shouldPulse == 1) {
-    stimGen(pulseTrain_chanA);
-    analogWrite(DAC1, pulseTrain_chanA[7]);
+    stimGen(pulseTrain_chan1);
+    analogWrite(DAC1, pulseTrain_chan1[7]);
   }
 }
 
 void stimTrainState_DAC2(bool shouldPulse) {
   if (shouldPulse == 0) {
-    stimGen(pulseTrain_chanB);
+    stimGen(pulseTrain_chan2);
     analogWrite(DAC2, 0);
   }
   else if (shouldPulse == 1) {
-    stimGen(pulseTrain_chanB);
-    analogWrite(DAC2, pulseTrain_chanB[7]);
+    stimGen(pulseTrain_chan2);
+    analogWrite(DAC2, pulseTrain_chan2[7]);
   }
 }
-//
 
+void stimTrainState_DAC3(bool shouldPulse) {
+  if (shouldPulse == 0) {
+    stimGen(pulseTrain_chan3);
+    dac3.setVoltage(0, 0);
+  }
+  else if (shouldPulse == 1) {
+    stimGen(pulseTrain_chan3);
+    dac3.setVoltage(pulseTrain_chan3[7], 0);
+  }
+}
 
-
+void stimTrainState_DAC4(bool shouldPulse) {
+  if (shouldPulse == 0) {
+    stimGen(pulseTrain_chan4);
+    dac4.setVoltage(0, 0);
+  }
+  else if (shouldPulse == 1) {
+    stimGen(pulseTrain_chan4);
+    dac4.setVoltage(pulseTrain_chan4[7], 0);
+  }
+}
 
 void stimGen(uint32_t pulseTracker[]) {
   if (pulseTracker[6] == 0) {
@@ -873,6 +859,52 @@ void stimGen(uint32_t pulseTracker[]) {
   pulseTracker[1] = pulseTracker[1] + 1;
 }
 
+void fullPulseTrial(bool shouldPulse) {
+  
+  if (shouldPulse==1) {
+    
+    // if we have done enough pulses on A then stop
+    if (pulseTrain_chan1[8] >= knownValues[18]) {
+      stimTrainState_DAC1(0);
+    }
+    else {
+      stimTrainState_DAC1(1);
+    }
+
+    // if we have done enough pulses on B then stop
+    if (pulseTrain_chan2[8] >= knownValues[19]) {
+      stimTrainState_DAC2(0);
+    }
+    else {
+      stimTrainState_DAC2(1);
+    }
+
+    // if we have done enough pulses on A then stop
+    if (pulseTrain_chan1[8] >= knownValues[18]) {
+      stimTrainState_DAC3(0);
+    }
+    else {
+      stimTrainState_DAC3(1);
+    }
+
+    // if we have done enough pulses on A then stop
+    if (pulseTrain_chan2[8] >= knownValues[18]) {
+      stimTrainState_DAC4(0);
+    }
+    else {
+      stimTrainState_DAC4(1);
+    }
+
+  }
+
+  else if (shouldPulse==0){
+    stimTrainState_DAC1(0);
+    stimTrainState_DAC2(0);
+    stimTrainState_DAC3(0);
+    stimTrainState_DAC4(0);
+
+  }
+}
 
 // ----------------------------------------------
 // ---------- NEOPIXEL FUNCTIONS ----------------
@@ -935,28 +967,6 @@ void pollColorChange() {
   }
   else {
     knownValues[8] = 0;
-  }
-}
-
-void stimTrainState_DAC3(bool shouldPulse) {
-  if (shouldPulse == 0) {
-    stimGen(pulseTrain_chanA);
-    dac3.setVoltage(0, 0);
-  }
-  else if (shouldPulse == 1) {
-    stimGen(pulseTrain_chanA);
-    dac3.setVoltage(pulseTrain_chanA[7], 0);
-  }
-}
-
-void stimTrainState_DAC4(bool shouldPulse) {
-  if (shouldPulse == 0) {
-    stimGen(pulseTrain_chanB);
-    dac4.setVoltage(0, 0);
-  }
-  else if (shouldPulse == 1) {
-    stimGen(pulseTrain_chanB);
-    dac4.setVoltage(pulseTrain_chanB[7], 0);
   }
 }
 
