@@ -576,42 +576,19 @@ class csGUI(object):
 		totalStimTime=(rampDur*rampCount)+(interRamp*rampCount)
 		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
 		teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
-		if chanNum == 1:
-			time.sleep(varDelay)
-			time.sleep(varDelay)
-			teensy.write("g{}>".format(stimType).encode('utf-8'))
-			time.sleep(varDelay)
-			time.sleep(varDelay)
-			teensy.write("f{}>".format(rampAmp).encode('utf-8'))
-			time.sleep(varDelay)
-			teensy.write("e{}>".format(rampDur).encode('utf-8'))
-			time.sleep(varDelay)
-			teensy.write("m{}>".format(rampCount).encode('utf-8'))
-			time.sleep(varDelay)
-			teensy.write("d{}>".format(interRamp).encode('utf-8'))
-			time.sleep(varDelay)
-			teensy.write("j0>".format(interRamp).encode('utf-8'))
-			time.sleep(varDelay)
-			teensy.write("p0>".format(interRamp).encode('utf-8'))
-			time.sleep(varDelay)
-		elif chanNum == 2:
-			time.sleep(varDelay)
-			time.sleep(varDelay)
-			teensy.write("k{}>".format(stimType).encode('utf-8'))
-			time.sleep(varDelay)
-			time.sleep(varDelay)
-			teensy.write("j{}>".format(rampAmp).encode('utf-8'))
-			time.sleep(varDelay)
-			teensy.write("i{}>".format(rampDur).encode('utf-8'))
-			time.sleep(varDelay)
-			teensy.write("p{}>".format(rampCount).encode('utf-8'))
-			time.sleep(varDelay)
-			teensy.write("h{}>".format(interRamp).encode('utf-8'))
-			time.sleep(varDelay)
-			teensy.write("f0>".format(interRamp).encode('utf-8'))
-			time.sleep(varDelay)
-			teensy.write("m0>".format(interRamp).encode('utf-8'))
-			time.sleep(varDelay)
+		time.sleep(varDelay)
+		time.sleep(varDelay)
+		teensy.write("t{}{}>".format(stimType,chanNum).encode('utf-8'))
+		time.sleep(varDelay)
+		time.sleep(varDelay)
+		teensy.write("v{}{}>".format(rampAmp,chanNum).encode('utf-8'))
+		time.sleep(varDelay)
+		teensy.write("d{}{}>".format(rampDur,chanNum).encode('utf-8'))
+		time.sleep(varDelay)
+		teensy.write("m{}{}>".format(rampCount,chanNum).encode('utf-8'))
+		time.sleep(varDelay)
+		teensy.write("p{}{}>".format(interRamp,chanNum).encode('utf-8'))
+		time.sleep(varDelay)
 		[cVal,sChecked]=csSer.checkVariable(teensy,"k",0.005)
 		teensy.write("a7>".encode('utf-8'))
 		time.sleep(totalStimTime/1000)
@@ -626,7 +603,7 @@ class csGUI(object):
 		wVals=[]
 		lIt=0
 		while lIt<=50:
-			[rV,vN]=csSer.checkVariable(teensy,'w',0.002)
+			[rV,vN]=csSer.checkVariable(teensy,'l',0.002)
 			if vN:
 				wVals.append(rV)
 				lIt=lIt+1
@@ -1217,7 +1194,7 @@ def runDetectionTask():
 		wVals=[]
 		lIt=0
 		while lIt<=50:
-			[rV,vN]=csSer.checkVariable(teensy,'w',0.002)
+			[rV,vN]=csSer.checkVariable(teensy,'l',0.002)
 			if vN:
 				wVals.append(rV)
 				lIt=lIt+1

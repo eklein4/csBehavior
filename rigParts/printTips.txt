@@ -1,0 +1,16 @@
+flex bearings:
+PETG/ABS/ASA are reccomended, but PLA should be ok.
+nozzle 0.4
+width 0.4
+25% infill
+8 top; 8 bottom; 2 shells
+3200 mm/min
+
+flex bearings:
+PETG/ABS/ASA are reccomended, but PLA should be ok.
+nozzle 0.4
+width 0.4
+25% infill
+8 top; 8 bottom; 2 shells
+3200 mm/min
+
