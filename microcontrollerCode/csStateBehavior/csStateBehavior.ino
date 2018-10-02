@@ -1,16 +1,19 @@
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// csStateBehavior v0.98 -- 32 bit version (teensy)
+// csStateBehavior v0.99 -- 32 bit version (teensy)
 //
-// Interrupt timed state machine for running behavior tasks and delivering stimuli etc. with a Teensy
+// Interrupt timed state machine for running behavior tasks and delivering stimuli etc. with a Teensy 3.5/6 board.
 // Intended to be used with a python program (csBehavior.py) that enables:
 // a) on-demand insturment control
 // b) data saving
 // c) state-flow logic
+//
 // By default, csStateBehavior runs at 1KHz.
+// On a Teensy 3.6, each interrupt takes ~600-700 us depending on how many variables are processed.
+// Recommended "optimization" (compiler) settings: Faster or Fastest w/LTO; 168 MHz CPU (slightly underclocking CPU is most noticeable).
 //
 // Questions: Chris Deister --> cdeister@brown.edu
-// 9/22/2018
+// Last Update 9/29/2018 --> Added interrupt function to handle flyback-triggered opto stim.
 //
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -56,6 +59,9 @@
 #define neoStripPin 2
 #define extRelay 26
 #define extRelay2 24
+#define yGalvo 35
+#define PMTPin 34
+
 
 bool relayState = 0;
 uint32_t relayTimer = 0;
@@ -76,15 +82,17 @@ elapsedMicros loopTime;
 #define visualSerial Serial1 // out to a computer running psychopy
 #define dashSerial Serial3 // out to a csDashboard
 
-// f) True DACs (I define as an array object to loop later)
+// f) True 12-bit DACs (I define as an array object to loop later)
 // on a teensy 3.2 A14 is the only DAC
-
+// MCP DACs (3&4) can be powered by 5V, and will give 5V out.
+// Teensy DACs are 3.3V, but see documentation for simple opamp wiring to get 5V peak.
 #define DAC1 A21
 #define DAC2 A22
 
 // ~~~ MCP DACs
 Adafruit_MCP4725 dac3;
 Adafruit_MCP4725 dac4;
+
 
 // **** Make neopixel object
 // if rgbw use top line, if rgb use second.
@@ -125,7 +133,10 @@ volatile uint32_t prev_time = 0;
 // c) Frame Counter
 volatile uint32_t pulseCount = 0;
 
-// d) State Machine (vStates) Interupt Timing
+// d) Flyback Signal
+volatile uint32_t flybackVal = 0;
+
+// e) State Machine (vStates) Interupt Timing
 int sampsPerSecond = 1000;
 float evalEverySample = 1.0; // number of times to poll the vStates funtion
 
@@ -159,10 +170,11 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // ____ Misc.
 // l/14: current value on loadCell
 // z/15: toggle a pin
+// q/16: Flyback stim dur (in microseconds)
 
-char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'z'};
-uint32_t knownValues[] = {0,    5,   8000, 0,  0,   0,   0,   10,  0,  100,  10, 4095, 0,   0,  0,   0};
-int knownCount = 15;
+char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'z', 'q'};
+uint32_t knownValues[] = {0,    5,   8000, 0,  0,   0,   0,   10,  0,  100,  10, 4095, 0,   0,  0,   0, 25};
+int knownCount = 16;
 
 
 
@@ -212,7 +224,7 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 void setup() {
   // Start MCP DACs
-  dac3.begin(0x63); //adafruit A0 pulled high
+  dac3.begin(0x62); //adafruit A0 pulled high
   dac4.begin(0x60); // sparkfun A0 pulled low
 
   // todo: Setup Cyclops
@@ -237,6 +249,7 @@ void setup() {
   // Interrupts
   attachInterrupt(motionPin, rising, RISING);
   attachInterrupt(framePin, frameCount, RISING);
+  attachInterrupt(yGalvo, flybackStim, RISING);
 
   // DIO Pin States
   pinMode(syncPin, OUTPUT);
@@ -247,6 +260,8 @@ void setup() {
   digitalWrite(extRelay2, LOW);
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
+  pinMode(PMTPin, OUTPUT);
+  digitalWrite(PMTPin, LOW);
 
   // Serial Lines
   dashSerial.begin(115200);
@@ -773,6 +788,29 @@ void frameCount() {
   pulseCount++;
 }
 
+void flybackStim() {
+  // todo:
+  // we need to allow scaling of pulse and dur to fit faster sampling in the interrupt.
+  // line period could be determined by the interrupts
+  //
+  // vars:
+  // (global) knownValues[15] == a duration in micros to keep the stim on.
+  // (local) pfTime == a microsecond timer object
+  elapsedMicros pfTime;
+  pfTime = 0;
+  digitalWrite(PMTPin,HIGH);
+  while (pfTime <= knownValues[15]) {
+    stimGen(pulseTrainVars);
+    analogWrite(DAC1, pulseTrainVars[0][7]);
+    analogWrite(DAC2, pulseTrainVars[1][7]);
+  }
+  analogWrite(DAC1, 0);
+  analogWrite(DAC2, 0);
+  digitalWrite(PMTPin,LOW);
+}
+
+
+
 // ****************************************************************
 // **************  Pulse Train Function ***************************
 // ****************************************************************
@@ -817,10 +855,14 @@ void stimGen(uint32_t pulseTracker[][9]) {
         }
       }
     }
-    
+
     // *** 1 == Ramps
     else if (pulseTracker[i][6] == 1) {
+      // TODO: add another state to allow for long ramps
       // TODO: finish skip factor for long ramps
+      if (pulseTracker[i][3] > 4095) {
+        pulseTracker[i][3] = 4095;
+      }
       uint32_t incToPeak = (pulseTracker[i][5] - pulseTracker[i][4]) / pulseTracker[i][3];
       if (pulseTracker[i][0] == 1) {
         if (pulseTracker[i][1] >= pulseTracker[i][3]) {
@@ -903,8 +945,6 @@ void pollColorChange() {
     strip.show();
     lastBrightness = knownValues[7];
   }
-
-
 
   // b) Handle color changes.
   if (knownValues[8] > 0 && knownValues[8] < 8) {

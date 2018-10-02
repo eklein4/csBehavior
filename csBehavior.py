@@ -335,6 +335,15 @@ class csGUI(object):
 		self.commandBtn.grid(row=1,column=2)
 		self.commandBtn['state'] = 'normal'
 
+		self.flybackDurTV=StringVar(self.deviceControl_frame)
+		self.flybackDurTV.set("25")
+		self.flybackDurTV_Entry = Entry(self.deviceControl_frame,width=8,textvariable=self.flybackDurTV)
+		self.flybackDurTV_Entry.grid(row=2,column=3)
+		self.flybackDur_Btn = Button(self.deviceControl_frame,text="Fly Dur (us)",width=dCBWd,\
+			command=lambda: self.commandTeensy(varDict,"q{}".format(int(self.flybackDurTV.get()))))
+		self.flybackDur_Btn.grid(row=2,column=2)
+		self.flybackDur_Btn['state'] = 'normal'
+
 
 		self.testRewardBtn = Button(self.deviceControl_frame,text="Rwd",width=dCBWd,\
 			command=lambda: self.commandTeensy(varDict,"z27>"))
