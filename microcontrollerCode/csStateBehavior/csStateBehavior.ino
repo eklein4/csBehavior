@@ -9,11 +9,11 @@
 // c) state-flow logic
 //
 // By default, csStateBehavior runs at 1KHz.
-// On a Teensy 3.6, each interrupt takes ~600-700 us depending on how many variables are processed.
-// Recommended "optimization" (compiler) settings: Faster or Fastest w/LTO; 168 MHz CPU (slightly underclocking CPU is most noticeable).
+// It could run at 1.5-2KHz, but I don't reccomend it.
+// On a Teensy 3.6, each interrupt takes ~280-400 us depending on how many variables are processed.
 //
 // Questions: Chris Deister --> cdeister@brown.edu
-// Last Update 9/29/2018 --> Added interrupt function to handle flyback-triggered opto stim.
+// Last Update 9/29/2018 --> Added interrupt function to handle flyback-triggered opto stim w/ PMT blanking.
 //
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -44,23 +44,24 @@
 #define genA1 A1
 #define genA2 A2
 #define genA3 A3
+#define analogMotion A17
 
 // b) Digital Input Pins
 #define scaleData  29
 #define scaleClock  28
 
 // c) Digital Interrupt Input Pins
-#define motionPin  6
+#define motionPin 35
 #define framePin  5
+#define yGalvo  6
 
 // d) Digital Output Pins
-#define syncPin  25    // Trigger other things like a microscope and/or camera
-#define rewardPin  27  // Trigger/signal a reward
+#define syncPin 25    // Trigger other things like a microscope and/or camera
+#define rewardPin 27  // Trigger/signal a reward
 #define neoStripPin 2
-#define extRelay 26
+#define extRelay  26
 #define extRelay2 24
-#define yGalvo 35
-#define PMTPin 34
+#define pmtBlank  34
 
 
 bool relayState = 0;
@@ -72,6 +73,7 @@ uint32_t relayTimer2 = 0;
 bool startSession = 0;
 
 uint32_t vStim_xPos = 800;
+uint32_t vStim_yPos = 800;
 
 elapsedMillis trialTime;
 elapsedMillis stateTime;
@@ -173,8 +175,8 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // q/16: Flyback stim dur (in microseconds)
 
 char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'z', 'q'};
-uint32_t knownValues[] = {0,    5,   8000, 0,  0,   0,   0,   10,  0,  100,  10, 4095, 0,   0,  0,   0, 25};
-int knownCount = 16;
+uint32_t knownValues[] = {0,    5,   8000, 0,  0,   0,   0,   10,  0,  100,  10, 4095, 0,   0,  0,   0, 100};
+int knownCount = 17;
 
 
 
@@ -249,7 +251,7 @@ void setup() {
   // Interrupts
   attachInterrupt(motionPin, rising, RISING);
   attachInterrupt(framePin, frameCount, RISING);
-  attachInterrupt(yGalvo, flybackStim, RISING);
+  attachInterrupt(yGalvo, flybackStim_On, FALLING);
 
   // DIO Pin States
   pinMode(syncPin, OUTPUT);
@@ -260,8 +262,8 @@ void setup() {
   digitalWrite(extRelay2, LOW);
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
-  pinMode(PMTPin, OUTPUT);
-  digitalWrite(PMTPin, LOW);
+  pinMode(pmtBlank, OUTPUT);
+  digitalWrite(pmtBlank, LOW);
 
   // Serial Lines
   dashSerial.begin(115200);
@@ -280,9 +282,10 @@ void loop() {
 
 
 void vStates() {
-  loopTime = 0;
-
-  // sometimes we block state changes, so let's log the last state.
+  // ***************************************************************************************
+  // **** Loop Timing/Serial Processing:                                  
+  // Every loop resets the timer, then looks for serial variable changes. 
+  loopTime = 0;   
   lastState = knownValues[0];
 
   // we then look for any changes to variables, or calls for updates
@@ -290,15 +293,14 @@ void vStates() {
   if ((curSerVar == 9) || (curSerVar == 10) || (curSerVar == 11) || (curSerVar == 12) || (curSerVar == 13)) {
     setPulseTrainVars(curSerVar, knownValues[curSerVar]);
   }
-  //  flagReceiveDashboard(knownDashValues);
-
-
+  
   // Some hardware actions need to complete before a state-change.
   // So, we have a latch for state change. We write over any change with lastState
   if (blockStateChange == 1) {
     knownValues[0] = lastState;
   }
-
+  
+  // ***************************************************************************************
 
   // **************************
   // State 0: Boot/Init State
@@ -709,7 +711,8 @@ void genericStateBody() {
   relayState2 = digitalRead(extRelay2);
   writeAnalogOutValues(analogOutVals);
   if (scale.is_ready()) {
-    scaleVal = scale.get_units() * 22000; // this scale factor gives hundreths of a gram as the least significant int
+    scaleVal = scale.get_units() * 22000; 
+    // this scale factor gives hundreths of a gram as the least significant int
     knownValues[14] = scaleVal;
   }
 }
@@ -758,7 +761,8 @@ void visStim(int stimType) {
     visualSerial.print(',');
     visualSerial.print(0);
     visualSerial.print(',');
-    visualSerial.print(999);  // I set psychopy to stop a session when contrast = 999
+    visualSerial.print(999);  
+    // I set psychopy to stop a session when contrast = 999
     visualSerial.print(',');
     visualSerial.print(0);
     visualSerial.print(',');
@@ -788,7 +792,7 @@ void frameCount() {
   pulseCount++;
 }
 
-void flybackStim() {
+void flybackStim_On() {
   // todo:
   // we need to allow scaling of pulse and dur to fit faster sampling in the interrupt.
   // line period could be determined by the interrupts
@@ -796,18 +800,24 @@ void flybackStim() {
   // vars:
   // (global) knownValues[15] == a duration in micros to keep the stim on.
   // (local) pfTime == a microsecond timer object
+  //  attachInterrupt(yGalvo, flybackStim_Off, RISING);
   elapsedMicros pfTime;
   pfTime = 0;
-  digitalWrite(PMTPin,HIGH);
-  while (pfTime <= knownValues[15]) {
+  digitalWrite(pmtBlank, HIGH);
+  while (pfTime <= knownValues[16]) {
     stimGen(pulseTrainVars);
     analogWrite(DAC1, pulseTrainVars[0][7]);
     analogWrite(DAC2, pulseTrainVars[1][7]);
   }
   analogWrite(DAC1, 0);
   analogWrite(DAC2, 0);
-  digitalWrite(PMTPin,LOW);
+  digitalWrite(pmtBlank, LOW);
 }
+
+//void flybackStim_Off() {
+//  analogWrite(DAC1, 0);
+//  analogWrite(DAC2, 0);
+//}
 
 
 
