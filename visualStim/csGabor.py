@@ -153,7 +153,8 @@ while runSession:
 			sR=sR.split(',')
 			if len(sR)==7 and sR[0]=='v':
 				if int(sR[2])==999:
-					stopCamera()
+					if useCam ==1:
+						stopCamera()
 					runSession=0
 					sR[2]=0
 				gabor_1['contrast']=int(sR[2])/100

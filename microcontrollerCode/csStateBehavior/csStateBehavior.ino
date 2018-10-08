@@ -311,7 +311,9 @@ void vStates() {
 
     // a) run a header for state 0
     if (headerStates[0] == 0) {
-      visStim(0);
+      if (startSession == 1){
+        visStim(3);
+      }
       genericHeader(0);
       loopCount = 0;
       setStrip(3); // red
