@@ -111,7 +111,28 @@ def stopCamera():
 
 # ******* This is the program main loop 
 while runSession:
-    cam_onPin=GPIO.input(onPin)
+
+    if startFlag==0:
+        timeOffset=clock.getTime()
+        startFlag=1
+    grating1.phase += gabor_1['phaseDelta']
+    curTime=clock.getTime()-timeOffset
+    mywin.flip()
+    lc=lc+1
+
+    # save
+    exp.addData('clockTime', curTime)
+    exp.addData('g1_phase', gabor_1['Xpos'])
+    exp.addData('g1_spFreq', gabor_1['spFreq'])
+    exp.addData('g1_size', gabor_1['size'])
+    exp.addData('g1_contrast', gabor_1['contrast'])
+    exp.addData('serTrack',serTrack)
+    exp.nextEntry()
+    
+    if len(event.getKeys())>0:
+        break
+    event.clearEvents()
+        cam_onPin=GPIO.input(onPin)
     cam_offPin=GPIO.input(offPin)
 
     if useCam ==1 and cameraOn == 0 and cam_onPin==1:
@@ -142,31 +163,6 @@ while runSession:
                 grating1.contrast = gabor_1['contrast']
                 grating1.ori=gabor_1['orientation']
                 grating1.size = gabor_1['size']
-
- 
-
-    if startFlag==0:
-        timeOffset=clock.getTime()
-        startFlag=1
-    grating1.phase += gabor_1['phaseDelta']
-    curTime=clock.getTime()-timeOffset
-    # grating1.draw()
-
-
-    mywin.flip()
-    lc=lc+1
-
-    # save
-    exp.addData('clockTime', curTime)
-    exp.addData('g1_phase', gabor_1['Xpos'])
-    exp.addData('g1_spFreq', gabor_1['spFreq'])
-    exp.addData('g1_size', gabor_1['size'])
-    exp.addData('g1_contrast', gabor_1['contrast'])
-    exp.addData('serTrack',serTrack)
-    exp.nextEntry()
-    if len(event.getKeys())>0:
-        break
-    event.clearEvents()
 
 # end session
 
