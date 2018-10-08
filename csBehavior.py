@@ -1166,9 +1166,10 @@ def runDetectionTask():
 		csPlt.makeTrialFig(csVar.sesVarDict['detectPlotNum'])
 		csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
 	elif useGUI==0:
-		csVar.sesVarDict['comPath_teensy']=temp_comPath_teensy
-		csVar.sesVarDict['dirPath']=temp_savePath
-		csVar.sesVarDict['hashPath']=temp_hashPath
+		csVar.sesVarDict['logMQTT'] = 0
+		csVar.sesVarDict['comPath_teensy'] = temp_comPath_teensy
+		csVar.sesVarDict['dirPath'] = temp_savePath
+		csVar.sesVarDict['hashPath'] = temp_hashPath
 	
 	teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
 	
@@ -1204,6 +1205,8 @@ def runDetectionTask():
 		lIt=0
 		while lIt<=50:
 			[rV,vN]=csSer.checkVariable(teensy,'l',0.002)
+			print(vN)
+			print(rN)
 			if vN:
 				wVals.append(rV)
 				lIt=lIt+1

@@ -22,7 +22,9 @@
 // ***** Initialize All The Things ********
 // ****************************************
 //
-//
+// Include config vars
+#include "header.h"
+
 // Builtin Libraries
 #include <Wire.h>
 #include <FlexiTimer2.h>
@@ -175,7 +177,7 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // q/16: Flyback stim dur (in microseconds)
 
 char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'z', 'q'};
-uint32_t knownValues[] = {0,    5,   8000, 0,  0,   0,   0,   10,  0,  100,  10, 4095, 0,   0,  0,   0, 100};
+uint32_t knownValues[] = {0,    5,   8000, 0,  0,   0,   0,   10,  0,  100,  10, 0, 0,   0,  0,   0, 100};
 int knownCount = 17;
 
 
@@ -226,8 +228,8 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 void setup() {
   // Start MCP DACs
-  dac3.begin(0x62); //adafruit A0 pulled high
-  dac4.begin(0x60); // sparkfun A0 pulled low
+  dac3.begin(dac3Address); //adafruit A0 pulled high
+  dac4.begin(dac4Address); // sparkfun A0 pulled low
 
   // todo: Setup Cyclops
   // Start the device
@@ -251,7 +253,7 @@ void setup() {
   // Interrupts
   attachInterrupt(motionPin, rising, RISING);
   attachInterrupt(framePin, frameCount, RISING);
-  attachInterrupt(yGalvo, flybackStim_On, FALLING);
+  //attachInterrupt(yGalvo, flybackStim_On, FALLING);
 
   // DIO Pin States
   pinMode(syncPin, OUTPUT);
@@ -283,9 +285,9 @@ void loop() {
 
 void vStates() {
   // ***************************************************************************************
-  // **** Loop Timing/Serial Processing:                                  
-  // Every loop resets the timer, then looks for serial variable changes. 
-  loopTime = 0;   
+  // **** Loop Timing/Serial Processing:
+  // Every loop resets the timer, then looks for serial variable changes.
+  loopTime = 0;
   lastState = knownValues[0];
 
   // we then look for any changes to variables, or calls for updates
@@ -293,13 +295,13 @@ void vStates() {
   if ((curSerVar == 9) || (curSerVar == 10) || (curSerVar == 11) || (curSerVar == 12) || (curSerVar == 13)) {
     setPulseTrainVars(curSerVar, knownValues[curSerVar]);
   }
-  
+
   // Some hardware actions need to complete before a state-change.
   // So, we have a latch for state change. We write over any change with lastState
   if (blockStateChange == 1) {
     knownValues[0] = lastState;
   }
-  
+
   // ***************************************************************************************
 
   // **************************
@@ -711,7 +713,7 @@ void genericStateBody() {
   relayState2 = digitalRead(extRelay2);
   writeAnalogOutValues(analogOutVals);
   if (scale.is_ready()) {
-    scaleVal = scale.get_units() * 22000; 
+    scaleVal = scale.get_units() * 22000;
     // this scale factor gives hundreths of a gram as the least significant int
     knownValues[14] = scaleVal;
   }
@@ -761,7 +763,7 @@ void visStim(int stimType) {
     visualSerial.print(',');
     visualSerial.print(0);
     visualSerial.print(',');
-    visualSerial.print(999);  
+    visualSerial.print(999);
     // I set psychopy to stop a session when contrast = 999
     visualSerial.print(',');
     visualSerial.print(0);
