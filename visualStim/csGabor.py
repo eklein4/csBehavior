@@ -142,6 +142,8 @@ while runSession:
 		cameraOn = 0
 		stopCamera()
 		runSession = 0
+	elif useCam == 0 and cam_offPin==1:
+		runSession = 0
 	if useSerial==1:
 		serTrack=0
 		bytesAvail=teensyObj.inWaiting()
