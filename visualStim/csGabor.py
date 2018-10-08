@@ -49,8 +49,8 @@ except:
     serialBaud = 115200
     onPin = 11
     offPin = 12
-    win_x1=900
-    win_y1=900
+    win_x1=500
+    win_y1=500
     init_contrast = 1.0
     init_orientation = 0
     useSerial = 1

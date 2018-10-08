@@ -311,7 +311,7 @@ void vStates() {
 
     // a) run a header for state 0
     if (headerStates[0] == 0) {
-      visStim(2);
+      visStim(0);
       genericHeader(0);
       loopCount = 0;
       setStrip(3); // red
@@ -395,7 +395,7 @@ void vStates() {
     else if (knownValues[0] == 2) {
       if (headerStates[2] == 0) {
         genericHeader(2);
-        visStim(1);
+        visStim(2);
         blockStateChange = 0;
       }
       genericStateBody();
@@ -967,4 +967,3 @@ void pollColorChange() {
     knownValues[8] = 0;
   }
 }
-
