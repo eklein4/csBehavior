@@ -1,0 +1,9 @@
+[settings]
+useGUI = 0
+host = abc.com
+task = detectionTask
+
+[sesVars]
+comPath_teensy = /dev/ttyACM0
+savePath = /home/linaro/Desktop/cad/
+hashPath = /home/linaro/

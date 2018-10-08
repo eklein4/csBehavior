@@ -54,12 +54,14 @@ except:
     init_contrast = 0.0
     init_orientation = 0
     useSerial = 1
+    useCam = 0
 
 # ******** Make a raspberry pi camera object if using a pi
-camera = PiCamera()
-camera.resolution = (res_X,res_Y)
-camera.framerate = frameRate
-camera.exposure = iso
+if useCam == 1:
+    camera = PiCamera()
+    camera.resolution = (res_X,res_Y)
+    camera.framerate = frameRate
+    camera.exposure = iso
 
 # ******** initialize Pi GPIO To Control Camera
 GPIO.setmode(GPIO.BOARD)
@@ -112,10 +114,10 @@ while runSession:
     cam_onPin=GPIO.input(onPin)
     cam_offPin=GPIO.input(offPin)
 
-    if cameraOn == 0 and cam_onPin==1:
+    if useCam ==1 and cameraOn == 0 and cam_onPin==1:
         cameraOn = 1
         startCamera()
-    elif cameraOn == 1 and cam_offPin==1:
+    elif useCam ==1 and cameraOn == 1 and cam_offPin==1:
         cameraOn = 0
         stopCamera()
         runSession = 0
