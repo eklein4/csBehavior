@@ -51,7 +51,7 @@ except:
 	offPin = 12
 	win_x1=500
 	win_y1=500
-	init_contrast = 1.0
+	init_contrast = 0
 	init_orientation = 0
 	useSerial = 1
 	useCam = 0
