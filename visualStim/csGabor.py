@@ -74,9 +74,18 @@ if useSerial==1:
 	teensyObj.close()
 	teensyObj.open()
 
+def getWinPos(xSize,ySize,monX,monY):
+	centXPos = int(monX/2)
+	centYPos = int(monX/2)
+	useX = centXPos-xSize
+	useY = centYPos-ySize
+	return useX,useY
+
+
+[wX,wY] = getWinPos(win_x1,win_y1,1080,1920)
 
 # ***** make a psychopy/pyglet window
-mywin = visual.Window([win_x1,win_y1],allowGUI=False)
+mywin = visual.Window([win_x1,win_y1],allowGUI=False,pos=[wX,wY])
 exp = data.ExperimentHandler(dataFileName="ydo")
 
 
@@ -88,6 +97,7 @@ lc=0
 serTrack=0
 runSession=1
 cameraOn = 0
+
 
 # stim 1 params
 gabor_1={'phaseDelta':0.05,'Xpos':0,'Ypos':0,'spFreq':[4,0],'mask':'gauss',
