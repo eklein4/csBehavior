@@ -51,7 +51,7 @@ except:
 	offPin = 12
 	win_x1=500
 	win_y1=500
-	init_contrast = 0
+	init_contrast = 1.0
 	init_orientation = 0
 	useSerial = 1
 	useCam = 0
@@ -74,18 +74,9 @@ if useSerial==1:
 	teensyObj.close()
 	teensyObj.open()
 
-def getWinPos(xSize,ySize,monX,monY):
-	centXPos = int(monX/2)
-	centYPos = int(monX/2)
-	useX = centXPos-xSize
-	useY = centYPos-ySize
-	return useX,useY
-
-
-[wX,wY] = getWinPos(win_x1,win_y1,1080,1920)
 
 # ***** make a psychopy/pyglet window
-mywin = visual.Window([win_x1,win_y1],allowGUI=False,pos=[wX,wY])
+mywin = visual.Window([win_x1,win_y1],allowGUI=False)
 exp = data.ExperimentHandler(dataFileName="ydo")
 
 
@@ -163,9 +154,7 @@ while runSession:
 			sR=sR.split(',')
 			if len(sR)==7 and sR[0]=='v':
 				if int(sR[2])==999:
-					if useCam ==1:
-						stopCamera()
-					runSession=0
+					# runSession=0
 					sR[2]=0
 				gabor_1['contrast']=int(sR[2])/100
 				gabor_1['orientation']=int(sR[1])
