@@ -83,7 +83,8 @@ class csGUI(object):
 		self.taskBar = Frame(self.master)
 		self.master.title("csBehavior")
 		
-		self.tb = Button(self.taskBar,text="set path",justify=LEFT,width=c1Wd,command=lambda: self.getPath(varDict))
+		self.tb = Button(self.taskBar,text="set path",justify=LEFT,width=c1Wd,\
+			command=lambda: self.getPath(varDict))
 		self.tb.grid(row=cpRw+1,column=1,sticky=W,padx=10)
 		self.dirPath_label=Label(self.taskBar, text="Save Path:", justify=LEFT)
 		self.dirPath_label.grid(row=cpRw,column=0,padx=0,sticky=W)
@@ -202,7 +203,8 @@ class csGUI(object):
 		self.logMQTT_Toggle.select()
 
 
-		self.tBtn_detection = Button(self.taskBar,text="Task:Detection",justify=LEFT,width=c1Wd,command=self.do_detection)
+		self.tBtn_detection = Button(self.taskBar,text="Task:Detection",justify=LEFT,\
+			width=c1Wd,command=self.do_detection)
 		self.tBtn_detection.grid(row=cpRw,column=1,padx=10,sticky=W)
 		self.tBtn_detection['state'] = 'disabled'
 
@@ -780,10 +782,21 @@ class csMQTT(object):
 	def __init__(self,dStamp):
 		self.dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
 
-	def connectBroker(self,hashPath):
+	def connect_REST(self,hashPath):
 		simpHash=open(hashPath)
-		self.aio = Client(simpHash.readline(1),simpHash.readline(2))
+		a=list(simpHash)
+    	userName = a[0].strip()
+    	apiKey = a[1]
+		self.aio = Client(userName,apiKey)
 		return self.aio
+
+	def connect_MQTT(self,hashPath):
+		simpHash=open(hashPath)
+		a=list(simpHash)
+    	userName = a[0].strip()
+    	apiKey = a[1]
+		self.mqtt = MQTTClient(userName,apiKey)
+		return self.mqtt
 
 	def getDailyConsumption(self,mqObj,sID,rigGMTDif,hourThresh):
 		# Get last reward count logged.
@@ -1140,6 +1153,7 @@ csAIO=csMQTT(1)
 csSer=csSerial(1)
 csPlt=csPlot(1)
 if useGUI==1:
+	
 	csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.timeVars,csVar.sesSensDict,csVar.sensVars)
 
 
@@ -1219,9 +1233,9 @@ def runDetectionTask():
 	# Optional: Update MQTT Feeds
 
 	if csVar.sesVarDict['logMQTT']:
-		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/cdIO.txt'
+		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
 		# aio is csAIO's mq broker object.
-		aio=csAIO.connectBroker(aioHashPath)
+		aio=csAIO.connect_REST(aioHashPath)
 		try:
 			csAIO.rigOnLog(aio,csVar.sesVarDict['subjID'],\
 				csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
@@ -1715,6 +1729,7 @@ def runTrialOptoTask():
 
 
 if useGUI==1:
+	
 	mainloop()
 
 elif useGUI==0:

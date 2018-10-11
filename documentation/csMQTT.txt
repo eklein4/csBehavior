@@ -1,0 +1,23 @@
+The MQTT Client needs to connect to the Broker. This requires your ID and key. These are stored on a per-user basis in a local path we will refer to as "Hash Path." The adafruit IO API allows a rest client to be generated, which is a lighter go-between connection to the MQTT service, but you can also generate a true MQTT client. The difference is speed and efficiency. Currently, csBehavior uses the REST API for the most part. 
+
+The functions to connect to the REST API, or as an MQTT client are in the csMQTT class:
+
+def connect_REST(self,hashPath):
+		simpHash=open(hashPath)
+		self.aio = Client(simpHash.readline(1),simpHash.readline(2))
+		return self.aio
+
+def connect_MQTT(self,hashPath):
+		simpHash=open(hashPath)
+		self.mqtt = MQTTClient(simpHash.readline(1),simpHash.readline(2))
+		return self.mqtt
+
+This returns the aio object if using REST, or an mqtt object if connecting as a true MQTT client. For both, the arguments are 'userID' and 'apiKey.' These are generated on a per-user basis, and not distributed with csBehavior. Adafruit provides a free tier for their service, which can serve most users well. A paid tier is also available. You should visit adafruit.io and sign up. Then, make a text file with two lines:
+
+yourUserID
+yourAPIKey
+
+and save it as csIO.txt inside of a folder called "simpHashes" (or anything you like). 
+
+
+

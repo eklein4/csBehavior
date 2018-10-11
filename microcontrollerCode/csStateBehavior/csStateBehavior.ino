@@ -311,9 +311,7 @@ void vStates() {
 
     // a) run a header for state 0
     if (headerStates[0] == 0) {
-      if (startSession == 1){
-        visStim(3);
-      }
+      visStim(0);
       genericHeader(0);
       loopCount = 0;
       setStrip(3); // red
@@ -327,29 +325,29 @@ void vStates() {
     // b) body for state 0
     genericStateBody();
 
-    if ((relayState == 1) && (relayTimer == 0)) {
-      digitalWrite(syncPin, HIGH);
-      relayTimer++;
-    }
-    else if (relayTimer > 0) {
-      relayTimer++;
-    }
-    if (relayTimer >= trigTime) {
-      digitalWrite(syncPin, LOW);
-      relayTimer = 0;
-    }
-
-    if ((relayState2 == 1) && (relayTimer2 == 0)) {
-      digitalWrite(rewardPin, HIGH);
-      relayTimer2++;
-    }
-    else if (relayTimer2 > 0) {
-      relayTimer2++;
-    }
-    if (relayTimer2 >= trigTime) {
-      digitalWrite(rewardPin, LOW);
-      relayTimer2 = 0;
-    }
+//    if ((relayState == 1) && (relayTimer == 0)) {
+//      digitalWrite(syncPin, HIGH);
+//      relayTimer++;
+//    }
+//    else if (relayTimer > 0) {
+//      relayTimer++;
+//    }
+//    if (relayTimer >= trigTime) {
+//      digitalWrite(syncPin, LOW);
+//      relayTimer = 0;
+//    }
+//
+//    if ((relayState2 == 1) && (relayTimer2 == 0)) {
+//      digitalWrite(rewardPin, HIGH);
+//      relayTimer2++;
+//    }
+//    else if (relayTimer2 > 0) {
+//      relayTimer2++;
+//    }
+//    if (relayTimer2 >= trigTime) {
+//      digitalWrite(rewardPin, LOW);
+//      relayTimer2 = 0;
+//    }
   }
 
   // **************************
@@ -410,7 +408,7 @@ void vStates() {
       if (headerStates[3] == 0) {
         blockStateChange = 0;
         genericHeader(3);
-        visStim(1);
+        visStim(0);
       }
       genericStateBody();
     }

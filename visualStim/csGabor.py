@@ -49,19 +49,19 @@ except:
 	serialBaud = 115200
 	onPin = 11
 	offPin = 12
-	win_x1=500
-	win_y1=500
+	win_x1=600
+	win_y1=600
 	init_contrast = 1.0
 	init_orientation = 0
 	useSerial = 1
-	useCam = 0
+	useCam = 1
 
 # ******** Make a raspberry pi camera object if using a pi
 if useCam == 1:
 	camera = PiCamera()
 	camera.resolution = (res_X,res_Y)
 	camera.framerate = frameRate
-	camera.exposure = iso
+	#camera.exposure = iso
 
 # ******** initialize Pi GPIO To Control Camera
 GPIO.setmode(GPIO.BOARD)
@@ -103,7 +103,7 @@ grating1.autoDraw=True
 
 def startCamera():
 	cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-	output = np.empty((res_Y,res_X,3),dtype=np.uint12)
+	output = np.empty((res_Y,res_X,3),dtype=np.uint16)
 	filename = savePath + animalID + 'video_' + cStr + '.h264'
 	camera.start_recording(filename,sps_timing=True)
 
