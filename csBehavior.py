@@ -636,7 +636,7 @@ class csVariables(object):
 
 		self.sesVarDict={'curSession':1,'comPath_teensy':'/dev/cu.usbmodem4589151',\
 		'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':100,\
-		'logMQTT':1,'mqttUpDel':0.05,'curWeight':20,'rigGMTZoneDif':5,'volPerRwd':0.01,\
+		'logMQTT':1,'mqttUpDel':0.05,'curWeight':20,'rigGMTZoneDif':5,'volPerRwd':0.0023,\
 		'waterConsumed':0,'consumpTarg':1.5,'dirPath':'/Users/Deister/BData',\
 		'hashPath':'/Users/cad','trialNum':0,'sessionOn':1,'canQuit':1,\
 		'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':15,\
@@ -808,7 +808,10 @@ class csMQTT(object):
 		monthOffset=0
 
 		# but grab the last point logged on the MQTT feed.
-		gDP=mqObj.receive('{}_waterConsumed'.format(sID))
+	
+		gDP=mqObj.receive('{}-waterconsumed'.format(sID))
+	
+
 		# Look at when it was logged.
 		crStr=gDP.created_at[0:10]
 
@@ -848,9 +851,7 @@ class csMQTT(object):
 		
 		return self.waterConsumed,self.hourDif
 
-	def createFeed(self,mqObj,nameString):
 
-		mqObj.create_feed(Feed(name={}.format(nameString)))
 
 	def rigOnLog(self,mqObj,sID,sWeight,hostName,mqDel):
 		
@@ -859,11 +860,10 @@ class csMQTT(object):
 			mqObj.send('rig-{}'.format(hostName),1)
 			time.sleep(mqDel)
 		except:
-			print("uo")
 			mqObj.create_feed(Feed(name="rig-{}".format(hostName)))
-			print("feed make")
 			mqObj.send('rig-{}'.format(hostName),1)
 			time.sleep(mqDel)
+			
 
 
 		# b) log the rig string the subject is on to the subject's rig tracking feed.
@@ -874,6 +874,21 @@ class csMQTT(object):
 			mqObj.create_feed(Feed(name="{}-rig".format(sID)))
 			mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName))
 			time.sleep(mqDel)
+
+			# if we had to make a new subject weight feed, then others may not exist that we need
+			try:
+				mqObj.create_feed(Feed(name="{}-waterconsumed".format(sID)))
+				mqObj.send('{}-waterconsumed'.format(sID),0)
+				time.sleep(mqDel)
+			except:
+				pass
+
+			try:
+				mqObj.create_feed(Feed(name="{}-topvol".format(sID)))
+				mqObj.send('{}-topvol'.format(sID),1.2)
+				time.sleep(mqDel)
+			except:
+				pass
 
 
 		# c) log the weight to subject's weight tracking feed.
@@ -1628,14 +1643,14 @@ def runDetectionTask():
 
 					# update animal's water consumed feed.
 					csVar.sesVarDict['waterConsumed']=int(csVar.sesVarDict['waterConsumed']*10000)/10000
-					aio.send('{}_waterConsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
+					aio.send('{}-waterconsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
 					topAmount=csVar.sesVarDict['consumpTarg']-csVar.sesVarDict['waterConsumed']
 					topAmount=int(topAmount*10000)/10000
 					if topAmount<0:
 						topAmount=0
 				 
 					print('give {:0.3f} ml later by 12 hrs from now'.format(topAmount))
-					aio.send('{}_topVol'.format(csVar.sesVarDict['subjID']),topAmount)
+					aio.send('{}-topvol'.format(csVar.sesVarDict['subjID']),topAmount)
 				except:
 					pass
 			if useGUI==1:
@@ -1693,8 +1708,8 @@ def runDetectionTask():
 			try:
 				csAIO.rigOffLog(aio,csVar.sesVarDict['subjID'],\
 					csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
-				aio.send('{}_waterConsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
-				aio.send('{}_topVol'.format(csVar.sesVarDict['subjID']),topAmount)
+				aio.send('{}-waterconsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
+				aio.send('{}-topvol'.format(csVar.sesVarDict['subjID']),topAmount)
 			except:
 				print('failed to log mqtt info')
 	   
