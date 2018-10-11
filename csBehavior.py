@@ -42,7 +42,7 @@ import sys
 import pandas as pd
 from scipy.stats import norm
 import pygsheets
-from Adafruit_IO import Client
+from Adafruit_IO import *
 import configparser
 
 try:
@@ -785,16 +785,16 @@ class csMQTT(object):
 	def connect_REST(self,hashPath):
 		simpHash=open(hashPath)
 		a=list(simpHash)
-    	userName = a[0].strip()
-    	apiKey = a[1]
+		userName = a[0].strip()
+		apiKey = a[1]
 		self.aio = Client(userName,apiKey)
 		return self.aio
 
 	def connect_MQTT(self,hashPath):
 		simpHash=open(hashPath)
 		a=list(simpHash)
-    	userName = a[0].strip()
-    	apiKey = a[1]
+		userName = a[0].strip()
+		apiKey = a[1]
 		self.mqtt = MQTTClient(userName,apiKey)
 		return self.mqtt
 
@@ -848,36 +848,55 @@ class csMQTT(object):
 		
 		return self.waterConsumed,self.hourDif
 
+	def createFeed(self,mqObj,nameString):
+
+		mqObj.create_feed(Feed(name={}.format(nameString)))
+
 	def rigOnLog(self,mqObj,sID,sWeight,hostName,mqDel):
 		
 		# a) log on to the rig's on-off feed.
-		mqObj.send('rig_{}'.format(hostName),1)
-		time.sleep(mqDel)
+		try:
+			mqObj.send('rig-{}'.format(hostName),1)
+			time.sleep(mqDel)
+		except:
+			print("uo")
+			mqObj.create_feed(Feed(name="rig-{}".format(hostName)))
+			print("feed make")
+			mqObj.send('rig-{}'.format(hostName),1)
+			time.sleep(mqDel)
+
 
 		# b) log the rig string the subject is on to the subject's rig tracking feed.
-		mqObj.send('{}_rig'.format(sID),'{}_on'.format(hostName))
-		time.sleep(mqDel)
+		try:
+			mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName))
+			time.sleep(mqDel)
+		except:
+			mqObj.create_feed(Feed(name="{}-rig".format(sID)))
+			mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName))
+			time.sleep(mqDel)
+
 
 		# c) log the weight to subject's weight tracking feed.
-		mqObj.send('{}_weight'.format(sID,sWeight),sWeight)
+		try:
+			mqObj.send('{}-weight'.format(sID),sWeight)
+		except:
+			mqObj.create_feed(Feed(name='{}-weight'.format(sID)))
+			mqObj.send('{}-weight'.format(sID),sWeight)
 
-	# def updateTrial(self,mqObj,sID,sWeight,hostName):
-		
-	#     mqObj.send('{}_trial'.format(sID),'{}_{}'.format(,'h'))
 
 
 	def rigOffLog(self,mqObj,sID,sWeight,hostName,mqDel):
 		
 		# a) log off to the rig's on-off feed.
-		mqObj.send('rig_{}'.format(hostName),0)
+		mqObj.send('rig-{}'.format(hostName),0)
 		time.sleep(mqDel)
 
 		# b) log the rig string the subject is on to the subject's rig tracking feed.
-		mqObj.send('{}_rig'.format(sID),'{}_off'.format(hostName))
+		mqObj.send('{}-rig'.format(sID),'{}-off'.format(hostName))
 		time.sleep(mqDel)
 
 		# c) log the weight to subject's weight tracking feed.
-		mqObj.send('{}_weight'.format(sID,sWeight),sWeight)
+		mqObj.send('{}-weight'.format(sID),sWeight)
 
 	def openGoogleSheet(self,gAPIHashPath):
 		#gAPIHashPath='/Users/cad/simpHashes/client_secret.json'
@@ -1236,6 +1255,8 @@ def runDetectionTask():
 		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
 		# aio is csAIO's mq broker object.
 		aio=csAIO.connect_REST(aioHashPath)
+		print(aio.username)
+		print(curMachine)
 		try:
 			csAIO.rigOnLog(aio,csVar.sesVarDict['subjID'],\
 				csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
