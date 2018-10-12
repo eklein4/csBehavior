@@ -46,30 +46,24 @@
 #define genA1 A1
 #define genA2 A2
 #define genA3 A3
-#define analogMotion A17
+#define analogMotion A16
 
 // b) Digital Input Pins
 #define scaleData  29
 #define scaleClock  28
 
 // c) Digital Interrupt Input Pins
-#define motionPin 35
+#define motionPin 36
 #define framePin  5
 #define yGalvo  6
 
 // d) Digital Output Pins
 #define syncPin 25    // Trigger other things like a microscope and/or camera
+#define sessionOver  26
 #define rewardPin 27  // Trigger/signal a reward
 #define neoStripPin 2
-#define extRelay  26
-#define extRelay2 24
 #define pmtBlank  34
 
-
-bool relayState = 0;
-uint32_t relayTimer = 0;
-bool relayState2 = 0;
-uint32_t relayTimer2 = 0;
 
 // session header
 bool startSession = 0;
@@ -122,6 +116,7 @@ uint32_t genAnalogInput0 = 0;
 uint32_t genAnalogInput1 = 0;
 uint32_t genAnalogInput2 = 0;
 uint32_t genAnalogInput3 = 0;
+uint32_t analogAngle = 0;
 
 uint32_t microTimer;
 uint32_t microTimer2;
@@ -253,15 +248,14 @@ void setup() {
   // Interrupts
   attachInterrupt(motionPin, rising, RISING);
   attachInterrupt(framePin, frameCount, RISING);
-  //attachInterrupt(yGalvo, flybackStim_On, FALLING);
+  attachInterrupt(yGalvo, flybackStim_On, FALLING);
 
   // DIO Pin States
   pinMode(syncPin, OUTPUT);
   digitalWrite(syncPin, LOW);
-  pinMode(extRelay, INPUT);
-  digitalWrite(extRelay, LOW);
-  pinMode(extRelay2, INPUT);
-  digitalWrite(extRelay2, LOW);
+  pinMode(sessionOver, OUTPUT);
+  digitalWrite(sessionOver, LOW);
+
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
   pinMode(pmtBlank, OUTPUT);
@@ -317,6 +311,13 @@ void vStates() {
       setStrip(3); // red
       pulseCount = 0;
       // reset session header
+      if (startSession == 1){
+        digitalWrite(sessionOver,HIGH);
+        digitalWrite(13,HIGH);
+        delay(100);
+        digitalWrite(sessionOver,LOW);
+        digitalWrite(13,LOW);
+      }
       startSession = 0;
     }
 
@@ -325,29 +326,6 @@ void vStates() {
     // b) body for state 0
     genericStateBody();
 
-//    if ((relayState == 1) && (relayTimer == 0)) {
-//      digitalWrite(syncPin, HIGH);
-//      relayTimer++;
-//    }
-//    else if (relayTimer > 0) {
-//      relayTimer++;
-//    }
-//    if (relayTimer >= trigTime) {
-//      digitalWrite(syncPin, LOW);
-//      relayTimer = 0;
-//    }
-//
-//    if ((relayState2 == 1) && (relayTimer2 == 0)) {
-//      digitalWrite(rewardPin, HIGH);
-//      relayTimer2++;
-//    }
-//    else if (relayTimer2 > 0) {
-//      relayTimer2++;
-//    }
-//    if (relayTimer2 >= trigTime) {
-//      digitalWrite(rewardPin, LOW);
-//      relayTimer2 = 0;
-//    }
   }
 
   // **************************
@@ -546,7 +524,7 @@ void dataReport() {
   Serial.print(',');
   Serial.print(lickSensorAValue); // lick sensor
   Serial.print(',');
-  Serial.print(encoderAngle);     //rotary encoder value
+  Serial.print(analogAngle);     //rotary encoder value
   Serial.print(',');
   Serial.print(pulseCount);
   Serial.print(',');
@@ -709,8 +687,7 @@ void genericStateBody() {
   genAnalogInput1 = analogRead(genA1);
   genAnalogInput2 = analogRead(genA2);
   genAnalogInput3 = analogRead(genA3);
-  relayState = digitalRead(extRelay);
-  relayState2 = digitalRead(extRelay2);
+  analogAngle = analogRead(analogMotion);
   writeAnalogOutValues(analogOutVals);
   if (scale.is_ready()) {
     scaleVal = scale.get_units() * 22000;
