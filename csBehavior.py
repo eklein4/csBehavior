@@ -669,7 +669,8 @@ class csVariables(object):
 		'vis_spatialFreq_steps':[],'vis_spatialFreq_nullProb':0.5,'vis_spatialFreq_maxProb':0.5,}
 
 		
-		self.sesTimingDict={'trialLength':1000,'trial_wait_null':3000,'trial_wait_max':11000,'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
+		self.sesTimingDict={'trialLength':1000,'trial_wait_null':3000,'trial_wait_max':11000,\
+		'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
 		'lick_wait_null':599,'lick_wait_max':2999,'lick_wait_maxProb':0.0,'lick_wait_nullProb':0.0}
 
 		self.sesTimingDict['trial_wait_steps']=np.arange(self.sesTimingDict['trial_wait_null'],self.sesTimingDict['trial_wait_max'])
@@ -1387,6 +1388,7 @@ def runDetectionTask():
 	csVar.sesVarDict['trialNum']=0
 	csVar.sesVarDict['lickLatchA']=0
 	outSyncCount=0
+	startNewTrial = 1
 
 	# Send to 1, wait state.
 	teensy.write('a1>'.encode('utf-8')) 

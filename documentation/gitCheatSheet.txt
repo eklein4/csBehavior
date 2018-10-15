@@ -1,0 +1,12 @@
+to push changes:
+
+do you know your branch?
+git branch
+
+did you add new (untracked) files
+git add -A
+
+commit all 
+git commit -am 'message'
+
+git push origin BRANCH
