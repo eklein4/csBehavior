@@ -8,13 +8,13 @@
 # * Fixed MQTT toggle bug.
 # 
 # *** > Still Todo: 
-# __ fully decouple engine from UI parsearg in txt file? 
+# __ check to see if text parsing can happen in between trials without screwing up serial
 # __ asyncio (i more or less have manual yields already)
-# __ Update MQTT logging to conform to new API.
+# __ Update MQTT logging to conform to new API. My previous attempt failed. 
 # __ Syringe Pump Dev Control
 # __ Update Relays and make GUI versions of each.
 # __ Block dev control calls when not in task, or augment to not open serial controller. 
-# __ Fully 
+# __ Visual Stim Without Sending Off Pulse 
 # 
 # 
 # 8/12/2018
@@ -523,6 +523,21 @@ class csGUI(object):
 			except:
 				g=1
 		return varDict
+	def updateDictFromTXT(self,varDict,configF):
+		for key in list(varDict.keys()):
+			try:
+				a = config['sesVars'][{}.format(key)]
+				print(a)          
+				try:
+					a=float(a)
+					if a.is_integer():
+						a=int(a)
+					exec('varDict["{}"]={}'.format(key,a))
+				except:
+					exec('varDict["{}"]="{}"'.format(key,a))
+			except:
+				pass
+		return varDict
 	def updateTiming(self,timeDict):
 		timeDict['trialLength']=int(self.maxTrialsTV.get())
 		timeDict['trial_wait_null']=int(self.minISI_TV.get())
@@ -662,7 +677,21 @@ class csVariables(object):
 
 		self.timeVars=['trial_wait','lick_wait']
 		self.sensVars = ['vis_contrast','vis_orientation','vis_spatialFreq']
-
+	def updateDictFromTXT(self,varDict,configF):
+		for key in list(varDict.keys()):
+			try:
+				a = config['sesVars'][{}.format(key)]
+				print(a)          
+				try:
+					a=float(a)
+					if a.is_integer():
+						a=int(a)
+					exec('varDict["{}"]={}'.format(key,a))
+				except:
+					exec('varDict["{}"]="{}"'.format(key,a))
+			except:
+				pass
+		return varDict
 
 	def getFeatureProb(self,probDict,labelList):
 		
@@ -789,6 +818,7 @@ class csMQTT(object):
 		apiKey = a[1]
 		self.aio = Client(userName,apiKey)
 		return self.aio
+		print("mqtt: connected to aio as {}".format(self.aio.username))
 
 	def connect_MQTT(self,hashPath):
 		simpHash=open(hashPath)
@@ -859,10 +889,15 @@ class csMQTT(object):
 		try:
 			mqObj.send('rig-{}'.format(hostName),1)
 			time.sleep(mqDel)
+			print('mqtt: logged rig')
 		except:
-			mqObj.create_feed(Feed(name="rig-{}".format(hostName)))
-			mqObj.send('rig-{}'.format(hostName),1)
-			time.sleep(mqDel)
+			try:
+				mqObj.create_feed(Feed(name="rig-{}".format(hostName)))
+				print('mqtt: created new rig feed named: {}'.format(hostName))
+				mqObj.send('rig-{}'.format(hostName),1)
+				time.sleep(mqDel)
+			except:
+				print('mqtt: failed to create new rig feed')
 			
 
 
@@ -871,32 +906,44 @@ class csMQTT(object):
 			mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName))
 			time.sleep(mqDel)
 		except:
-			mqObj.create_feed(Feed(name="{}-rig".format(sID)))
-			mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName))
-			time.sleep(mqDel)
+			try:
+				mqObj.create_feed(Feed(name="{}-rig".format(sID)))
+				print("mqtt: created {}'s rig feed".format(sID))
+				mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName))
+				time.sleep(mqDel)
+			except:
+				print("mqtt: failed to create {}'s rig feed".format(sID))
 
 			# if we had to make a new subject weight feed, then others may not exist that we need
 			try:
 				mqObj.create_feed(Feed(name="{}-waterconsumed".format(sID)))
+				print("mqtt: created {}'s consumption feed".format(sID))
 				mqObj.send('{}-waterconsumed'.format(sID),0)
 				time.sleep(mqDel)
 			except:
-				pass
+				print("mqtt: failed to create {}'s consumption feed".format(sID))
 
 			try:
 				mqObj.create_feed(Feed(name="{}-topvol".format(sID)))
+				print("mqtt: created {}'s top volume feed".format(sID))
 				mqObj.send('{}-topvol'.format(sID),1.2)
 				time.sleep(mqDel)
 			except:
-				pass
+				print("mqtt: failed to create {}'s top volume feed".format(sID))
 
 
 		# c) log the weight to subject's weight tracking feed.
 		try:
 			mqObj.send('{}-weight'.format(sID),sWeight)
+			print("mqtt: logged weight of {}".format(sWeight))
 		except:
-			mqObj.create_feed(Feed(name='{}-weight'.format(sID)))
-			mqObj.send('{}-weight'.format(sID),sWeight)
+			try:
+				mqObj.create_feed(Feed(name='{}-weight'.format(sID)))
+				print("mqtt: created {}'s weight feed".format(sID))
+				mqObj.send('{}-weight'.format(sID),sWeight)
+				print("mqtt: logged weight of {}".format(sWeight))
+			except:
+				print("mqtt: failed to create {}'s weight feed".format(sID))
 
 
 
@@ -1178,14 +1225,13 @@ class csPlot(object):
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 
-
-
 # initialize class instances and some flags.
 csVar=csVariables(1)
 csSesHDF=csHDF(1)
 csAIO=csMQTT(1)
 csSer=csSerial(1)
 csPlt=csPlot(1)
+
 if useGUI==1:
 	
 	csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.timeVars,csVar.sesSensDict,csVar.sensVars)
@@ -1214,6 +1260,8 @@ def runDetectionTask():
 		csPlt.makeTrialFig(csVar.sesVarDict['detectPlotNum'])
 		csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
 	elif useGUI==0:
+		config.read(sys.argv[1])
+		csVar.sesVarDict=csVar.updateDictFromTXT(csVar.sesVarDict,config)
 		csVar.sesVarDict['logMQTT'] = 0
 		csVar.sesVarDict['comPath_teensy'] = temp_comPath_teensy
 		csVar.sesVarDict['dirPath'] = temp_savePath
@@ -1268,10 +1316,8 @@ def runDetectionTask():
 
 	if csVar.sesVarDict['logMQTT']:
 		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
-		# aio is csAIO's mq broker object.
 		aio=csAIO.connect_REST(aioHashPath)
-		print(aio.username)
-		print(curMachine)
+		print('logged into aio as '.format(aio.username))
 		try:
 			csAIO.rigOnLog(aio,csVar.sesVarDict['subjID'],\
 				csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
@@ -1351,6 +1397,7 @@ def runDetectionTask():
 				csVar.sesVarDict['lickAThr']=int(csGui.lickAThr_TV.get())
 				csVar.sesVarDict['chanPlot']=csGui.chanPlotIV.get()
 				csVar.sesVarDict['minStimTime']=int(csGui.minStimTime_TV.get())
+			
 			if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
 				csVar.sesVarDict['sessionOn']=0
 
@@ -1421,6 +1468,10 @@ def runDetectionTask():
 				if pyState == 1 and stateSync==1:
 					
 					if sHeaders[pyState]==0:
+						if useGUI==0:
+							config.read(sys.argv[1])
+							csVar.sesVarDict['totalTrials'] = int(config['sesVars']['totalTrials'])
+							print("yo! = {}".format(csVar.sesVarDict['totalTrials']))
 						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
 						csVar.sesVarDict['minNoLickTime']=np.random.randint(900,2900)
 						if useGUI==1:
@@ -1733,14 +1784,19 @@ def runDetectionTask():
 				try:
 					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
 						'Weight Post',csVar.sesVarDict['curWeight'])
+					print('gsheet: logged weight')
 					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
 						'Delivered',csVar.sesVarDict['waterConsumed'])
+					print('gsheet: logged consumption')
 					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
 						'Place',curMachine)
+					print('gsheet: logged rig')
 					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
 						'Date Stamp',gDStamp)
+					print('gsheet: logged date')
 					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
 						'Time Stamp',gTStamp)
+					print('gsheet: logged time')
 				except:
 					print('did not log some things')
 		except:
