@@ -1388,15 +1388,20 @@ def runDetectionTask():
 	csVar.sesVarDict['trialNum']=0
 	csVar.sesVarDict['lickLatchA']=0
 	outSyncCount=0
+	
 	startNewTrial = 1
+	sessionStarted = 0
 
 	# Send to 1, wait state.
 	teensy.write('a1>'.encode('utf-8')) 
+	
+	# now we can start a session.
 	while csVar.sesVarDict['sessionOn']:
 		# try to execute the task.
 		try:
-			# # a) Do we keep running?
+			# a) Check variables related to whether we keep running, or not. 
 			if useGUI==1:
+				# if we are using the GUI, we need to check to see if the user has changed text variables. 
 				csVar.sesVarDict['totalTrials']=int(csGui.totalTrials_TV.get())
 				try:
 					csVar.sesVarDict['shapingTrial']=int(csGui.shapingTrial_TV.get())
@@ -1406,12 +1411,20 @@ def runDetectionTask():
 				csVar.sesVarDict['lickAThr']=int(csGui.lickAThr_TV.get())
 				csVar.sesVarDict['chanPlot']=csGui.chanPlotIV.get()
 				csVar.sesVarDict['minStimTime']=int(csGui.minStimTime_TV.get())
-			
+
+				# if we are not using the GUI, then we already checeked the config text for these variables. 
+				# we can poll for changes, but I am not certain checking every loop is wise. 
+
+
+			# b) We check to make sure that we haven't gone over in the number of trials. If we did, we quit.
 			if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
 				csVar.sesVarDict['sessionOn']=0
 
 			
-			# b) Look for teensy data.
+			# c) We now check to see if the Teensy has new data for us. If there is, we can poll the state machine. 
+			# NOTE: there should always be data, but we do NOTHING when there isn't data. 
+			# This choice was made to give top priority to the accumulation of serial streams. 
+			# However, you could conceptually poll other things, if you know those things won't bog us down.
 			[serialBuf,eR,tString]=csSer.readSerialBuffer(teensy,serialBuf,csVar.sesVarDict['serBufSize'])
 			if len(tString)==csVar.sesVarDict['dStreams']-1:
 
@@ -1427,7 +1440,7 @@ def runDetectionTask():
 				sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
 				loopCnt=loopCnt+1
 				
-				# Plot updates.
+				# d) If we are using the GUI plot updates ever so often.
 				if useGUI==1:
 					plotSamps=csVar.sesVarDict['plotSamps']
 					updateCount=csVar.sesVarDict['updateCount']
@@ -1447,7 +1460,7 @@ def runDetectionTask():
 								csVar.sesVarDict['totalTrials'],tTeensyState,[lyMin,lyMax])
 
 
-				# look for licks
+				# e) Lick detection. This can be done in hardware, but I like software because thresholds can be dynamic.
 				latchTime=50
 				if sesData[loopCnt-1,5]>=csVar.sesVarDict['lickAThr'] and csVar.sesVarDict['lickLatchA']==0:
 					sesData[loopCnt-1,csVar.sesVarDict['dStreams']-1]=1
@@ -1459,37 +1472,31 @@ def runDetectionTask():
 				elif csVar.sesVarDict['lickLatchA']>0:
 					csVar.sesVarDict['lickLatchA']=csVar.sesVarDict['lickLatchA']-1
 
-				# 2) Does pyState match tState?
+				# f) Resolve state.
+				# if the python side's desired state differs from the actual Teensy state
+				# then note in python we are out of sync, and try again next loop.
 				if pyState == tTeensyState:
 					stateSync=1
-
 				elif pyState != tTeensyState:
 					stateSync=0
 
-				if startNewTrial == 1:
-					print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],\
-						csVar.sesVarDict['totalTrials']))
-					print('target contrast: {:0.2f} ; orientation: {}'.format(tContrast,tOrientation))
-					print('estimated trial time = {}'.format(minNoLickTime + preTime))
-					startNewTrial = 0
-				
-				
-				# If we are out of sync for too long, push another change.
+				# If we are out of sync for too long, then push another change over the serial line.
+				# ******* This is a failsafe, but it shouldn't really happen.
 				if stateSync==0:
 					outSyncCount=outSyncCount+1
 					if outSyncCount>=100:
 						teensy.write('a{}>'.format(pyState).encode('utf-8'))  
 
+ 
+
+					
+
 				# 4) Now look at what state you are in and evaluate accordingly
 				if pyState == 1 and stateSync==1:
 					
 					if sHeaders[pyState]==0:
-						if useGUI==0:
-							config.read(sys.argv[1])
-							csVar.sesVarDict['totalTrials'] = int(config['sesVars']['totalTrials'])
-							print("yo! = {}".format(csVar.sesVarDict['totalTrials']))
-						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
-						csVar.sesVarDict['minNoLickTime']=np.random.randint(900,2900)
+						
+						
 						if useGUI==1:
 							csPlt.updateStateFig(1)
 						trialSamps[0]=loopCnt-1
@@ -1499,15 +1506,25 @@ def runDetectionTask():
 						lastLickCount = 0
 						lastLick=0                    
 						outSyncCount=0
-						# get contrast and orientation
-						# trials are 0 until incremented, so incrementing
-						# trial after these picks ensures 0 indexing without -1.
-						
+
+						# g) Trial resolution.
+						# Some things we want to do once per trial. csBehavior has a soft concept of trial.
+						# This is because it is a state machine and is an ongoing dynmaic process. But, 
+						# we can define a trial any way we like. We define an elapsed trial as:
+						# any tranistion from state 1, to any other state or states, and back to state 1. 
+						# Thus, when you start the session, you have not finished a trial, you just started it. 
+						# We can do things we want to do once when we start new trials, here is state 1's header. 
+	
+						# 1) determine the current trial's visual and state timing variables.
+						# 	note we have not incremented the trialNum, which should start at 0, 
+						# 	thus we are indexing the array correctly without using a -1. 
 						tContrast=int(trialVars_vStim[csVar.sesVarDict['trialNum'],0])
 						tOrientation=int(trialVars_vStim[csVar.sesVarDict['trialNum'],1])
 						tSpatial=int(trialVars_vStim[csVar.sesVarDict['trialNum'],2])
 						preTime=int(trialVars_timing[csVar.sesVarDict['trialNum'],0])
 						minNoLickTime=int(trialVars_timing[csVar.sesVarDict['trialNum'],1])
+						# todo: reference the text variables
+						csVar.sesVarDict['minNoLickTime']=np.random.randint(900,2900)
 
 						contrastList.append(tContrast)
 						orientationList.append(tOrientation)
@@ -1515,12 +1532,30 @@ def runDetectionTask():
 						waitPad.append(preTime)
 						actualWaitPad.append(preTime)
 
-						# update visual stim params
+						# update visual stim params on the Teensy
 						teensy.write('c{}>'.format(int(tContrast)).encode('utf-8'))
 						teensy.write('o{}>'.format(tOrientation).encode('utf-8'))
 						teensy.write('s{}>'.format(tSpatial).encode('utf-8'))
-					   
-						startNewTrial = 1
+
+						# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
+						# in the text file. However, we shouldn't poll all the time because we have to reopen the file each time. 
+						# We do so here. 
+						if useGUI==0:
+							config.read(sys.argv[1])
+							csVar.sesVarDict['totalTrials'] = int(config['sesVars']['totalTrials'])
+
+							if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
+								csVar.sesVarDict['sessionOn']=0
+						
+						# 3) incrment the trial count and 
+						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
+						
+
+						# 4) inform the user via the terminal what's going on.
+						print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],\
+							csVar.sesVarDict['totalTrials']))
+						print('target contrast: {:0.2f} ; orientation: {}'.format(tContrast,tOrientation))
+						print('estimated trial time = {}'.format(minNoLickTime + preTime))
 
 						# close the header and flip the others open.
 						sHeaders[pyState]=1
