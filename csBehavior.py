@@ -887,14 +887,14 @@ class csMQTT(object):
 		
 		# a) log on to the rig's on-off feed.
 		try:
-			mqObj.send('rig-{}'.format(hostName),1)
+			mqObj.send('rig-{}'.format(hostName.lower()),1)
 			time.sleep(mqDel)
 			print('mqtt: logged rig')
 		except:
 			try:
-				mqObj.create_feed(Feed(name="rig-{}".format(hostName)))
-				print('mqtt: created new rig feed named: {}'.format(hostName))
-				mqObj.send('rig-{}'.format(hostName),1)
+				mqObj.create_feed(Feed(name="rig-{}".format(hostName.lower())))
+				print('mqtt: created new rig feed named: {}'.format(hostName.lower()))
+				mqObj.send('rig-{}'.format(hostName.lower()),1)
 				time.sleep(mqDel)
 			except:
 				print('mqtt: failed to create new rig feed')
@@ -903,13 +903,13 @@ class csMQTT(object):
 
 		# b) log the rig string the subject is on to the subject's rig tracking feed.
 		try:
-			mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName))
+			mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName.lower()))
 			time.sleep(mqDel)
 		except:
 			try:
 				mqObj.create_feed(Feed(name="{}-rig".format(sID)))
 				print("mqtt: created {}'s rig feed".format(sID))
-				mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName))
+				mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName.lower()))
 				time.sleep(mqDel)
 			except:
 				print("mqtt: failed to create {}'s rig feed".format(sID))
@@ -950,11 +950,11 @@ class csMQTT(object):
 	def rigOffLog(self,mqObj,sID,sWeight,hostName,mqDel):
 		
 		# a) log off to the rig's on-off feed.
-		mqObj.send('rig-{}'.format(hostName),0)
+		mqObj.send('rig-{}'.format(hostName.lower()),0)
 		time.sleep(mqDel)
 
 		# b) log the rig string the subject is on to the subject's rig tracking feed.
-		mqObj.send('{}-rig'.format(sID),'{}-off'.format(hostName))
+		mqObj.send('{}-rig'.format(sID),'{}-off'.format(hostName.lower()))
 		time.sleep(mqDel)
 
 		# c) log the weight to subject's weight tracking feed.
@@ -1319,12 +1319,17 @@ def runDetectionTask():
 	if csVar.sesVarDict['logMQTT']:
 		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
 		aio=csAIO.connect_REST(aioHashPath)
-		print('logged into aio as '.format(aio.username))
-		try:
-			csAIO.rigOnLog(aio,csVar.sesVarDict['subjID'],\
-				csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
-		except:
-			print('no mqtt logging')
+		if len(aio.username) == 0:
+			print("did not connect to mqtt broker: you are probably offline")
+			csVar.sesVarDict['logMQTT'] = 0
+			return
+		elif len(aio.username) > 0:
+			print('logged into aio (mqtt broker)')
+			try:
+				csAIO.rigOnLog(aio,csVar.sesVarDict['subjID'],\
+					csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
+			except:
+				print('no mqtt logging: feed issue')
 
 		try:
 			print('logging to sheet')
@@ -1458,6 +1463,13 @@ def runDetectionTask():
 
 				elif pyState != tTeensyState:
 					stateSync=0
+
+				if startNewTrial == 1:
+					print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],\
+						csVar.sesVarDict['totalTrials']))
+					print('target contrast: {:0.2f} ; orientation: {}'.format(tContrast,tOrientation))
+					print('estimated trial time = {}'.format(minNoLickTime + preTime))
+					startNewTrial = 0
 				
 				
 				# If we are out of sync for too long, push another change.
@@ -1506,10 +1518,7 @@ def runDetectionTask():
 						teensy.write('o{}>'.format(tOrientation).encode('utf-8'))
 						teensy.write('s{}>'.format(tSpatial).encode('utf-8'))
 					   
-						# update the trial
-						print('start trial #{}'.format(csVar.sesVarDict['trialNum']))
-						print('contrast: {:0.2f} orientation: {}'.format(tContrast,tOrientation))
-						print('min no lick = {}'.format(minNoLickTime))
+						startNewTrial = 1
 
 						# close the header and flip the others open.
 						sHeaders[pyState]=1
