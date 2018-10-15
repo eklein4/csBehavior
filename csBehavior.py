@@ -1227,6 +1227,8 @@ class csPlot(object):
 
 # initialize class instances and some flags.
 csVar=csVariables(1)
+if useGUI==0:
+	csVar.sesVarDict['subjID']=config['sesVars']['subjID']
 csSesHDF=csHDF(1)
 csAIO=csMQTT(1)
 csSer=csSerial(1)
@@ -1262,7 +1264,7 @@ def runDetectionTask():
 	elif useGUI==0:
 		config.read(sys.argv[1])
 		csVar.sesVarDict=csVar.updateDictFromTXT(csVar.sesVarDict,config)
-		csVar.sesVarDict['logMQTT'] = 0
+		print(type(csVar.sesVarDict['mqttUpDel']))
 		csVar.sesVarDict['comPath_teensy'] = temp_comPath_teensy
 		csVar.sesVarDict['dirPath'] = temp_savePath
 		csVar.sesVarDict['hashPath'] = temp_hashPath
