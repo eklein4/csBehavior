@@ -309,8 +309,10 @@ class csGUI(object):
 		self.updateTimingProbsBtn.grid(row=5,column=0)
 		# self.updateTimingBtn['state'] = 'normal'
 	def makeParentWindow(self,master,varDict):
+		
 		pass
 	def makeDevControl(self,varDict):
+		
 		dCBWd = 12
 		self.deviceControl_frame = Toplevel(self.master)
 		self.deviceControl_frame.title('Other Dev Control')
@@ -462,6 +464,15 @@ class csGUI(object):
 		self.ramp2AmpTV_Entry.grid(row=2,column=ptst+3)
 
 	# c) Methods
+	def checkForDevicesUnix(self,startString):
+		dpth=Path('/dev')
+		devPathStrings = []
+		for child in dpth.iterdir():
+    		if startString in child.name:
+        		devPathStrings.append(child.name)
+		self.devPathStrings = devPathStrings
+		return self.devPathStrings
+
 	def getPath(self,varDict):
 		try:
 			selectPath = fd.askdirectory(title ="what what?")
