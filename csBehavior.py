@@ -8,13 +8,13 @@
 # * Fixed MQTT toggle bug.
 # 
 # *** > Still Todo: 
-# __ fully decouple engine from UI parsearg in txt file? 
+# __ check to see if text parsing can happen in between trials without screwing up serial
 # __ asyncio (i more or less have manual yields already)
-# __ Update MQTT logging to conform to new API.
+# __ Update MQTT logging to conform to new API. My previous attempt failed. 
 # __ Syringe Pump Dev Control
 # __ Update Relays and make GUI versions of each.
 # __ Block dev control calls when not in task, or augment to not open serial controller. 
-# __ Fully 
+# __ Visual Stim Without Sending Off Pulse 
 # 
 # 
 # 8/12/2018
@@ -33,6 +33,7 @@ import h5py
 import os
 import datetime
 import time
+import platform
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
@@ -97,7 +98,26 @@ class csGUI(object):
 		self.comPath_teensy_label=Label(self.taskBar, text="COM Port:", justify=LEFT)
 		self.comPath_teensy_label.grid(row=cpRw,column=0,padx=0,sticky=W)
 		self.comPath_teensy_TV=StringVar(self.taskBar)
-		self.comPath_teensy_TV.set(varDict['comPath_teensy'])
+		
+		cp = platform.system()
+		# if mac then teensy devices will be a cu.usbmodemXXXXX in /dev/ where XXXXX is the serial
+		# if arm linux, then the teensy is most likely /dev/ttyACM0
+		# if windows it will be some random COM.
+		if cp == 'Darwin':
+			try: 
+				devNames = self.checkForDevicesUnix('cu.u')
+				self.comPath_teensy_TV.set('/dev/' + devNames[0])
+			except:
+				self.comPath_teensy_TV.set(varDict['comPath_teensy'])
+
+		elif cp == 'Windows':
+			self.comPath_teensy_TV.set('COM3')
+
+		elif cp == 'Linux':
+			self.comPath_teensy_TV.set('/dev/ttyACM0')
+		else:
+			self.comPath_teensy_TV.set(varDict['comPath_teensy'])
+
 		self.comPath_teensy_entry=Entry(self.taskBar, width=22, textvariable=self.comPath_teensy_TV)
 		self.comPath_teensy_entry.grid(row=cpRw+1,column=0,padx=0,sticky=W)
 		
@@ -250,6 +270,8 @@ class csGUI(object):
 		self.tBtn_timeWin.grid(row=cpRw,column=1,padx=10,pady=5,sticky=W)
 		# Finish the window
 		self.taskBar.pack(side=TOP, fill=X)
+
+		self.makeDevControl(varDict)
 	
 	# b) Functions that make other windows
 
@@ -309,8 +331,10 @@ class csGUI(object):
 		self.updateTimingProbsBtn.grid(row=5,column=0)
 		# self.updateTimingBtn['state'] = 'normal'
 	def makeParentWindow(self,master,varDict):
+		
 		pass
 	def makeDevControl(self,varDict):
+		
 		dCBWd = 12
 		self.deviceControl_frame = Toplevel(self.master)
 		self.deviceControl_frame.title('Other Dev Control')
@@ -462,6 +486,15 @@ class csGUI(object):
 		self.ramp2AmpTV_Entry.grid(row=2,column=ptst+3)
 
 	# c) Methods
+	def checkForDevicesUnix(self,startString):
+		dpth=Path('/dev')
+		devPathStrings = []
+		for child in dpth.iterdir():
+			if startString in child.name:
+				devPathStrings.append(child.name)
+		self.devPathStrings = devPathStrings
+		return self.devPathStrings
+
 	def getPath(self,varDict):
 		try:
 			selectPath = fd.askdirectory(title ="what what?")
@@ -522,6 +555,21 @@ class csGUI(object):
 					exec('varDict["{}"]="{}"'.format(key,a))
 			except:
 				g=1
+		return varDict
+	def updateDictFromTXT(self,varDict,configF):
+		for key in list(varDict.keys()):
+			try:
+				a = config['sesVars'][{}.format(key)]
+				print(a)          
+				try:
+					a=float(a)
+					if a.is_integer():
+						a=int(a)
+					exec('varDict["{}"]={}'.format(key,a))
+				except:
+					exec('varDict["{}"]="{}"'.format(key,a))
+			except:
+				pass
 		return varDict
 	def updateTiming(self,timeDict):
 		timeDict['trialLength']=int(self.maxTrialsTV.get())
@@ -654,7 +702,8 @@ class csVariables(object):
 		'vis_spatialFreq_steps':[],'vis_spatialFreq_nullProb':0.5,'vis_spatialFreq_maxProb':0.5,}
 
 		
-		self.sesTimingDict={'trialLength':1000,'trial_wait_null':3000,'trial_wait_max':11000,'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
+		self.sesTimingDict={'trialLength':1000,'trial_wait_null':3000,'trial_wait_max':11000,\
+		'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
 		'lick_wait_null':599,'lick_wait_max':2999,'lick_wait_maxProb':0.0,'lick_wait_nullProb':0.0}
 
 		self.sesTimingDict['trial_wait_steps']=np.arange(self.sesTimingDict['trial_wait_null'],self.sesTimingDict['trial_wait_max'])
@@ -662,7 +711,21 @@ class csVariables(object):
 
 		self.timeVars=['trial_wait','lick_wait']
 		self.sensVars = ['vis_contrast','vis_orientation','vis_spatialFreq']
-
+	def updateDictFromTXT(self,varDict,configF):
+		for key in list(varDict.keys()):
+			try:
+				a = config['sesVars'][{}.format(key)]
+				print(a)          
+				try:
+					a=float(a)
+					if a.is_integer():
+						a=int(a)
+					exec('varDict["{}"]={}'.format(key,a))
+				except:
+					exec('varDict["{}"]="{}"'.format(key,a))
+			except:
+				pass
+		return varDict
 
 	def getFeatureProb(self,probDict,labelList):
 		
@@ -789,6 +852,7 @@ class csMQTT(object):
 		apiKey = a[1]
 		self.aio = Client(userName,apiKey)
 		return self.aio
+		print("mqtt: connected to aio as {}".format(self.aio.username))
 
 	def connect_MQTT(self,hashPath):
 		simpHash=open(hashPath)
@@ -857,57 +921,74 @@ class csMQTT(object):
 		
 		# a) log on to the rig's on-off feed.
 		try:
-			mqObj.send('rig-{}'.format(hostName),1)
+			mqObj.send('rig-{}'.format(hostName.lower()),1)
 			time.sleep(mqDel)
+			print('mqtt: logged rig')
 		except:
-			mqObj.create_feed(Feed(name="rig-{}".format(hostName)))
-			mqObj.send('rig-{}'.format(hostName),1)
-			time.sleep(mqDel)
+			try:
+				mqObj.create_feed(Feed(name="rig-{}".format(hostName.lower())))
+				print('mqtt: created new rig feed named: {}'.format(hostName.lower()))
+				mqObj.send('rig-{}'.format(hostName.lower()),1)
+				time.sleep(mqDel)
+			except:
+				print('mqtt: failed to create new rig feed')
 			
 
 
 		# b) log the rig string the subject is on to the subject's rig tracking feed.
 		try:
-			mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName))
+			mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName.lower()))
 			time.sleep(mqDel)
 		except:
-			mqObj.create_feed(Feed(name="{}-rig".format(sID)))
-			mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName))
-			time.sleep(mqDel)
+			try:
+				mqObj.create_feed(Feed(name="{}-rig".format(sID)))
+				print("mqtt: created {}'s rig feed".format(sID))
+				mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName.lower()))
+				time.sleep(mqDel)
+			except:
+				print("mqtt: failed to create {}'s rig feed".format(sID))
 
 			# if we had to make a new subject weight feed, then others may not exist that we need
 			try:
 				mqObj.create_feed(Feed(name="{}-waterconsumed".format(sID)))
+				print("mqtt: created {}'s consumption feed".format(sID))
 				mqObj.send('{}-waterconsumed'.format(sID),0)
 				time.sleep(mqDel)
 			except:
-				pass
+				print("mqtt: failed to create {}'s consumption feed".format(sID))
 
 			try:
 				mqObj.create_feed(Feed(name="{}-topvol".format(sID)))
+				print("mqtt: created {}'s top volume feed".format(sID))
 				mqObj.send('{}-topvol'.format(sID),1.2)
 				time.sleep(mqDel)
 			except:
-				pass
+				print("mqtt: failed to create {}'s top volume feed".format(sID))
 
 
 		# c) log the weight to subject's weight tracking feed.
 		try:
 			mqObj.send('{}-weight'.format(sID),sWeight)
+			print("mqtt: logged weight of {}".format(sWeight))
 		except:
-			mqObj.create_feed(Feed(name='{}-weight'.format(sID)))
-			mqObj.send('{}-weight'.format(sID),sWeight)
+			try:
+				mqObj.create_feed(Feed(name='{}-weight'.format(sID)))
+				print("mqtt: created {}'s weight feed".format(sID))
+				mqObj.send('{}-weight'.format(sID),sWeight)
+				print("mqtt: logged weight of {}".format(sWeight))
+			except:
+				print("mqtt: failed to create {}'s weight feed".format(sID))
 
 
 
 	def rigOffLog(self,mqObj,sID,sWeight,hostName,mqDel):
 		
 		# a) log off to the rig's on-off feed.
-		mqObj.send('rig-{}'.format(hostName),0)
+		mqObj.send('rig-{}'.format(hostName.lower()),0)
 		time.sleep(mqDel)
 
 		# b) log the rig string the subject is on to the subject's rig tracking feed.
-		mqObj.send('{}-rig'.format(sID),'{}-off'.format(hostName))
+		mqObj.send('{}-rig'.format(sID),'{}-off'.format(hostName.lower()))
 		time.sleep(mqDel)
 
 		# c) log the weight to subject's weight tracking feed.
@@ -1178,14 +1259,15 @@ class csPlot(object):
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 
-
-
 # initialize class instances and some flags.
 csVar=csVariables(1)
+if useGUI==0:
+	csVar.sesVarDict['subjID']=config['sesVars']['subjID']
 csSesHDF=csHDF(1)
 csAIO=csMQTT(1)
 csSer=csSerial(1)
 csPlt=csPlot(1)
+
 if useGUI==1:
 	
 	csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.timeVars,csVar.sesSensDict,csVar.sensVars)
@@ -1214,7 +1296,9 @@ def runDetectionTask():
 		csPlt.makeTrialFig(csVar.sesVarDict['detectPlotNum'])
 		csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
 	elif useGUI==0:
-		csVar.sesVarDict['logMQTT'] = 0
+		config.read(sys.argv[1])
+		csVar.sesVarDict=csVar.updateDictFromTXT(csVar.sesVarDict,config)
+		print(type(csVar.sesVarDict['mqttUpDel']))
 		csVar.sesVarDict['comPath_teensy'] = temp_comPath_teensy
 		csVar.sesVarDict['dirPath'] = temp_savePath
 		csVar.sesVarDict['hashPath'] = temp_hashPath
@@ -1268,15 +1352,18 @@ def runDetectionTask():
 
 	if csVar.sesVarDict['logMQTT']:
 		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
-		# aio is csAIO's mq broker object.
 		aio=csAIO.connect_REST(aioHashPath)
-		print(aio.username)
-		print(curMachine)
-		try:
-			csAIO.rigOnLog(aio,csVar.sesVarDict['subjID'],\
-				csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
-		except:
-			print('no mqtt logging')
+		if len(aio.username) == 0:
+			print("did not connect to mqtt broker: you are probably offline")
+			csVar.sesVarDict['logMQTT'] = 0
+			return
+		elif len(aio.username) > 0:
+			print('logged into aio (mqtt broker)')
+			try:
+				csAIO.rigOnLog(aio,csVar.sesVarDict['subjID'],\
+					csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
+			except:
+				print('no mqtt logging: feed issue')
 
 		try:
 			print('logging to sheet')
@@ -1334,14 +1421,20 @@ def runDetectionTask():
 	csVar.sesVarDict['trialNum']=0
 	csVar.sesVarDict['lickLatchA']=0
 	outSyncCount=0
+	
+	startNewTrial = 1
+	sessionStarted = 0
 
 	# Send to 1, wait state.
 	teensy.write('a1>'.encode('utf-8')) 
+	
+	# now we can start a session.
 	while csVar.sesVarDict['sessionOn']:
 		# try to execute the task.
 		try:
-			# # a) Do we keep running?
+			# a) Check variables related to whether we keep running, or not. 
 			if useGUI==1:
+				# if we are using the GUI, we need to check to see if the user has changed text variables. 
 				csVar.sesVarDict['totalTrials']=int(csGui.totalTrials_TV.get())
 				try:
 					csVar.sesVarDict['shapingTrial']=int(csGui.shapingTrial_TV.get())
@@ -1351,11 +1444,20 @@ def runDetectionTask():
 				csVar.sesVarDict['lickAThr']=int(csGui.lickAThr_TV.get())
 				csVar.sesVarDict['chanPlot']=csGui.chanPlotIV.get()
 				csVar.sesVarDict['minStimTime']=int(csGui.minStimTime_TV.get())
+
+				# if we are not using the GUI, then we already checeked the config text for these variables. 
+				# we can poll for changes, but I am not certain checking every loop is wise. 
+
+
+			# b) We check to make sure that we haven't gone over in the number of trials. If we did, we quit.
 			if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
 				csVar.sesVarDict['sessionOn']=0
 
 			
-			# b) Look for teensy data.
+			# c) We now check to see if the Teensy has new data for us. If there is, we can poll the state machine. 
+			# NOTE: there should always be data, but we do NOTHING when there isn't data. 
+			# This choice was made to give top priority to the accumulation of serial streams. 
+			# However, you could conceptually poll other things, if you know those things won't bog us down.
 			[serialBuf,eR,tString]=csSer.readSerialBuffer(teensy,serialBuf,csVar.sesVarDict['serBufSize'])
 			if len(tString)==csVar.sesVarDict['dStreams']-1:
 
@@ -1371,7 +1473,7 @@ def runDetectionTask():
 				sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
 				loopCnt=loopCnt+1
 				
-				# Plot updates.
+				# d) If we are using the GUI plot updates ever so often.
 				if useGUI==1:
 					plotSamps=csVar.sesVarDict['plotSamps']
 					updateCount=csVar.sesVarDict['updateCount']
@@ -1391,7 +1493,7 @@ def runDetectionTask():
 								csVar.sesVarDict['totalTrials'],tTeensyState,[lyMin,lyMax])
 
 
-				# look for licks
+				# e) Lick detection. This can be done in hardware, but I like software because thresholds can be dynamic.
 				latchTime=50
 				if sesData[loopCnt-1,5]>=csVar.sesVarDict['lickAThr'] and csVar.sesVarDict['lickLatchA']==0:
 					sesData[loopCnt-1,csVar.sesVarDict['dStreams']-1]=1
@@ -1403,26 +1505,31 @@ def runDetectionTask():
 				elif csVar.sesVarDict['lickLatchA']>0:
 					csVar.sesVarDict['lickLatchA']=csVar.sesVarDict['lickLatchA']-1
 
-				# 2) Does pyState match tState?
+				# f) Resolve state.
+				# if the python side's desired state differs from the actual Teensy state
+				# then note in python we are out of sync, and try again next loop.
 				if pyState == tTeensyState:
 					stateSync=1
-
 				elif pyState != tTeensyState:
 					stateSync=0
-				
-				
-				# If we are out of sync for too long, push another change.
+
+				# If we are out of sync for too long, then push another change over the serial line.
+				# ******* This is a failsafe, but it shouldn't really happen.
 				if stateSync==0:
 					outSyncCount=outSyncCount+1
 					if outSyncCount>=100:
 						teensy.write('a{}>'.format(pyState).encode('utf-8'))  
 
+ 
+
+					
+
 				# 4) Now look at what state you are in and evaluate accordingly
 				if pyState == 1 and stateSync==1:
 					
 					if sHeaders[pyState]==0:
-						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
-						csVar.sesVarDict['minNoLickTime']=np.random.randint(900,2900)
+						
+						
 						if useGUI==1:
 							csPlt.updateStateFig(1)
 						trialSamps[0]=loopCnt-1
@@ -1432,15 +1539,25 @@ def runDetectionTask():
 						lastLickCount = 0
 						lastLick=0                    
 						outSyncCount=0
-						# get contrast and orientation
-						# trials are 0 until incremented, so incrementing
-						# trial after these picks ensures 0 indexing without -1.
-						
+
+						# g) Trial resolution.
+						# Some things we want to do once per trial. csBehavior has a soft concept of trial.
+						# This is because it is a state machine and is an ongoing dynmaic process. But, 
+						# we can define a trial any way we like. We define an elapsed trial as:
+						# any tranistion from state 1, to any other state or states, and back to state 1. 
+						# Thus, when you start the session, you have not finished a trial, you just started it. 
+						# We can do things we want to do once when we start new trials, here is state 1's header. 
+	
+						# 1) determine the current trial's visual and state timing variables.
+						# 	note we have not incremented the trialNum, which should start at 0, 
+						# 	thus we are indexing the array correctly without using a -1. 
 						tContrast=int(trialVars_vStim[csVar.sesVarDict['trialNum'],0])
 						tOrientation=int(trialVars_vStim[csVar.sesVarDict['trialNum'],1])
 						tSpatial=int(trialVars_vStim[csVar.sesVarDict['trialNum'],2])
 						preTime=int(trialVars_timing[csVar.sesVarDict['trialNum'],0])
 						minNoLickTime=int(trialVars_timing[csVar.sesVarDict['trialNum'],1])
+						# todo: reference the text variables
+						csVar.sesVarDict['minNoLickTime']=np.random.randint(900,2900)
 
 						contrastList.append(tContrast)
 						orientationList.append(tOrientation)
@@ -1448,15 +1565,32 @@ def runDetectionTask():
 						waitPad.append(preTime)
 						actualWaitPad.append(preTime)
 
-						# update visual stim params
+						# update visual stim params on the Teensy
 						teensy.write('c{}>'.format(int(tContrast)).encode('utf-8'))
 						teensy.write('o{}>'.format(tOrientation).encode('utf-8'))
 						teensy.write('s{}>'.format(tSpatial).encode('utf-8'))
-					   
-						# update the trial
-						print('start trial #{}'.format(csVar.sesVarDict['trialNum']))
-						print('contrast: {:0.2f} orientation: {}'.format(tContrast,tOrientation))
-						print('min no lick = {}'.format(minNoLickTime))
+
+						# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
+						# in the text file. However, we shouldn't poll all the time because we have to reopen the file each time. 
+						# We do so here. 
+						if useGUI==0:
+							config.read(sys.argv[1])
+							csVar.sesVarDict['totalTrials'] = int(config['sesVars']['totalTrials'])
+							csVar.sesVarDict['lickAThr'] = int(config['sesVars']['lickAThr'])
+							csVar.sesVarDict['volPerRwd'] = int(config['sesVars']['volPerRwd'])
+
+							if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
+								csVar.sesVarDict['sessionOn']=0
+						
+						# 3) incrment the trial count and 
+						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
+						
+
+						# 4) inform the user via the terminal what's going on.
+						print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],\
+							csVar.sesVarDict['totalTrials']))
+						print('target contrast: {:0.2f} ; orientation: {}'.format(tContrast,tOrientation))
+						print('estimated trial time = {}'.format(minNoLickTime + preTime))
 
 						# close the header and flip the others open.
 						sHeaders[pyState]=1
@@ -1733,14 +1867,19 @@ def runDetectionTask():
 				try:
 					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
 						'Weight Post',csVar.sesVarDict['curWeight'])
+					print('gsheet: logged weight')
 					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
 						'Delivered',csVar.sesVarDict['waterConsumed'])
+					print('gsheet: logged consumption')
 					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
 						'Place',curMachine)
+					print('gsheet: logged rig')
 					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
 						'Date Stamp',gDStamp)
+					print('gsheet: logged date')
 					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
 						'Time Stamp',gTStamp)
+					print('gsheet: logged time')
 				except:
 					print('did not log some things')
 		except:

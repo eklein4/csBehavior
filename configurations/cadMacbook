@@ -1,0 +1,27 @@
+[settings]
+useGUI = 0
+host = abc.com
+task = detectionTask
+
+
+[sesVars]
+comPath_teensy = /dev/ttyACM0
+savePath = /home/linaro/csBehaviorData/cad
+hashPath = /home/linaro
+shapingTrial = 1
+sessionOn = 1
+trialNum = 0
+curSession = 1
+subjID = cad
+taskType=detect
+totalTrials=6
+logMQTT=1
+mqttUpDel=0.05
+curWeight=20
+rigGMTZoneDif=5
+volPerRwd=0.0023
+waterConsumed=0
+consumpTarg=1.5
+canQuit = 1
+rewardDur = 500
+lickAThr = 39000
