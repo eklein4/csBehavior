@@ -271,6 +271,7 @@ class csGUI(object):
 		# Finish the window
 		self.taskBar.pack(side=TOP, fill=X)
 
+		# open the dev control window by default
 		self.makeDevControl(varDict)
 	
 	# b) Functions that make other windows
@@ -615,10 +616,40 @@ class csGUI(object):
 				os._exit(1)
 	def commandTeensy(self,varDict,commandStr):
 		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
-		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
-		teensy.write("{}".format(commandStr).encode('utf-8'))
+		try:
+			teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
+			teensy.write("{}".format(commandStr).encode('utf-8'))
+		except:
+			print("couldn't connect check serial path")
+
+		if '<' in commandStr:
+			# print("checking {}'s current value".format(commandStr[0]))
+			time.sleep(0.1)
+			[tString,dNew]=self.readSerialVariable(teensy)
+			if dNew:
+				print('{} = {}'.format(commandStr[0],int(tString[2])))
+			elif dNew==0:
+				print("¯\_(ツ)_/¯ try again?")
+
 		teensy.close()
 		return varDict
+
+	def readSerialVariable(self,comObj):
+		sR=[]
+		newData=0
+		bytesAvail=comObj.inWaiting()
+
+		if bytesAvail>0:
+			sR=comObj.readline().strip().decode()
+			sR=sR.split(',')
+			if len(sR)==4 and sR[0]=='echo':
+				newData=1
+
+		self.sR=sR
+		self.newData=newData
+		self.bytesAvail = bytesAvail
+		return self.sR,self.newData
+
 	def deltaTeensy(self,varDict,commandHeader,delta):
 		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
 		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])

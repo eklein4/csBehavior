@@ -170,6 +170,9 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // l/14: current value on loadCell
 // z/15: toggle a pin
 // q/16: Flyback stim dur (in microseconds)
+// h/17: tone freq
+// i/18: tone duration
+// j/19: tone pin
 
 char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'z', 'q'};
 uint32_t knownValues[] = {0,    5,   8000, 0,  0,   0,   0,   10,  0,  100,  10, 0, 0,   0,  0,   0, 100};
