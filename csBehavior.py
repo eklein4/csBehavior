@@ -33,6 +33,7 @@ import h5py
 import os
 import datetime
 import time
+import platform
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
@@ -97,7 +98,26 @@ class csGUI(object):
 		self.comPath_teensy_label=Label(self.taskBar, text="COM Port:", justify=LEFT)
 		self.comPath_teensy_label.grid(row=cpRw,column=0,padx=0,sticky=W)
 		self.comPath_teensy_TV=StringVar(self.taskBar)
-		self.comPath_teensy_TV.set(varDict['comPath_teensy'])
+		
+		cp = platform.system()
+		# if mac then teensy devices will be a cu.usbmodemXXXXX in /dev/ where XXXXX is the serial
+		# if arm linux, then the teensy is most likely /dev/ttyACM0
+		# if windows it will be some random COM.
+		if cp == 'Darwin':
+			try: 
+				devNames = self.checkForDevicesUnix('cu.u')
+				self.comPath_teensy_TV.set('/dev/' + devNames[0])
+			except:
+				self.comPath_teensy_TV.set(varDict['comPath_teensy'])
+
+		elif cp == 'Windows':
+			self.comPath_teensy_TV.set('COM3')
+
+		elif cp == 'Linux':
+			self.comPath_teensy_TV.set('/dev/ttyACM0')
+		else:
+			self.comPath_teensy_TV.set(varDict['comPath_teensy'])
+
 		self.comPath_teensy_entry=Entry(self.taskBar, width=22, textvariable=self.comPath_teensy_TV)
 		self.comPath_teensy_entry.grid(row=cpRw+1,column=0,padx=0,sticky=W)
 		
@@ -250,6 +270,8 @@ class csGUI(object):
 		self.tBtn_timeWin.grid(row=cpRw,column=1,padx=10,pady=5,sticky=W)
 		# Finish the window
 		self.taskBar.pack(side=TOP, fill=X)
+
+		self.makeDevControl(varDict)
 	
 	# b) Functions that make other windows
 
@@ -468,8 +490,8 @@ class csGUI(object):
 		dpth=Path('/dev')
 		devPathStrings = []
 		for child in dpth.iterdir():
-    		if startString in child.name:
-        		devPathStrings.append(child.name)
+			if startString in child.name:
+				devPathStrings.append(child.name)
 		self.devPathStrings = devPathStrings
 		return self.devPathStrings
 
