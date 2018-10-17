@@ -688,12 +688,13 @@ class csGUI(object):
 		time.sleep(varDelay)
 		teensy.close()
 	def markOffset(self,varDict):
+		# todo: add timeout
 		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
 		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
 		wVals=[]
 		lIt=0
-		while lIt<=50:
-			[rV,vN]=csSer.checkVariable(teensy,'l',0.002)
+		while lIt<=20:
+			[rV,vN]=csSer.checkVariable(teensy,'l',0.01)
 			if vN:
 				wVals.append(rV)
 				lIt=lIt+1

@@ -58,9 +58,12 @@
 #define yGalvo  6
 
 // d) Digital Output Pins
+#define rewardPin 24  // Trigger/signal a reward
 #define syncPin 25    // Trigger other things like a microscope and/or camera
 #define sessionOver  26
-#define rewardPin 27  // Trigger/signal a reward
+#define rewardMirror 27
+#define syncMirror 30
+
 #define neoStripPin 2
 #define pmtBlank  34
 
@@ -264,6 +267,9 @@ void setup() {
   pinMode(pmtBlank, OUTPUT);
   digitalWrite(pmtBlank, LOW);
 
+  pinMode(syncMirror, INPUT);
+  pinMode(syncMirror, INPUT);
+  
   // Serial Lines
   dashSerial.begin(115200);
   visualSerial.begin(115200);
@@ -326,8 +332,10 @@ void vStates() {
 
     pollColorChange();
     pollToggle();
+    pollRelays(); // Let other users use the trigger lines
     // b) body for state 0
     genericStateBody();
+    
 
   }
 
@@ -672,13 +680,17 @@ void resetHeaders() {
 }
 
 void genericHeader(int stateNum) {
+  // a: reset header timer
   headerTime = 0;
+  // b: reset header states and set current state's header to 1 (fired).
   resetHeaders();
   headerStates[stateNum] = 1;
+  // c: set analog output values to 0.
   analogOutVals[0] = 0;
   analogOutVals[1] = 0;
   analogOutVals[2] = 0;
   analogOutVals[3] = 0;
+  // d: reset state timer.
   stateTime = 0;
 }
 
@@ -732,23 +744,6 @@ void visStim(int stimType) {
     visualSerial.print(knownValues[5]);
     visualSerial.print(',');
     visualSerial.print(knownValues[6]);
-    visualSerial.print(',');
-    visualSerial.print(vStim_xPos);
-    visualSerial.print(',');
-    visualSerial.println(vStim_yPos);
-  }
-  //2 is end
-  if (stimType == 3) {
-    visualSerial.print('v');
-    visualSerial.print(',');
-    visualSerial.print(0);
-    visualSerial.print(',');
-    visualSerial.print(999);
-    // I set psychopy to stop a session when contrast = 999
-    visualSerial.print(',');
-    visualSerial.print(0);
-    visualSerial.print(',');
-    visualSerial.println(0);
     visualSerial.print(',');
     visualSerial.print(vStim_xPos);
     visualSerial.print(',');
@@ -925,6 +920,27 @@ void pollToggle() {
     digitalWrite(knownValues[15], cVal);
     knownValues[15] = 0;
   }
+}
+
+void pollRelays(){
+  bool rTrig;
+  bool rRwd;
+  rTrig = digitalRead(syncMirror);
+  rRwd = digitalRead(rewardMirror);
+  if (rTrig==1){
+    digitalWrite(syncPin,HIGH);
+    delay(5);
+    digitalWrite(syncPin,LOW);
+  }
+  if (rRwd==1){
+    digitalWrite(rewardPin,HIGH);
+    delay(5);
+    digitalWrite(rewardPin,LOW);
+  }
+}
+
+void pollTones(uint32_t tonePin, uint32_t toneFreq, uint32_t toneDuration){
+   tone(tonePin, toneFreq, toneDuration);
 }
 
 void pollColorChange() {
