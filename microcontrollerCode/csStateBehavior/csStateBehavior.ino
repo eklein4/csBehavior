@@ -61,8 +61,8 @@
 #define rewardPin 24  // Trigger/signal a reward
 #define syncPin 25    // Trigger other things like a microscope and/or camera
 #define sessionOver  26
-#define rewardMirror 27
-#define syncMirror 30
+#define rewardMirror 30
+#define syncMirror 27
 
 #define neoStripPin 2
 #define pmtBlank  34
@@ -268,7 +268,7 @@ void setup() {
   digitalWrite(pmtBlank, LOW);
 
   pinMode(syncMirror, INPUT);
-  pinMode(syncMirror, INPUT);
+  pinMode(rewardMirror, INPUT);
   
   // Serial Lines
   dashSerial.begin(115200);
