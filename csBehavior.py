@@ -730,8 +730,14 @@ class csVariables(object):
 		'vis_contrast_steps':[1,2,5,10,20,30,50,70],'vis_contrast_nullProb':0.47,'vis_contrast_maxProb':0.31,\
 		'vis_orientation_null':0,'vis_orientation_max':270,\
 		'vis_orientation_steps':[90],'vis_orientation_nullProb':0.33,'vis_orientation_maxProb':0.33,\
-		'vis_spatialFreq_null':3,'vis_spatialFreq_max':1,\
-		'vis_spatialFreq_steps':[],'vis_spatialFreq_nullProb':0.5,'vis_spatialFreq_maxProb':0.5,}
+		'vis_spatialFreq_null':4,'vis_spatialFreq_max':5,\
+		'vis_spatialFreq_steps':[],'vis_spatialFreq_nullProb':0.5,'vis_spatialFreq_maxProb':0.5,
+		'vis_xPos_null':0,'vis_xPos_max':25,\
+		'vis_xPos_steps':[],'vis_xPos_nullProb':0.5,'vis_xPos_maxProb':0.5,
+		'vis_yPos_null':0,'vis_yPos_max':25,\
+		'vis_yPos_steps':[],'vis_yPos_nullProb':0.5,'vis_yPos_maxProb':0.5,
+		'vis_stimSize_null':10,'vis_stimSize_max':10,\
+		'vis_stimSize_steps':[],'vis_stimSize_nullProb':0.0,'vis_stimSize_maxProb':1.0}
 
 		
 		self.sesTimingDict={'trialLength':1000,'trial_wait_null':3000,'trial_wait_max':11000,\
@@ -742,7 +748,7 @@ class csVariables(object):
 		self.sesTimingDict['lick_wait_steps']=np.arange(self.sesTimingDict['lick_wait_null'],self.sesTimingDict['lick_wait_max'])
 
 		self.timeVars=['trial_wait','lick_wait']
-		self.sensVars = ['vis_contrast','vis_orientation','vis_spatialFreq']
+		self.sensVars = ['vis_contrast','vis_orientation','vis_spatialFreq','vis_xPos','vis_yPos','vis_stimSize']
 	def updateDictFromTXT(self,varDict,configF):
 		for key in list(varDict.keys()):
 			try:
@@ -1321,7 +1327,10 @@ def runDetectionTask():
 	contrastList=[]
 	orientationList=[]
 	spatialFreqs=[]
-	waitPad=[]
+	stimSizes = []
+	xPoses = []
+	yPoses = []
+	waitPad =[]
 	actualWaitPad = []
 
 	if useGUI==1:
@@ -1586,6 +1595,10 @@ def runDetectionTask():
 						tContrast=int(trialVars_vStim[csVar.sesVarDict['trialNum'],0])
 						tOrientation=int(trialVars_vStim[csVar.sesVarDict['trialNum'],1])
 						tSpatial=int(trialVars_vStim[csVar.sesVarDict['trialNum'],2])
+						txPos=int(trialVars_vStim[csVar.sesVarDict['trialNum'],3])
+						tyPos=int(trialVars_vStim[csVar.sesVarDict['trialNum'],4])
+						tstimSize=int(trialVars_vStim[csVar.sesVarDict['trialNum'],5])
+						
 						preTime=int(trialVars_timing[csVar.sesVarDict['trialNum'],0])
 						minNoLickTime=int(trialVars_timing[csVar.sesVarDict['trialNum'],1])
 						# todo: reference the text variables
@@ -1596,11 +1609,17 @@ def runDetectionTask():
 						spatialFreqs.append(tSpatial)
 						waitPad.append(preTime)
 						actualWaitPad.append(preTime)
+						stimSizes.append(tstimSize)
+						xPoses.append(txPos)
+						yPoses.append(tyPos)
 
 						# update visual stim params on the Teensy
 						teensy.write('c{}>'.format(int(tContrast)).encode('utf-8'))
 						teensy.write('o{}>'.format(tOrientation).encode('utf-8'))
 						teensy.write('s{}>'.format(tSpatial).encode('utf-8'))
+						teensy.write('z{}>'.format(tstimSize).encode('utf-8'))
+						teensy.write('x{}>'.format(txPos).encode('utf-8'))
+						teensy.write('y{}>'.format(tyPos).encode('utf-8'))
 
 						# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
 						# in the text file. However, we shouldn't poll all the time because we have to reopen the file each time. 
@@ -1787,12 +1806,15 @@ def runDetectionTask():
 			print(stimResponses)
 			f["session_{}".format(csVar.sesVarDict['curSession']-1)]=sesData[0:loopCnt,:]
 			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['contrasts']=contrastList
-			f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['stimResponses']=stimResponses
-			f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['stimTrials']=stimTrials
-			f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['noStimResponses']=noStimResponses
-			f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['noStimTrials']=noStimTrials
+			f["session_{}".format(csVar.sesVarDict['curSession'])-1].attrs['stimResponses']=stimResponses
+			f["session_{}".format(csVar.sesVarDict['curSession'])-1].attrs['stimTrials']=stimTrials
+			f["session_{}".format(csVar.sesVarDict['curSession'])-1].attrs['noStimResponses']=noStimResponses
+			f["session_{}".format(csVar.sesVarDict['curSession'])-1].attrs['noStimTrials']=noStimTrials
 			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['orientations']=orientationList
 			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['spatialFreqs']=spatialFreqs
+			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['stimSizes']=stimSizes
+			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['xPos']=xPoses
+			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['yPos']=yPoses
 			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['waitTimePads']=waitPad
 			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['trialDurs']=sampLog
 			f.close()
@@ -1839,6 +1861,9 @@ def runDetectionTask():
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['noStimTrials']=noStimTrials
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['orientations']=orientationList
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['spatialFreqs']=spatialFreqs
+	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['stimSizes']=stimSizes
+	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['xPos']=xPoses
+	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['yPos']=yPoses
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['waitTimePads']=waitPad
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['actualWaitPads']=actualWaitPad
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['trialDurs']=sampLog

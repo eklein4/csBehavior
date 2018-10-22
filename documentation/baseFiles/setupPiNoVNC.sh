@@ -1,11 +1,7 @@
 #!/bin/bash
 
-echo("updating apt")
+echo "updating apt"
 sudo apt-get update
-echo("upgrading apt will take a bit")
-sudo apt-get upgrade -y
-sudo apt-get dist-upgrade -y
-
 
 sudo apt-get install curl -y
 sudo apt-get remove python-pip -y
@@ -33,13 +29,13 @@ sudo pip3 install numexpr
 sudo apt-get install xsel xclip libxml2-dev libxslt1-dev python-lxml python3-lxml -y 
 
 
-echo("I am going to make a temp swap of 1GB in order to give GCC")
-echo("enough memory to compile Pandas")
+echo "I am going to make a temp swap of 1GB in order to give GCC"
+echo "enough memory to compile Pandas"
 sudo fallocate -l 1G tmpswap
 sudo mkswap tmpswap
 sudo swapon tmpswap
 
-echo("start pandas install from pypi; will take ~ 1 hour")
+echo "start pandas install from pypi; will take ~ 1 hour"
 sudo pip install pandas
 sudo pip3 install pandas
 
@@ -58,16 +54,9 @@ sudo pip3 install pyserial
 
 sudo apt-get install python-scipy python3-scipy -y
 
-sudo apt-get install python-tk python3-tk python-matplotlib python3-matplotlib
+sudo apt-get install python-tk python3-tk python-matplotlib python3-matplotlib -y
 sudo pip install jupyter --ignore-installed
 sudo pip3 install jupyter --ignore-installed
 
-
-cd ~
-git clone https://github.com/cdeister/csBehavior.git
-sudo pip install --upgrade oauth2client 
-sudo pip3 install --upgrade oauth2client 
-
-
-echo("**** DONE ****")
+echo "**** DONE ****"
 
