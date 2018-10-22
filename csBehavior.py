@@ -741,7 +741,7 @@ class csVariables(object):
 		'vis_stimSize_steps':[],'vis_stimSize_nullProb':0.0,'vis_stimSize_maxProb':1.0}
 
 		self.sesOpticalDict={'trialLength':1000,\
-		'opt_stim1_amp_null':0,'opt_stim1Amp_max':5,'opt_stim1_amp_steps':[1,2,3],\
+		'opt_stim1_amp_null':0,'opt_stim1_amp_max':4095,'opt_stim1_amp_steps':[1000,2000,3000],\
 		'opt_stim1_amp_nullProb':0.4,'opt_stim1_amp_maxProb':0.6,\
 		'opt_stim1_pulseDur_null':0,'opt_stim1_pulseDur_max':10,'opt_stim1_pulseDur_steps':[],\
 		'opt_stim1_pulseDur_nullProb':0.0,'opt_stim1_pulseDur_maxProb':1.0,
@@ -758,7 +758,7 @@ class csVariables(object):
 
 		self.timeVars=['trial_wait','lick_wait']
 		self.sensVars = ['vis_contrast','vis_orientation','vis_spatialFreq','vis_xPos','vis_yPos','vis_stimSize']
-		self.opticalVars = ['stim1_amp','stim1_pulseDur','stim1_ipi']
+		self.opticalVars = ['opt_stim1_amp','opt_stim1_pulseDur','opt_stim1_ipi']
 	def updateDictFromTXT(self,varDict,configF):
 		for key in list(varDict.keys()):
 			try:
