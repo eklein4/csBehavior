@@ -582,6 +582,7 @@ class csGUI(object):
 		timeDict['lick_wait_steps']=np.arange(timeDict['lick_wait_null'],timeDict['lick_wait_max'])
 		return timeDict
 	def dictToPandas(self,varDict):
+			
 			curKey=[]
 			curVal=[]
 			for key in list(varDict.keys()):
@@ -739,6 +740,14 @@ class csVariables(object):
 		'vis_stimSize_null':10,'vis_stimSize_max':10,\
 		'vis_stimSize_steps':[],'vis_stimSize_nullProb':0.0,'vis_stimSize_maxProb':1.0}
 
+		self.sesOpticalDict={'trialLength':1000,\
+		'opt_stim1_amp_null':0,'opt_stim1Amp_max':5,'opt_stim1_amp_steps':[1,2,3],\
+		'opt_stim1_amp_nullProb':0.4,'opt_stim1_amp_maxProb':0.6,\
+		'opt_stim1_pulseDur_null':0,'opt_stim1_pulseDur_max':10,'opt_stim1_pulseDur_steps':[],\
+		'opt_stim1_pulseDur_nullProb':0.0,'opt_stim1_pulseDur_maxProb':1.0,
+		'opt_stim1_ipi_null':0,'opt_stim1_ipi_max':90,'opt_stim1_ipi_steps':[],\
+		'opt_stim1_ipi_nullProb':0.0,'opt_stim1_ipi_maxProb':1.0}
+
 		
 		self.sesTimingDict={'trialLength':1000,'trial_wait_null':3000,'trial_wait_max':11000,\
 		'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
@@ -749,6 +758,7 @@ class csVariables(object):
 
 		self.timeVars=['trial_wait','lick_wait']
 		self.sensVars = ['vis_contrast','vis_orientation','vis_spatialFreq','vis_xPos','vis_yPos','vis_stimSize']
+		self.opticalVars = ['stim1_amp','stim1_pulseDur','stim1_ipi']
 	def updateDictFromTXT(self,varDict,configF):
 		for key in list(varDict.keys()):
 			try:
@@ -1296,18 +1306,20 @@ class csPlot(object):
 # $$$$$$$$$$$$$ Main Program Body $$$$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-
-# initialize class instances and some flags.
+# **** Initialize class instances
 csVar=csVariables(1)
+# --> if we aren't using the GUI we may need to override some variables from the config.
 if useGUI==0:
+	
 	csVar.sesVarDict['subjID']=config['sesVars']['subjID']
+# B) Make hdf instance.
 csSesHDF=csHDF(1)
 csAIO=csMQTT(1)
 csSer=csSerial(1)
 csPlt=csPlot(1)
-
+# make a GUI instance if we aren't using config.
 if useGUI==1:
-	
+
 	csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.timeVars,csVar.sesSensDict,csVar.sensVars)
 
 
@@ -1328,10 +1340,13 @@ def runDetectionTask():
 	orientationList=[]
 	spatialFreqs=[]
 	stimSizes = []
-	xPoses = []
-	yPoses = []
+	xPos = []
+	yPos = []
 	waitPad =[]
 	actualWaitPad = []
+	opticalAmps = []
+	opticalPulseDurs = []
+	opticalIPIs = []
 
 	if useGUI==1:
 		csPlt.makeTrialFig(csVar.sesVarDict['detectPlotNum'])
@@ -1349,8 +1364,12 @@ def runDetectionTask():
 	# D) Task specific: preallocate sensory variables that need randomization.
 	# prealloc random stuff (assume no more than 1k trials)
 	maxTrials=1000
+	# -> visual stim variables
 	[trialVars_vStim,_]=csVar.getFeatureProb(csVar.sesSensDict,csVar.sensVars)
+	# -> task timing variables
 	[trialVars_timing,_]=csVar.getFeatureProb(csVar.sesTimingDict,csVar.timeVars)
+	# -> optical stim variables
+	[trialVars_opticalStim,_]=csVar.getFeatureProb(csVar.sesOpticalDict,csVar.opticalVars)
 
 
 	# D) Flush the teensy serial buffer. Send it to the init state (#0).
@@ -1599,6 +1618,8 @@ def runDetectionTask():
 						tyPos=int(trialVars_vStim[csVar.sesVarDict['trialNum'],4])
 						tstimSize=int(trialVars_vStim[csVar.sesVarDict['trialNum'],5])
 						
+						tOAmp1=int(trialVars_opticalStim[csVar.sesVarDict['trialNum'],0])
+						
 						preTime=int(trialVars_timing[csVar.sesVarDict['trialNum'],0])
 						minNoLickTime=int(trialVars_timing[csVar.sesVarDict['trialNum'],1])
 						# todo: reference the text variables
@@ -1610,8 +1631,9 @@ def runDetectionTask():
 						waitPad.append(preTime)
 						actualWaitPad.append(preTime)
 						stimSizes.append(tstimSize)
-						xPoses.append(txPos)
-						yPoses.append(tyPos)
+						xPos.append(txPos)
+						yPos.append(tyPos)
+						opticalAmps.append(tOAmp1)
 
 						# update visual stim params on the Teensy
 						teensy.write('c{}>'.format(int(tContrast)).encode('utf-8'))
@@ -1620,6 +1642,7 @@ def runDetectionTask():
 						teensy.write('z{}>'.format(tstimSize).encode('utf-8'))
 						teensy.write('x{}>'.format(txPos).encode('utf-8'))
 						teensy.write('y{}>'.format(tyPos).encode('utf-8'))
+						teensy.write('v{}1>'.format(tOAmp1).encode('utf-8'))
 
 						# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
 						# in the text file. However, we shouldn't poll all the time because we have to reopen the file each time. 
@@ -1813,8 +1836,8 @@ def runDetectionTask():
 			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['orientations']=orientationList
 			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['spatialFreqs']=spatialFreqs
 			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['stimSizes']=stimSizes
-			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['xPos']=xPoses
-			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['yPos']=yPoses
+			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['xPos']=xPos
+			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['yPos']=yPos
 			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['waitTimePads']=waitPad
 			f["session_{}".format(csVar.sesVarDict['curSession']-1)].attrs['trialDurs']=sampLog
 			f.close()
@@ -1862,8 +1885,8 @@ def runDetectionTask():
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['orientations']=orientationList
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['spatialFreqs']=spatialFreqs
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['stimSizes']=stimSizes
-	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['xPos']=xPoses
-	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['yPos']=yPoses
+	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['xPos']=xPos
+	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['yPos']=yPos
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['waitTimePads']=waitPad
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['actualWaitPads']=actualWaitPad
 	f["session_{}".format(csVar.sesVarDict['curSession'])].attrs['trialDurs']=sampLog
