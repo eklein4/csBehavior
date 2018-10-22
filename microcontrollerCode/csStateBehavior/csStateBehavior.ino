@@ -392,6 +392,16 @@ void vStates() {
         visStim(2);
         blockStateChange = 0;
       }
+      if (stateTime<=1000){
+        stimGen(pulseTrainVars);
+        setAnalogOutValues(analogOutVals, pulseTrainVars);
+      }
+      else if (stateTime>1000){
+        analogOutVals[0] = 0;
+        analogOutVals[1] = 0;
+        analogOutVals[2] = 0;
+        analogOutVals[3] = 0;
+      }
       genericStateBody();
     }
 
@@ -403,6 +413,16 @@ void vStates() {
         blockStateChange = 0;
         genericHeader(3);
         visStim(0);
+      }
+      if (stateTime<=1000){
+        stimGen(pulseTrainVars);
+        setAnalogOutValues(analogOutVals, pulseTrainVars);
+      }
+      else if (stateTime>1000){
+        analogOutVals[0] = 0;
+        analogOutVals[1] = 0;
+        analogOutVals[2] = 0;
+        analogOutVals[3] = 0;
       }
       genericStateBody();
     }
