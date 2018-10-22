@@ -16,9 +16,10 @@ sudo apt-get install build-essential libzmq3-dev python-dev python3-dev -y
 sudo pip install distlib setuptools wheel
 sudo pip3 install distlib setuptools wheel
 
+sudo pip install cython
+sudo pip3 install cython
 sudo pip install numpy
 sudo pip3 install numpy
-sudo apt-get install cython -y
 sudo apt-get install python-dateutil python3-dateutil -y
 sudo pip install pytz
 sudo pip3 install pytz
