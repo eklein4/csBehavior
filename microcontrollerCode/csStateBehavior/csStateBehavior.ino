@@ -63,6 +63,7 @@
 #define sessionOver  26
 #define rewardMirror 30
 #define syncMirror 27
+#define ledSwitch 31
 
 #define neoStripPin 2
 #define pmtBlank  34
@@ -173,13 +174,15 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // l/14: current value on loadCell
 // z/15: toggle a pin
 // q/16: Flyback stim dur (in microseconds)
-// h/17: tone freq
-// i/18: tone duration
-// j/19: tone pin
+// e/17: led switch
+// x/18: visStim xPos (times 10)
+// y/19: visStim yPos
+// z/20: visStim size (times 10)
 
-char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'z', 'q'};
-uint32_t knownValues[] = {0,    5,   8000, 0,  0,   0,   0,   10,  0,  100,  10, 0, 0,   0,  0,   0, 100};
-int knownCount = 17;
+
+char knownHeaders[] =    {'a','r','g', 'c','o','s','f','b','n','d','p','v','t','m','l','z','q','e','x','y','z'};
+uint32_t knownValues[] = { 0,  5, 8000, 0,  0,  4,  2, 1, 0, 100, 10, 0, 0, 0, 0, 0, 100, 1,2,0,10};
+int knownCount = 21;
 
 
 
@@ -266,6 +269,8 @@ void setup() {
   digitalWrite(rewardPin, LOW);
   pinMode(pmtBlank, OUTPUT);
   digitalWrite(pmtBlank, LOW);
+  pinMode(ledSwitch, OUTPUT);
+  digitalWrite(ledSwitch, LOW);
 
   pinMode(syncMirror, INPUT);
   pinMode(rewardMirror, INPUT);
@@ -716,8 +721,6 @@ void genericStateBody() {
 // ****************************************************************
 
 void visStim(int stimType) {
-  uint32_t vStim_yPos = 1;
-  uint32_t vStim_xPos = 1;
   if (stimType == 0) {
     visualSerial.print('v');
     visualSerial.print(',');
@@ -729,9 +732,11 @@ void visStim(int stimType) {
     visualSerial.print(',');
     visualSerial.print(0);
     visualSerial.print(',');
-    visualSerial.print(vStim_xPos);
+    visualSerial.print(knownValues[18]);
     visualSerial.print(',');
-    visualSerial.println(vStim_yPos);
+    visualSerial.print(knownValues[19]);
+    visualSerial.print(',');
+    visualSerial.println(knownValues[20]);
   }
   //1 is on
   if (stimType == 2) {
@@ -745,9 +750,11 @@ void visStim(int stimType) {
     visualSerial.print(',');
     visualSerial.print(knownValues[6]);
     visualSerial.print(',');
-    visualSerial.print(vStim_xPos);
+    visualSerial.print(knownValues[18]);
     visualSerial.print(',');
-    visualSerial.println(vStim_yPos);
+    visualSerial.print(knownValues[19]);
+    visualSerial.print(',');
+    visualSerial.println(knownValues[20]);
   }
 }
 
@@ -913,7 +920,7 @@ void setStrip(uint32_t stripState) {
 }
 
 void pollToggle() {
-  if (knownValues[15] == rewardPin || knownValues[15] == syncPin) {
+  if (knownValues[15] == rewardPin || knownValues[15] == syncPin || knownValues[15] == ledSwitch) {
     bool cVal = digitalRead(knownValues[15]);
     digitalWrite(knownValues[15], 1 - cVal);
     delay(5);

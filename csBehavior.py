@@ -1321,6 +1321,7 @@ def runDetectionTask():
 	contrastList=[]
 	orientationList=[]
 	spatialFreqs=[]
+	stimSize = []
 	waitPad=[]
 	actualWaitPad = []
 

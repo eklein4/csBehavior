@@ -3,11 +3,12 @@ import datetime
 import RPi.GPIO as GPIO
 import io
 import sys
-from psychopy import visual, core, event, data, clock 
+from psychopy import visual, core, event, data, clock, monitors
 import configparser
 import numpy as np
 import serial 
 
+myMon = monitors.Monitor('manga', width=14, distance=20,verbose=True, autoLog=True)
 
 # An optional configuration file can be supplied at startup.
 try:
@@ -49,12 +50,12 @@ except:
 	serialBaud = 115200
 	onPin = 11
 	offPin = 12
-	win_x1=600
-	win_y1=600
-	init_contrast = 1.0
+	win_x1=1000
+	win_y1=1000
+	init_contrast = 0
 	init_orientation = 0
 	useSerial = 1
-	useCam = 1
+	useCam = 0
 
 # ******** Make a raspberry pi camera object if using a pi
 if useCam == 1:
@@ -76,7 +77,7 @@ if useSerial==1:
 
 
 # ***** make a psychopy/pyglet window
-mywin = visual.Window([win_x1,win_y1],allowGUI=False)
+mywin = visual.Window([win_x1,win_y1],allowGUI=False, monitor = myMon)
 exp = data.ExperimentHandler(dataFileName="ydo")
 
 
@@ -91,15 +92,20 @@ cameraOn = 0
 
 
 # stim 1 params
-gabor_1={'phaseDelta':0.05,'Xpos':0,'Ypos':0,'spFreq':[4,0],'mask':'gauss',
-	'size':(1.0,1.0),'contrast':init_contrast,'orientation':init_orientation}
+gabor_1={'phaseDelta':0.02,'Xpos':0.0,'Ypos':0.0,'spFreq':[4,0],'mask':'circle',
+	'size':1,'contrast':init_contrast,'orientation':init_orientation}
+
 
 #create some stimuli
-grating1= visual.GratingStim(win=mywin, mask=gabor_1['mask'], 
-	pos=[gabor_1['Xpos'],gabor_1['Ypos']],sf=gabor_1['spFreq'],
-	ori=gabor_1['orientation'])
+grating1= visual.GratingStim(win=mywin,mask=gabor_1['mask'],pos=[gabor_1['Xpos'],gabor_1['Ypos']],\
+	sf=gabor_1['spFreq'],ori=gabor_1['orientation'])
+grating1.size = gabor_1['size']
 grating1.contrast = gabor_1['contrast']
 grating1.autoDraw=True
+
+# grating2 = visual.GratingStim(win=mywin, mask='circle', size=9, pos=[-4,0], sf=3)
+# grating2.contrast = gabor_2['contrast']
+# grating2.autoDraw=True
 
 def startCamera():
 	cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -152,26 +158,32 @@ while runSession:
 
 			sR=teensyObj.readline().strip().decode()
 			sR=sR.split(',')
-			if len(sR)==7 and sR[0]=='v':
+			if len(sR)==8 and sR[0]=='v':
 				if int(sR[2])==999:
 					# runSession=0
 					sR[2]=0
 				gabor_1['contrast']=int(sR[2])/100
 				gabor_1['orientation']=int(sR[1])
-				gabor_1['spFreq']=int(sR[3])/100
+				gabor_1['spFreq']=int(sR[3])
+				gabor_1['phaseDelta'] = int(sR[4])/100
+				gabor_1['Xpos']=int(sR[6])/10
+				gabor_1['Ypos']=int(sR[5])/10
+				gabor_1['size']=int(sR[7])/10
+				
 				
 				serTrack=1
 				
 				grating1.contrast = gabor_1['contrast']
 				grating1.ori=gabor_1['orientation']
 				grating1.size = gabor_1['size']
+				grating1.pos=[gabor_1['Xpos'],gabor_1['Ypos']]
+				grating1.sf=[gabor_1['spFreq'],0]
 
 # end session
-
+mywin.close()
 exp.close()
 
 cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 filename = savePath + animalID + 'stim_' + cStr
 exp.saveAsWideText(filename)
-mywin.close()
 core.quit()
