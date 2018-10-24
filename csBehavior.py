@@ -1694,6 +1694,7 @@ def runDetectionTask():
 						print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],\
 							csVar.sesVarDict['totalTrials']))
 						print('target contrast: {:0.2f} ; orientation: {}'.format(csVar.vis_contrast[tTrial],csVar.vis_orientation[tTrial]))
+						print('target xpos: {} ; size: {}'.format(csVar.vis_xPos[tTrial],csVar.vis_stimSize[tTrial]))
 						print('estimated trial time = {}'.format(csVar.lick_wait[tTrial] + csVar.trial_wait[tTrial]))
 
 						# close the header and flip the others open.
