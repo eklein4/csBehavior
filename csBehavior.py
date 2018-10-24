@@ -710,14 +710,14 @@ class csVariables(object):
 		'vis_contrast_steps':[1,2,5,10,20,30,50,70],'vis_contrast_nullProb':0.47,'vis_contrast_maxProb':0.31,\
 		'vis_orientation_null':0,'vis_orientation_max':270,\
 		'vis_orientation_steps':[90],'vis_orientation_nullProb':0.33,'vis_orientation_maxProb':0.33,\
-		'vis_spatialFreq_null':4,'vis_spatialFreq_max':5,\
+		'vis_spatialFreq_null':4,'vis_spatialFreq_max':4,\
 		'vis_spatialFreq_steps':[],'vis_spatialFreq_nullProb':0.5,'vis_spatialFreq_maxProb':0.5,
-		'vis_xPos_null':0,'vis_xPos_max':25,\
-		'vis_xPos_steps':[],'vis_xPos_nullProb':0.5,'vis_xPos_maxProb':0.5,
-		'vis_yPos_null':0,'vis_yPos_max':25,\
+		'vis_xPos_null':0,'vis_xPos_max':30,\
+		'vis_xPos_steps':[10,20],'vis_xPos_nullProb':0.5,'vis_xPos_maxProb':0.25,
+		'vis_yPos_null':0,'vis_yPos_max':20,\
 		'vis_yPos_steps':[],'vis_yPos_nullProb':0.5,'vis_yPos_maxProb':0.5,
-		'vis_stimSize_null':10,'vis_stimSize_max':10,\
-		'vis_stimSize_steps':[],'vis_stimSize_nullProb':0.0,'vis_stimSize_maxProb':1.0}
+		'vis_stimSize_null':10,'vis_stimSize_max':14,\
+		'vis_stimSize_steps':[12],'vis_stimSize_nullProb':0.33,'vis_stimSize_maxProb':0.33}
 
 		self.sesOpticalDict={'trialCount':1000,\
 		'opt_stim1_amp_null':0,'opt_stim1_amp_max':4095,'opt_stim1_amp_steps':[1000,2000,3000],\
@@ -726,16 +726,16 @@ class csVariables(object):
 		'opt_stim1_pulseDur_nullProb':0.0,'opt_stim1_pulseDur_maxProb':1.0,
 		'opt_stim1_ipi_null':90,'opt_stim1_ipi_max':90,'opt_stim1_ipi_steps':[],\
 		'opt_stim1_ipi_nullProb':0.0,'opt_stim1_ipi_maxProb':1.0,\
-		'opt_stim1_pulseCount_null':100,'opt_stim1_pulseCount_max':100,'opt_stim1_pulseCount_steps':[],\
-		'opt_stim1_pulseCount_nullProb':0.0,'opt_stim1_pulseCount_maxProb':1.0,\
+		'opt_stim1_pulseCount_null':5,'opt_stim1_pulseCount_max':100,'opt_stim1_pulseCount_steps':[],\
+		'opt_stim1_pulseCount_nullProb':0.5,'opt_stim1_pulseCount_maxProb':0.5,\
 		'opt_stim2_amp_null':0,'opt_stim2_amp_max':4095,'opt_stim2_amp_steps':[1000,2000,3000],\
 		'opt_stim2_amp_nullProb':0.0,'opt_stim2_amp_maxProb':0.5,\
 		'opt_stim2_pulseDur_null':10,'opt_stim2_pulseDur_max':10,'opt_stim2_pulseDur_steps':[],\
 		'opt_stim2_pulseDur_nullProb':0.0,'opt_stim2_pulseDur_maxProb':1.0,
 		'opt_stim2_ipi_null':90,'opt_stim2_ipi_max':90,'opt_stim2_ipi_steps':[],\
 		'opt_stim2_ipi_nullProb':0.0,'opt_stim2_ipi_maxProb':1.0,\
-		'opt_stim2_pulseCount_null':100,'opt_stim2_pulseCount_max':100,'opt_stim2_pulseCount_steps':[],\
-		'opt_stim2_pulseCount_nullProb':0.0,'opt_stim2_pulseCount_maxProb':1.0,\
+		'opt_stim2_pulseCount_null':5,'opt_stim2_pulseCount_max':100,'opt_stim2_pulseCount_steps':[],\
+		'opt_stim2_pulseCount_nullProb':0.5,'opt_stim2_pulseCount_maxProb':0.5,\
 		'opt_stim3_amp_null':0,'opt_stim3_amp_max':4095,'opt_stim3_amp_steps':[1000,2000,3000],\
 		'opt_stim3_amp_nullProb':0.4,'opt_stim3_amp_maxProb':0.6,\
 		'opt_stim3_pulseDur_null':10,'opt_stim3_pulseDur_max':10,'opt_stim3_pulseDur_steps':[],\
@@ -1503,7 +1503,7 @@ def runDetectionTask():
 	sentPulseDurs = 0
 	sentIPIs = 0
 	sentPulseCount = 0
-	
+
 	startNewTrial = 1
 	sessionStarted = 0
 
