@@ -1680,7 +1680,7 @@ def runDetectionTask():
 							config.read(sys.argv[1])
 							csVar.sesVarDict['totalTrials'] = int(config['sesVars']['totalTrials'])
 							csVar.sesVarDict['lickAThr'] = int(config['sesVars']['lickAThr'])
-							csVar.sesVarDict['volPerRwd'] = int(config['sesVars']['volPerRwd'])
+							csVar.sesVarDict['volPerRwd'] = float(config['sesVars']['volPerRwd'])
 
 							if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
 								csVar.sesVarDict['sessionOn']=0
