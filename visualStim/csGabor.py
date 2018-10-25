@@ -59,7 +59,7 @@ myMon = monitors.Monitor('manga', width=sesVars['monWidth'],\
 	distance=sesVars['monDistance'],verbose=True, autoLog=True)
 
 # ******** Make a raspberry pi camera object if using a pi
-if useCam == 1:
+if sesVars['useCam'] == 1:
 	camera = PiCamera()
 	camera.resolution = (sesVars['res_X'],sesVars['res_Y'])
 	camera.framerate = sesVars['frameRate']
