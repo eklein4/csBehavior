@@ -154,6 +154,7 @@ while runSession:
 			sR=teensyObj.readline().strip().decode()
 			sR=sR.split(',')
 			if len(sR)==8 and sR[0]=='v':
+				print('debug ser')
 				if int(sR[2])==999:
 					# runSession=0
 					sR[2]=0
@@ -166,7 +167,7 @@ while runSession:
 				# gabor_1['Ypos']=float(int(sR[5])/10)
 				# print(gabor_1['Ypos'])
 				# gabor_1['size']=float(int(sR[7])/10)
-				print(gabor_1['Size'])
+				# print(gabor_1['Size'])
 				
 				
 				serTrack=1

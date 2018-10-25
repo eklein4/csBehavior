@@ -718,7 +718,7 @@ class csVariables(object):
 		'vis_yPos_null':0,'vis_yPos_max':0,\
 		'vis_yPos_steps':[],'vis_yPos_nullProb':0.5,'vis_yPos_maxProb':0.5,
 		'vis_stimSize_null':10,'vis_stimSize_max':10,\
-		'vis_stimSize_steps':[10],'vis_stimSize_nullProb':0.33,'vis_stimSize_maxProb':0.33,\
+		'vis_stimSize_steps':[],'vis_stimSize_nullProb':0.0,'vis_stimSize_maxProb':1.0,\
 		'varLabels':['vis_contrast','vis_orientation','vis_spatialFreq','vis_xPos','vis_yPos','vis_stimSize']}
 
 		self.sesOpticalDict={'trialCount':1000,\
