@@ -134,8 +134,8 @@ while runSession:
 	if len(event.getKeys())>0:
 		break
 	event.clearEvents()
-	cam_onPin=GPIO.input(onPin)
-	cam_offPin=GPIO.input(offPin)
+	cam_onPin=GPIO.input(sesVars['onPin'])
+	cam_offPin=GPIO.input(sesVars['offPin'])
 
 	if sesVars['useCam'] ==1 and cameraOn == 0 and cam_onPin==1:
 		cameraOn = 1
