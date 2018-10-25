@@ -713,10 +713,10 @@ class csVariables(object):
 		'vis_orientation_steps':[90],'vis_orientation_nullProb':0.33,'vis_orientation_maxProb':0.33,\
 		'vis_spatialFreq_null':4,'vis_spatialFreq_max':4,\
 		'vis_spatialFreq_steps':[],'vis_spatialFreq_nullProb':0.5,'vis_spatialFreq_maxProb':0.5,
-		'vis_xPos_null':0,'vis_xPos_max':50,\
-		'vis_xPos_steps':[25],'vis_xPos_nullProb':0.33,'vis_xPos_maxProb':0.33,
-		'vis_yPos_null':0,'vis_yPos_max':0,\
-		'vis_yPos_steps':[],'vis_yPos_nullProb':0.5,'vis_yPos_maxProb':0.5,
+		'vis_xPos_null':50,'vis_xPos_max':50,\
+		'vis_xPos_steps':[50],'vis_xPos_nullProb':0.33,'vis_xPos_maxProb':0.33,
+		'vis_yPos_null':0,'vis_yPos_max':50,\
+		'vis_yPos_steps':[25],'vis_yPos_nullProb':0.33,'vis_yPos_maxProb':0.33,
 		'vis_stimSize_null':10,'vis_stimSize_max':14,\
 		'vis_stimSize_steps':[12],'vis_stimSize_nullProb':0.33,'vis_stimSize_maxProb':0.33,\
 		'varLabels':['vis_contrast','vis_orientation','vis_spatialFreq','vis_xPos','vis_yPos','vis_stimSize']}
