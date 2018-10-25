@@ -1167,6 +1167,18 @@ class csSerial(object):
 		comObj.write('{}{}3>'.format(varChar,sendValues[2]).encode('utf-8'))
 		comObj.write('{}{}4>'.format(varChar,sendValues[3]).encode('utf-8'))
 
+	def sendVisualValues(self,comObj,trialNum):
+		
+		comObj.write('c{}>'.format(int(csVar.vis_contrast[trialNum])).encode('utf-8'))
+		comObj.write('o{}>'.format(int(csVar.vis_orientation[trialNum])).encode('utf-8'))
+		comObj.write('s{}>'.format(int(csVar.vis_spatialFreq[trialNum])).encode('utf-8'))
+
+	def sendVisualPlaceValues(self,comObj,trialNum):
+
+		comObj.write('z{}>'.format(int(csVar.vis_stimSize[trialNum])).encode('utf-8'))
+		comObj.write('x{}>'.format(int(csVar.vis_xPos[trialNum])).encode('utf-8'))
+		comObj.write('y{}>'.format(int(csVar.vis_yPos[trialNum])).encode('utf-8'))
+
 class csPlot(object):
 	
 	def __init__(self,stPlotX={},stPlotY={},stPlotRel={},pClrs={},pltX=[],pltY=[]):
@@ -1375,7 +1387,6 @@ def runDetectionTask():
 		exec("csVar.{}=[]".format(x))
 	# Second, generate the first set of variables
 	csVar.generateTrialVariables()
-	print(csVar.trialVars_vStim)
 
 	if useGUI==1:
 		csPlt.makeTrialFig(csVar.sesVarDict['detectPlotNum'])
@@ -1496,10 +1507,9 @@ def runDetectionTask():
 	csVar.sesVarDict['trialNum']=0
 	csVar.sesVarDict['lickLatchA']=0
 	outSyncCount=0
-	sentOptoVoltages = 0
-	sentPulseDurs = 0
-	sentIPIs = 0
-	sentPulseCount = 0
+	serialVarTracker = [0,0,0,0,0,0]
+
+
 
 	startNewTrial = 1
 	sessionStarted = 0
@@ -1607,7 +1617,7 @@ def runDetectionTask():
 				# ******* This is a failsafe, but it shouldn't really happen.
 				if stateSync==0:
 					outSyncCount=outSyncCount+1
-					if outSyncCount>=100:
+					if outSyncCount>=200:
 						teensy.write('a{}>'.format(pyState).encode('utf-8'))  
 
 				# 4) Now look at what state you are in and evaluate accordingly
@@ -1639,7 +1649,6 @@ def runDetectionTask():
 						# 	thus we are indexing the array correctly without using a -1. 
 						
 						tTrial = csVar.sesVarDict['trialNum']
-						print("tTrial={}".format(tTrial))
 						
 						tCount = 0
 						for x in csVar.sesTimingDict['varLabels']:
@@ -1658,18 +1667,7 @@ def runDetectionTask():
 						
 						
 						csVar.sesVarDict['minNoLickTime']=csVar.lick_wait[tTrial]
-
-						# update visual stim params on the Teensy
-						teensy.write('c{}>'.format(int(csVar.vis_contrast[tTrial])).encode('utf-8'))
-						teensy.write('o{}>'.format(int(csVar.vis_orientation[tTrial])).encode('utf-8'))
-						teensy.write('s{}>'.format(int(csVar.vis_spatialFreq[tTrial])).encode('utf-8'))
-						teensy.write('z{}>'.format(int(csVar.vis_stimSize[tTrial])).encode('utf-8'))
-						teensy.write('x{}>'.format(int(csVar.vis_xPos[tTrial])).encode('utf-8'))
-						teensy.write('y{}>'.format(int(csVar.vis_yPos[tTrial])).encode('utf-8'))
-						sentOptoVoltages = 0
-						sentPulseDurs = 0
-						sentIPIs = 0
-						sentPulseCount = 0
+						serialVarTracker = [0,0,0,0,0,0]
 
 						# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
 						# in the text file. However, we shouldn't poll all the time because we have to reopen the file each time. 
@@ -1698,31 +1696,40 @@ def runDetectionTask():
 						# close the header and flip the others open.
 						sHeaders[pyState]=1
 						sHeaders[np.setdiff1d(sList,pyState)]=0
+
+					# update visual stim params on the Teensy
+					if serialVarTracker[0] == 0 and curStateTime>=10:
+						csSer.sendVisualValues(teensy,tTrial)
+						serialVarTracker[0]=1
+
+					elif serialVarTracker[1] == 0 and curStateTime>=110:
+						csSer.sendVisualPlaceValues(teensy,tTrial)
+						serialVarTracker[1] = 1
 					
 					# send optical/analog output values, but spread the serial load across loops.
-					if sentOptoVoltages == 0 and curStateTime>=200:
+					elif serialVarTracker[2] == 0 and curStateTime>=210:
 						optoVoltages = [int(csVar.opt_stim1_amp[tTrial]),int(csVar.opt_stim2_amp[tTrial]),\
 						int(csVar.opt_stim3_amp[tTrial]),int(csVar.opt_stim4_amp[tTrial])]
 						csSer.sendAnalogOutValues(teensy,'v',optoVoltages)
-						sentOptoVoltages = 1
+						serialVarTracker[2] = 1
 
-					if sentPulseDurs == 0 and curStateTime>=400:
+					elif serialVarTracker[3] == 0 and curStateTime>=310:
 						optoPulseDurs = [int(csVar.opt_stim1_pulseDur[tTrial]),int(csVar.opt_stim2_pulseDur[tTrial]),\
 						int(csVar.opt_stim3_pulseDur[tTrial]),int(csVar.opt_stim4_pulseDur[tTrial])]
 						csSer.sendAnalogOutValues(teensy,'p',optoPulseDurs)
-						sentPulseDurs = 1
+						serialVarTracker[3] = 1
 
-					if sentIPIs == 0 and curStateTime>=600:
+					elif serialVarTracker[4] == 0 and curStateTime>=410:
 						optoIPIs = [int(csVar.opt_stim1_ipi[tTrial]),int(csVar.opt_stim2_ipi[tTrial]),\
 						int(csVar.opt_stim3_ipi[tTrial]),int(csVar.opt_stim4_ipi[tTrial])]
 						csSer.sendAnalogOutValues(teensy,'d',optoIPIs)
-						sentIPIs = 1
+						serialVarTracker[4] = 1
 
-					if sentPulseCount == 0 and curStateTime>=800:
+					elif serialVarTracker[5] == 0 and curStateTime>=510:
 						optoPulseNum = [int(csVar.opt_stim1_pulseCount[tTrial]),int(csVar.opt_stim2_pulseCount[tTrial]),\
 						int(csVar.opt_stim3_pulseCount[tTrial]),int(csVar.opt_stim4_pulseCount[tTrial])]
 						csSer.sendAnalogOutValues(teensy,'m',optoPulseNum)
-						sentPulseCount = 1
+						serialVarTracker[5] = 1
 
 
 					if lickCounter>lastLickCount:
