@@ -164,7 +164,7 @@ while runSession:
 				# gabor_1['Xpos']=float(int(sR[6])/10)
 				# print(gabor_1['Xpos'])
 				# gabor_1['Ypos']=float(int(sR[5])/10)
-				print(gabor_1['Ypos'])
+				# print(gabor_1['Ypos'])
 				gabor_1['size']=float(int(sR[7])/10)
 				print(gabor_1['Size'])
 				
