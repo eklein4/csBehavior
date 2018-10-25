@@ -137,14 +137,14 @@ while runSession:
 	cam_onPin=GPIO.input(onPin)
 	cam_offPin=GPIO.input(offPin)
 
-	if useCam ==1 and cameraOn == 0 and cam_onPin==1:
+	if sesVars['useCam'] ==1 and cameraOn == 0 and cam_onPin==1:
 		cameraOn = 1
 		startCamera(camera,sesVars)
 	elif useCam ==1 and cameraOn == 1 and cam_offPin==1:
 		cameraOn = 0
 		stopCamera(camera)
 		runSession = 0
-	elif useCam == 0 and cam_offPin==1:
+	elif sesVars['useCam'] == 0 and cam_offPin==1:
 		runSession = 0
 	if useSerial==1:
 		serTrack=0
@@ -179,6 +179,6 @@ mywin.close()
 exp.close()
 
 cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-filename = savePath + animalID + 'stim_' + cStr
+filename = sesVars['savePath'] + sesVars['animalID'] + 'stim_' + cStr
 exp.saveAsWideText(filename)
 core.quit()

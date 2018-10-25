@@ -691,6 +691,7 @@ class csGUI(object):
 	def do_trialOpto(self):
 		
 		runTrialOptoTask()
+
 class csVariables(object):
 	def __init__(self,sesVarDict={},sesSensDict={}):
 
