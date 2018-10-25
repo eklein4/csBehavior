@@ -18,7 +18,7 @@ import serial
 usedConfig = 0
 sesVars = {'useGUI':0,'savePath':'/home/pi/','animalID':'an1','savePath':'/home/pi/captures/',\
 'serialPath':"/dev/ttyS0",'serialBaud':115200,'res_X':1640,'res_Y':1232,'frameRate':30,'iso':0,\
-'onPin':11,'offPin':12,'win_x1':1000,'win_y1':1000,'init_contrast':0,'init_orientation':0,\
+'onPin':11,'offPin':12,'win_x1':1000,'win_y1':1000,'init_contrast':1,'init_orientation':0,\
 'useSerial':1,'useCam':1,'monWidth':14,'monDistance':20,'curMask':'circle'}
 
 
@@ -146,7 +146,7 @@ while runSession:
 		runSession = 0
 	elif sesVars['useCam'] == 0 and cam_offPin==1:
 		runSession = 0
-	if useSerial==1:
+	if sesVars['useSerial']==1:
 		serTrack=0
 		bytesAvail=teensyObj.inWaiting()
 		if bytesAvail>0:
