@@ -71,8 +71,8 @@ GPIO.setup(sesVars['onPin'], GPIO.IN,pull_up_down=GPIO.PUD_DOWN) # 11, GPIO17 is
 GPIO.setup(sesVars['offPin'], GPIO.IN,pull_up_down=GPIO.PUD_DOWN) # 12, GPIO18 is off trigger
 
 # ****** Make a serial object.
-if useSerial==1:
-	teensyObj = serial.Serial(serialPath,serialBaud)
+if sesVars['useSerial']==1:
+	teensyObj = serial.Serial(sesVars['serialPath'],sesVars['serialBaud'])
 	teensyObj.close()
 	teensyObj.open()
 
