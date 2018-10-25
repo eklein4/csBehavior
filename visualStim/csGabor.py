@@ -105,7 +105,7 @@ grating1.autoDraw=True
 def startCamera(camObj,varDict):
 	cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 	output = np.empty((varDict['res_Y'],varDict['res_X'],3),dtype=np.uint16)
-	filename = varDict['savePath'] + varDict['animalID'] + '_subjVideoA_' + cStr + '.h264'
+	filename = varDict['savePath'] + varDict['animalID'] + '_subjVideo_' + cStr + '.h264'
 	camObj.start_recording(filename,sps_timing=True)
 
 def stopCamera(camObj):
@@ -160,10 +160,10 @@ while runSession:
 				gabor_1['contrast']=int(sR[2])/100
 				gabor_1['orientation']=int(sR[1])
 				gabor_1['spFreq']=int(sR[3])
-				gabor_1['phaseDelta'] = int(sR[4])/100
-				gabor_1['Xpos']=int(sR[6])/10
-				gabor_1['Ypos']=int(sR[5])/10
-				gabor_1['size']=int(sR[7])/10
+				gabor_1['phaseDelta'] = float(sR[4]/100)
+				gabor_1['Xpos']=float(sR[6]/10)
+				gabor_1['Ypos']=float(sR[5]/10)
+				gabor_1['size']=int(sR[7]/10)
 				
 				
 				serTrack=1
