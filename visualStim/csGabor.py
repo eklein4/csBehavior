@@ -153,15 +153,15 @@ while runSession:
 
 			sR=teensyObj.readline().strip().decode()
 			sR=sR.split(',')
-			if len(sR)==8 and sR[0]=='v':
-				print('debug ser')
+			if len(sR)==8 and sR[0]=='v':				
 				if int(sR[2])==999:
 					# runSession=0
 					sR[2]=0
 				gabor_1['contrast']=int(sR[2])/100
 				gabor_1['orientation']=int(sR[1])
 				gabor_1['spFreq']=int(sR[3])
-				gabor_1['phaseDelta'] = float(int(sR[4])/100)
+				gabor_1['size']=int(sR[7])/10
+				# gabor_1['phaseDelta'] = float(int(sR[4])/100)
 				# gabor_1['Xpos']=float(int(sR[6])/10)
 				# print(gabor_1['Xpos'])
 				# gabor_1['Ypos']=float(int(sR[5])/10)
