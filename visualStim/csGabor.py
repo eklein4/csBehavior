@@ -160,10 +160,10 @@ while runSession:
 				gabor_1['contrast']=int(sR[2])/100
 				gabor_1['orientation']=int(sR[1])
 				gabor_1['spFreq']=int(sR[3])
-				gabor_1['phaseDelta'] = float(sR[4]/100)
-				gabor_1['Xpos']=float(sR[6]/10)
-				gabor_1['Ypos']=float(sR[5]/10)
-				gabor_1['size']=int(sR[7]/10)
+				gabor_1['phaseDelta'] = float(int(sR[4])/100)
+				gabor_1['Xpos']=float(int(sR[6])/10)
+				gabor_1['Ypos']=float(int(sR[5])/10)
+				gabor_1['size']=float(int(sR[7])/10)
 				
 				
 				serTrack=1
