@@ -140,7 +140,7 @@ while runSession:
 	if sesVars['useCam'] ==1 and cameraOn == 0 and cam_onPin==1:
 		cameraOn = 1
 		startCamera(camera,sesVars)
-	elif useCam ==1 and cameraOn == 1 and cam_offPin==1:
+	elif sesVars['useCam'] ==1 and cameraOn == 1 and cam_offPin==1:
 		cameraOn = 0
 		stopCamera(camera)
 		runSession = 0
