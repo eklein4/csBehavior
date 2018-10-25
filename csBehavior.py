@@ -717,7 +717,8 @@ class csVariables(object):
 		'vis_yPos_null':0,'vis_yPos_max':20,\
 		'vis_yPos_steps':[],'vis_yPos_nullProb':0.5,'vis_yPos_maxProb':0.5,
 		'vis_stimSize_null':10,'vis_stimSize_max':14,\
-		'vis_stimSize_steps':[12],'vis_stimSize_nullProb':0.33,'vis_stimSize_maxProb':0.33}
+		'vis_stimSize_steps':[12],'vis_stimSize_nullProb':0.33,'vis_stimSize_maxProb':0.33,\
+		'varLabels':['vis_contrast','vis_orientation','vis_spatialFreq','vis_xPos','vis_yPos','vis_stimSize']}
 
 		self.sesOpticalDict={'trialCount':1000,\
 		'opt_stim1_amp_null':0,'opt_stim1_amp_max':4095,'opt_stim1_amp_steps':[1000,2000,3000],\
@@ -751,23 +752,20 @@ class csVariables(object):
 		'opt_stim4_ipi_null':0,'opt_stim4_ipi_max':90,'opt_stim4_ipi_steps':[],\
 		'opt_stim4_ipi_nullProb':0.0,'opt_stim4_ipi_maxProb':1.0,\
 		'opt_stim4_pulseCount_null':100,'opt_stim4_pulseCount_max':100,'opt_stim4_pulseCount_steps':[],\
-		'opt_stim4_pulseCount_nullProb':0.0,'opt_stim4_pulseCount_maxProb':1.0}
+		'opt_stim4_pulseCount_nullProb':0.0,'opt_stim4_pulseCount_maxProb':1.0,\
+		'varLabels': ['opt_stim1_amp','opt_stim1_pulseDur','opt_stim1_ipi','opt_stim1_pulseCount',\
+		'opt_stim2_amp','opt_stim2_pulseDur','opt_stim2_ipi','opt_stim2_pulseCount',\
+		'opt_stim3_amp','opt_stim3_pulseDur','opt_stim3_ipi','opt_stim3_pulseCount',\
+		'opt_stim4_amp','opt_stim4_pulseDur','opt_stim4_ipi','opt_stim4_pulseCount']}
 
 		
 		self.sesTimingDict={'trialCount':1000,'trial_wait_null':3000,'trial_wait_max':11000,\
 		'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
-		'lick_wait_null':599,'lick_wait_max':2999,'lick_wait_maxProb':0.0,'lick_wait_nullProb':0.0}
-
+		'lick_wait_null':599,'lick_wait_max':2999,'lick_wait_maxProb':0.0,'lick_wait_nullProb':0.0,\
+		'varLabels':['trial_wait','lick_wait']}
 		self.sesTimingDict['trial_wait_steps']=np.arange(self.sesTimingDict['trial_wait_null'],self.sesTimingDict['trial_wait_max'])
 		self.sesTimingDict['lick_wait_steps']=np.arange(self.sesTimingDict['lick_wait_null'],self.sesTimingDict['lick_wait_max'])
 
-		self.timeVars=['trial_wait','lick_wait']
-		self.sensVars = ['vis_contrast','vis_orientation','vis_spatialFreq','vis_xPos','vis_yPos','vis_stimSize']
-		self.opticalVars = ['opt_stim1_amp','opt_stim1_pulseDur','opt_stim1_ipi','opt_stim1_pulseCount',\
-		'opt_stim2_amp','opt_stim2_pulseDur','opt_stim2_ipi','opt_stim2_pulseCount',\
-		'opt_stim3_amp','opt_stim3_pulseDur','opt_stim3_ipi','opt_stim3_pulseCount',\
-		'opt_stim4_amp','opt_stim4_pulseDur','opt_stim4_ipi','opt_stim4_pulseCount']
-	
 	def updateDictFromTXT(self,varDict,configF):
 		for key in list(varDict.keys()):
 			try:
@@ -783,15 +781,16 @@ class csVariables(object):
 				pass
 		return varDict
 
-	def getFeatureProb(self,probDict,labelList):
-		
+	def getFeatureProb(self,probDict):
+		labelList = probDict['varLabels']
 		trLen = probDict['trialCount']
+		
 		tempArray = np.zeros((trLen,len(labelList)))
 		tempCountArray = np.zeros((3,len(labelList)))
+		
 		for x in range(len(labelList)):
 			curStr = labelList[x]
 	
-
 			availIndicies = np.arange(trLen)
 			curAvail=len(availIndicies)
 
@@ -823,10 +822,6 @@ class csVariables(object):
 				availIndicies=np.setdiff1d(availIndicies,tInd)
 				curAvail=len(availIndicies)
 
-			# curMaxIndicies = np.random.randint(curMaxProb,size=len(availIndicies))
-			# availIndicies = np.setdiff1d(availIndicies,curMaxIndicies)
-			# tempArray[curMaxIndicies] = curMax
-
 			# C) compute steps
 			curSteps = eval('probDict["{}_steps"]'.format(curStr))
 			if len(curSteps)>0:
@@ -838,6 +833,13 @@ class csVariables(object):
 					tempArray[availIndicies[g],x] = tempRand[np.random.randint(2)]
 
 		return tempArray,tempCountArray
+
+	def generateTrialVariables(self):
+		[self.trialVars_vStim,_]=csVar.getFeatureProb(self.sesSensDict)
+		[self.trialVars_timing,_]=csVar.getFeatureProb(self.sesTimingDict)
+		[self.trialVars_opticalStim,_]=csVar.getFeatureProb(self.sesOpticalDict)
+
+		return self.trialVars_vStim,self.trialVars_timing,self.trialVars_opticalStim
 
 	def getRig(self):
 		# returns a string that is the hostname
@@ -893,6 +895,7 @@ class csVariables(object):
 					exec('dictName["{}"]="{}"'.format(key,a))
 			except:
 				g=1
+
 class csHDF(object):
 	def __init__(self,a):
 		self.a=1
@@ -900,6 +903,7 @@ class csHDF(object):
 		cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 		self.sesHDF = h5py.File(Path(basePath+"{}_behav_{}.hdf".format(subID,cStr)),"a")
 		return self.sesHDF
+
 class csMQTT(object):
 	def __init__(self,dStamp):
 		self.dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
@@ -1080,6 +1084,7 @@ class csMQTT(object):
 			self.updatedRow=numRows
 			self.updatedCol=varCol
 		return 
+
 class csSerial(object):
 	
 	def __init__(self,a):
@@ -1153,6 +1158,15 @@ class csSerial(object):
 		elif self.dNew==0:
 			self.returnVar=0
 		return self.returnVar,self.dNew
+
+	def sendAnalogOutValues(self,comObj,varChar,sendValues):
+		# Specific to csStateBehavior defaults.
+		# Analog output is handled by passing a variable and specifying a channel (1-4)
+		comObj.write('{}{}1>'.format(varChar,sendValues[0]).encode('utf-8'))
+		comObj.write('{}{}2>'.format(varChar,sendValues[1]).encode('utf-8'))
+		comObj.write('{}{}3>'.format(varChar,sendValues[2]).encode('utf-8'))
+		comObj.write('{}{}4>'.format(varChar,sendValues[3]).encode('utf-8'))
+
 class csPlot(object):
 	
 	def __init__(self,stPlotX={},stPlotY={},stPlotRel={},pClrs={},pltX=[],pltY=[]):
@@ -1332,7 +1346,7 @@ csPlt=csPlot(1)
 # make a GUI instance if we aren't using config.
 if useGUI==1:
 
-	csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.timeVars,csVar.sesSensDict,csVar.sensVars)
+	csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.sesTimingDict['varLabels'],csVar.sesSensDict,csVar.sesSensDict['varLabels'])
 
 
 
@@ -1340,45 +1354,28 @@ if useGUI==1:
 # This is Chris' Detection Task
 def runDetectionTask():
 
-	def sendAnalogOutValues(varChar,sendValues):
-		
-		teensy.write('{}{}1>'.format(varChar,sendValues[0]).encode('utf-8'))
-		teensy.write('{}{}2>'.format(varChar,sendValues[1]).encode('utf-8'))
-		teensy.write('{}{}3>'.format(varChar,sendValues[2]).encode('utf-8'))
-		teensy.write('{}{}4>'.format(varChar,sendValues[3]).encode('utf-8'))
-
-
-	# datestamp/rig id/session variables
+	# a) datestamp/rig id/session variables
 	cTime = datetime.datetime.now()
 	dStamp=cTime.strftime("%m_%d_%Y")
 	curMachine=csVar.getRig()
 
-	# we will look to serial for the teensy's time. 
-	# it is possible we can miss some data, or it could be out of order.
-	# this is fine, but we don't want to go back in time when determining stuff
+	# b) make local timing variables
 	curTime = 0
 	curStateTime = 0
 	curInt = 0
 
-	# ******************************
-	# ***** trial data logging *****
-	# ******************************
-
-	# prepare trial-by-trial variables
-	#
-	# 1) make empty lists for all the variables
-	for x in csVar.timeVars:
+	# c) prepare trial-by-trial variables
+	# First, make empty lists for every variable specified in time,sens,opto dicts
+	
+	for x in csVar.sesSensDict['varLabels']:
 		exec("csVar.{}=[]".format(x))
-	for x in csVar.sensVars:
+	for x in csVar.sesTimingDict['varLabels']:
 		exec("csVar.{}=[]".format(x))
-	for x in csVar.opticalVars:
+	for x in csVar.sesOpticalDict['varLabels']:
 		exec("csVar.{}=[]".format(x))
-
-
-	# 2) Compute the variables
-	[trialVars_vStim,_]=csVar.getFeatureProb(csVar.sesSensDict,csVar.sensVars)
-	[trialVars_timing,_]=csVar.getFeatureProb(csVar.sesTimingDict,csVar.timeVars)
-	[trialVars_opticalStim,_]=csVar.getFeatureProb(csVar.sesOpticalDict,csVar.opticalVars)
+	# Second, generate the first set of variables
+	csVar.generateTrialVariables()
+	print(csVar.trialVars_vStim)
 
 	if useGUI==1:
 		csPlt.makeTrialFig(csVar.sesVarDict['detectPlotNum'])
@@ -1643,19 +1640,20 @@ def runDetectionTask():
 						
 						tTrial = csVar.sesVarDict['trialNum']
 						print("tTrial={}".format(tTrial))
+						
 						tCount = 0
-						for x in csVar.timeVars:
-							eval("csVar.{}.append(trialVars_timing[tTrial,tCount])".format(x))
+						for x in csVar.sesTimingDict['varLabels']:
+							eval("csVar.{}.append(csVar.trialVars_timing[tTrial,tCount])".format(x))
 							tCount = tCount+1
 
 						tCount = 0
-						for x in csVar.sensVars:
-							eval("csVar.{}.append(trialVars_vStim[tTrial,tCount])".format(x))
+						for x in csVar.sesSensDict['varLabels']:
+							eval("csVar.{}.append(csVar.trialVars_vStim[tTrial,tCount])".format(x))
 							tCount = tCount+1
 
 						tCount = 0
-						for x in csVar.opticalVars:
-							eval("csVar.{}.append(trialVars_opticalStim[tTrial,tCount])".format(x))
+						for x in csVar.sesOpticalDict['varLabels']:
+							eval("csVar.{}.append(csVar.trialVars_opticalStim[tTrial,tCount])".format(x))
 							tCount = tCount+1
 						
 						
@@ -1705,29 +1703,25 @@ def runDetectionTask():
 					if sentOptoVoltages == 0 and curStateTime>=200:
 						optoVoltages = [int(csVar.opt_stim1_amp[tTrial]),int(csVar.opt_stim2_amp[tTrial]),\
 						int(csVar.opt_stim3_amp[tTrial]),int(csVar.opt_stim4_amp[tTrial])]
-						sendAnalogOutValues('v',optoVoltages)
+						csSer.sendAnalogOutValues(teensy,'v',optoVoltages)
 						sentOptoVoltages = 1
-						print("sent voltages; cur time ={}".format(curStateTime))
 
 					if sentPulseDurs == 0 and curStateTime>=400:
 						optoPulseDurs = [int(csVar.opt_stim1_pulseDur[tTrial]),int(csVar.opt_stim2_pulseDur[tTrial]),\
 						int(csVar.opt_stim3_pulseDur[tTrial]),int(csVar.opt_stim4_pulseDur[tTrial])]
-						sendAnalogOutValues('p',optoPulseDurs)
-						print("sent pulse durs; cur time ={}".format(curStateTime))
+						csSer.sendAnalogOutValues(teensy,'p',optoPulseDurs)
 						sentPulseDurs = 1
 
 					if sentIPIs == 0 and curStateTime>=600:
 						optoIPIs = [int(csVar.opt_stim1_ipi[tTrial]),int(csVar.opt_stim2_ipi[tTrial]),\
 						int(csVar.opt_stim3_ipi[tTrial]),int(csVar.opt_stim4_ipi[tTrial])]
-						sendAnalogOutValues('d',optoIPIs)
-						print("sent pulse durs; cur time ={}".format(curStateTime))
+						csSer.sendAnalogOutValues(teensy,'d',optoIPIs)
 						sentIPIs = 1
 
 					if sentPulseCount == 0 and curStateTime>=800:
 						optoPulseNum = [int(csVar.opt_stim1_pulseCount[tTrial]),int(csVar.opt_stim2_pulseCount[tTrial]),\
 						int(csVar.opt_stim3_pulseCount[tTrial]),int(csVar.opt_stim4_pulseCount[tTrial])]
-						sendAnalogOutValues('m',optoPulseNum)
-						print("sent pulse counts; cur time ={}".format(curStateTime))
+						csSer.sendAnalogOutValues(teensy,'m',optoPulseNum)
 						sentPulseCount = 1
 
 
@@ -1890,11 +1884,11 @@ def runDetectionTask():
 			
 			tSessionNum = csVar.sesVarDict['curSession']-1
 			f["session_{}".format(tSessionNum)]=sesData[0:loopCnt,:]
-			for x in csVar.timeVars:
+			for x in csVar.sesSensDict['varLabels']:
 				f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-			for x in csVar.sensVars:
+			for x in csVar.sesTimingDict['varLabels']:
 				f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-			for x in csVar.opticalVars:
+			for x in csVar.sesOpticalDict['varLabels']:
 				f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
 
 			f["session_{}".format(tSessionNum)].attrs['stimResponses']=stimResponses
@@ -1940,11 +1934,11 @@ def runDetectionTask():
 
 	tSessionNum = csVar.sesVarDict['curSession']
 	f["session_{}".format(tSessionNum)]=sesData[0:loopCnt,:]
-	for x in csVar.timeVars:
+	for x in csVar.sesSensDict['varLabels']:
 		f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-	for x in csVar.sensVars:
+	for x in csVar.sesTimingDict['varLabels']:
 		f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-	for x in csVar.opticalVars:
+	for x in csVar.sesOpticalDict['varLabels']:
 		f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
 
 	f["session_{}".format(tSessionNum)].attrs['stimResponses']=stimResponses

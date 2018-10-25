@@ -10,7 +10,7 @@
 //
 // By default, csStateBehavior runs at 1KHz.
 // It could run at 1.5-2KHz, but I don't reccomend it.
-// On a Teensy 3.6, each interrupt takes ~280-400 us depending on how many variables are processed.
+// On a Teensy 3.6, each interrupt takes ~50-200 us depending on how many variables are processed.
 //
 // Questions: Chris Deister --> cdeister@brown.edu
 // Last Update 9/29/2018 --> Added interrupt function to handle flyback-triggered opto stim w/ PMT blanking.
@@ -92,8 +92,8 @@ elapsedMicros loopTime;
 #define DAC2 A22
 
 // ~~~ MCP DACs
-Adafruit_MCP4725 dac3;
-Adafruit_MCP4725 dac4;
+//Adafruit_MCP4725 dac3;
+//Adafruit_MCP4725 dac4;
 
 
 // **** Make neopixel object
@@ -180,8 +180,8 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // z/20: visStim size (times 10)
 
 
-char knownHeaders[] =    {'a','r','g', 'c','o','s','f','b','n','d','p','v','t','m','l','z','q','e','x','y','z'};
-uint32_t knownValues[] = { 0,  5, 8000, 0,  0,  4,  2, 1, 0, 90, 10, 0, 0, 0, 0, 0, 100, 1,2,0,10};
+char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'z', 'q', 'e', 'x', 'y', 'z'};
+uint32_t knownValues[] = { 0,  5, 8000, 0,  0,  4,  2, 1, 0, 90, 10, 0, 0, 0, 0, 0, 100, 1, 2, 0, 10};
 int knownCount = 21;
 
 
@@ -194,13 +194,13 @@ int knownCount = 21;
 // 4/5: baseline/stim amplitude (as a 12-bit version of 3.3V e.g. 0V is 0 and 3.3V is 4095)
 // 6: Stim type (0 for pulse train; 1 for linear ramp) todo: Ramp has a bug I think.
 // 7: Write Value (determined by the pulseGen function and is what we write to the DAC each interrupt).
-// 8: completed pulses
+// 8: number of pulses to complete
 // todo: swap 7 and 8
 uint32_t pulseTrainVars[][9] =
-{ {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0},
-  {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0},
-  {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0},
-  {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, 0}
+{ {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13]},
+  {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13]},
+  {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13]},
+  {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13]}
 };
 
 uint32_t analogOutVals[] = {pulseTrainVars[0][7], pulseTrainVars[1][7], pulseTrainVars[2][7], pulseTrainVars[3][7]};
@@ -232,8 +232,8 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 void setup() {
   // Start MCP DACs
-  dac3.begin(dac3Address); //adafruit A0 pulled high
-  dac4.begin(dac4Address); // sparkfun A0 pulled low
+  //  dac3.begin(dac3Address); //adafruit A0 pulled high
+  //  dac4.begin(dac4Address); // sparkfun A0 pulled low
 
   // todo: Setup Cyclops
   // Start the device
@@ -274,7 +274,7 @@ void setup() {
 
   pinMode(syncMirror, INPUT);
   pinMode(rewardMirror, INPUT);
-  
+
   // Serial Lines
   dashSerial.begin(115200);
   visualSerial.begin(115200);
@@ -325,12 +325,12 @@ void vStates() {
       setStrip(3); // red
       pulseCount = 0;
       // reset session header
-      if (startSession == 1){
-        digitalWrite(sessionOver,HIGH);
-        digitalWrite(13,HIGH);
+      if (startSession == 1) {
+        digitalWrite(sessionOver, HIGH);
+        digitalWrite(13, HIGH);
         delay(100);
-        digitalWrite(sessionOver,LOW);
-        digitalWrite(13,LOW);
+        digitalWrite(sessionOver, LOW);
+        digitalWrite(13, LOW);
       }
       startSession = 0;
     }
@@ -340,7 +340,7 @@ void vStates() {
     pollRelays(); // Let other users use the trigger lines
     // b) body for state 0
     genericStateBody();
-    
+
 
   }
 
@@ -392,16 +392,8 @@ void vStates() {
         visStim(2);
         blockStateChange = 0;
       }
-      if (stateTime<=1000){
-        stimGen(pulseTrainVars);
-        setAnalogOutValues(analogOutVals, pulseTrainVars);
-      }
-      else if (stateTime>1000){
-        analogOutVals[0] = 0;
-        analogOutVals[1] = 0;
-        analogOutVals[2] = 0;
-        analogOutVals[3] = 0;
-      }
+      stimGen(pulseTrainVars);
+      setAnalogOutValues(analogOutVals, pulseTrainVars);
       genericStateBody();
     }
 
@@ -414,16 +406,9 @@ void vStates() {
         genericHeader(3);
         visStim(0);
       }
-      if (stateTime<=1000){
-        stimGen(pulseTrainVars);
-        setAnalogOutValues(analogOutVals, pulseTrainVars);
-      }
-      else if (stateTime>1000){
-        analogOutVals[0] = 0;
-        analogOutVals[1] = 0;
-        analogOutVals[2] = 0;
-        analogOutVals[3] = 0;
-      }
+
+      stimGen(pulseTrainVars);
+      setAnalogOutValues(analogOutVals, pulseTrainVars);
       genericStateBody();
     }
 
@@ -510,38 +495,18 @@ void setPulseTrainVars(int recVar, int recVal) {
   // IPI
   if (recVar == 9) {
     pulseTrainVars[parsedChan - 1][2] = parsedValue;
-    Serial.print("ipi DAC");
-    Serial.print(parsedChan);
-    Serial.print(':');
-    Serial.println(pulseTrainVars[parsedChan - 1][2]);
   }
   else if (recVar == 10) {
     pulseTrainVars[parsedChan - 1][3] = parsedValue;
-    Serial.print("pulse dur DAC");
-    Serial.print(parsedChan);
-    Serial.print(':');
-    Serial.println(pulseTrainVars[parsedChan - 1][3]);
   }
   else if (recVar == 11) {
     pulseTrainVars[parsedChan - 1][5] = parsedValue;
-    Serial.print("pulse amp DAC");
-    Serial.print(parsedChan);
-    Serial.print(':');
-    Serial.println(pulseTrainVars[parsedChan - 1][5]);
   }
   else if (recVar == 12) {
     pulseTrainVars[parsedChan - 1][6] = parsedValue;
-    Serial.print("stim type DAC");
-    Serial.print(parsedChan);
-    Serial.print(':');
-    Serial.println(pulseTrainVars[parsedChan - 1][6]);
   }
   else if (recVar == 13) {
     pulseTrainVars[parsedChan - 1][8] = parsedValue;
-    Serial.print("pulse count DAC");
-    Serial.print(parsedChan);
-    Serial.print(':');
-    Serial.println(pulseTrainVars[parsedChan - 1][8]);
   }
 }
 
@@ -838,8 +803,8 @@ void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][9]) {
 void writeAnalogOutValues(uint32_t dacVals[]) {
   analogWrite(DAC1, dacVals[0]);
   analogWrite(DAC2, dacVals[1]);
-  dac3.setVoltage(dacVals[2], false);
-  dac4.setVoltage(dacVals[3], false);
+  //  dac3.setVoltage(dacVals[2], false);
+  //  dac4.setVoltage(dacVals[3], false);
 }
 
 void stimGen(uint32_t pulseTracker[][9]) {
@@ -856,7 +821,12 @@ void stimGen(uint32_t pulseTracker[][9]) {
           }
         }
         else {
-          pulseTracker[i][7] = pulseTracker[i][5]; // 5 is the pulse amp; 7 is the current output.
+          if (pulseTracker[i][8] > 0) {
+            pulseTracker[i][7] = pulseTracker[i][5]; // 5 is the pulse amp; 7 is the current output.
+          }
+          else if (pulseTracker[i][8] == 0) {
+            pulseTracker[i][7] = pulseTracker[i][4];
+          }
         }
       }
       else if (pulseTracker[i][0] == 0) {
@@ -888,7 +858,12 @@ void stimGen(uint32_t pulseTracker[][9]) {
           pulseTracker[i][7] = pulseTracker[i][4];
         }
         else {
-          pulseTracker[i][7] = pulseTracker[i][7] + incToPeak; // 5 is the pulse amp; 7 is the current output.
+          if (pulseTracker[i][8] > 0) {
+            pulseTracker[i][7] = pulseTracker[i][7] + incToPeak; // 5 is the pulse amp; 7 is the current output.
+          }
+          else if (pulseTracker[i][8] == 0) {
+            pulseTracker[i][7] = pulseTracker[i][4];
+          }
         }
       }
 
@@ -949,25 +924,25 @@ void pollToggle() {
   }
 }
 
-void pollRelays(){
+void pollRelays() {
   bool rTrig;
   bool rRwd;
   rTrig = digitalRead(syncMirror);
   rRwd = digitalRead(rewardMirror);
-  if (rTrig==1){
-    digitalWrite(syncPin,HIGH);
+  if (rTrig == 1) {
+    digitalWrite(syncPin, HIGH);
     delay(5);
-    digitalWrite(syncPin,LOW);
+    digitalWrite(syncPin, LOW);
   }
-  if (rRwd==1){
-    digitalWrite(rewardPin,HIGH);
+  if (rRwd == 1) {
+    digitalWrite(rewardPin, HIGH);
     delay(5);
-    digitalWrite(rewardPin,LOW);
+    digitalWrite(rewardPin, LOW);
   }
 }
 
-void pollTones(uint32_t tonePin, uint32_t toneFreq, uint32_t toneDuration){
-   tone(tonePin, toneFreq, toneDuration);
+void pollTones(uint32_t tonePin, uint32_t toneFreq, uint32_t toneDuration) {
+  tone(tonePin, toneFreq, toneDuration);
 }
 
 void pollColorChange() {

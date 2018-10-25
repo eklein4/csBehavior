@@ -3,10 +3,12 @@ useGUI = 0
 
 [sesVars]
 animalID = 'cad'
-savePath = '/home/pi/captures/'
+savePath = '/home/pi/captures/cad/'
 serialPath = "/dev/ttyS0"
 serialBaud = 115200
 useSerial = 1
+useCam = 1
+curMask = 'circle'
 
 [camera]
 res_X = 1640
@@ -15,10 +17,12 @@ frameRate = 30
 iso = 0
 
 [visual]
-win_x1 = 500
-win_y1 = 500
-init_contrast = 1.0
+win_x1 = 1000
+win_y1 = 1000
+init_contrast = 0
 init_orientation = 0
+monDistance = 20
+monWidth = 14
 
 [GPIO]
 onPin = 11
