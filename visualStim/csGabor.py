@@ -161,6 +161,7 @@ while runSession:
 				gabor_1['orientation']=int(sR[1])
 				gabor_1['spFreq']=int(sR[3])
 				gabor_1['size']=int(sR[7])/10
+				gabor_1['Xpos']=int(sR[6])/100
 				# gabor_1['phaseDelta'] = float(int(sR[4])/100)
 				# gabor_1['Xpos']=float(int(sR[6])/10)
 				# print(gabor_1['Xpos'])
