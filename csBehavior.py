@@ -715,9 +715,9 @@ class csVariables(object):
 		'vis_spatialFreq_steps':[],'vis_spatialFreq_nullProb':0.5,'vis_spatialFreq_maxProb':0.5,
 		'vis_xPos_null':0,'vis_xPos_max':0,\
 		'vis_xPos_steps':[],'vis_xPos_nullProb':0.0,'vis_xPos_maxProb':1.0,
-		'vis_yPos_null':0,'vis_yPos_max':-25,\
-		'vis_yPos_steps':[-25],'vis_yPos_nullProb':0.33,'vis_yPos_maxProb':0.33,
-		'vis_stimSize_null':10,'vis_stimSize_max':14,\
+		'vis_yPos_null':10,'vis_yPos_max':-10,\
+		'vis_yPos_steps':[],'vis_yPos_nullProb':0.5,'vis_yPos_maxProb':0.5,
+		'vis_stimSize_null':12,'vis_stimSize_max':12,\
 		'vis_stimSize_steps':[12],'vis_stimSize_nullProb':0.33,'vis_stimSize_maxProb':0.33,\
 		'varLabels':['vis_contrast','vis_orientation','vis_spatialFreq','vis_xPos','vis_yPos','vis_stimSize']}
 
