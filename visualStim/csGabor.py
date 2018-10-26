@@ -18,7 +18,7 @@ import serial
 usedConfig = 0
 sesVars = {'useGUI':0,'savePath':'/home/pi/','animalID':'an1','savePath':'/home/pi/captures/',\
 'serialPath':"/dev/ttyS0",'serialBaud':115200,'res_X':1640,'res_Y':1232,'frameRate':30,'iso':0,\
-'onPin':11,'offPin':12,'win_x1':1000,'win_y1':1000,'init_contrast':0,'init_orientation':0\
+'onPin':11,'offPin':12,'win_x1':1000,'win_y1':1000,'init_contrast':1,'init_orientation':0,\
 'useSerial':1,'useCam':1,'monWidth':14,'monDistance':20,'curMask':'circle'}
 
 
@@ -59,7 +59,7 @@ myMon = monitors.Monitor('manga', width=sesVars['monWidth'],\
 	distance=sesVars['monDistance'],verbose=True, autoLog=True)
 
 # ******** Make a raspberry pi camera object if using a pi
-if useCam == 1:
+if sesVars['useCam'] == 1:
 	camera = PiCamera()
 	camera.resolution = (sesVars['res_X'],sesVars['res_Y'])
 	camera.framerate = sesVars['frameRate']
@@ -71,8 +71,8 @@ GPIO.setup(sesVars['onPin'], GPIO.IN,pull_up_down=GPIO.PUD_DOWN) # 11, GPIO17 is
 GPIO.setup(sesVars['offPin'], GPIO.IN,pull_up_down=GPIO.PUD_DOWN) # 12, GPIO18 is off trigger
 
 # ****** Make a serial object.
-if useSerial==1:
-	teensyObj = serial.Serial(serialPath,serialBaud)
+if sesVars['useSerial']==1:
+	teensyObj = serial.Serial(sesVars['serialPath'],sesVars['serialBaud'])
 	teensyObj.close()
 	teensyObj.open()
 
@@ -105,7 +105,7 @@ grating1.autoDraw=True
 def startCamera(camObj,varDict):
 	cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 	output = np.empty((varDict['res_Y'],varDict['res_X'],3),dtype=np.uint16)
-	filename = varDict['savePath'] + varDict['animalID'] + '_subjVideoA_' + cStr + '.h264'
+	filename = varDict['savePath'] + varDict['animalID'] + '_subjVideo_' + cStr + '.h264'
 	camObj.start_recording(filename,sps_timing=True)
 
 def stopCamera(camObj):
@@ -134,36 +134,42 @@ while runSession:
 	if len(event.getKeys())>0:
 		break
 	event.clearEvents()
-	cam_onPin=GPIO.input(onPin)
-	cam_offPin=GPIO.input(offPin)
+	cam_onPin=GPIO.input(sesVars['onPin'])
+	cam_offPin=GPIO.input(sesVars['offPin'])
 
-	if useCam ==1 and cameraOn == 0 and cam_onPin==1:
+	if sesVars['useCam'] ==1 and cameraOn == 0 and cam_onPin==1:
 		cameraOn = 1
 		startCamera(camera,sesVars)
-	elif useCam ==1 and cameraOn == 1 and cam_offPin==1:
+	elif sesVars['useCam'] ==1 and cameraOn == 1 and cam_offPin==1:
 		cameraOn = 0
 		stopCamera(camera)
 		runSession = 0
-	elif useCam == 0 and cam_offPin==1:
+	elif sesVars['useCam'] == 0 and cam_offPin==1:
 		runSession = 0
-	if useSerial==1:
+	if sesVars['useSerial']==1:
 		serTrack=0
 		bytesAvail=teensyObj.inWaiting()
 		if bytesAvail>0:
 
 			sR=teensyObj.readline().strip().decode()
 			sR=sR.split(',')
-			if len(sR)==8 and sR[0]=='v':
+			if len(sR)==8 and sR[0]=='v':				
 				if int(sR[2])==999:
 					# runSession=0
 					sR[2]=0
 				gabor_1['contrast']=int(sR[2])/100
 				gabor_1['orientation']=int(sR[1])
 				gabor_1['spFreq']=int(sR[3])
-				gabor_1['phaseDelta'] = int(sR[4])/100
-				gabor_1['Xpos']=int(sR[6])/10
-				gabor_1['Ypos']=int(sR[5])/10
 				gabor_1['size']=int(sR[7])/10
+				gabor_1['Ypos']=float(int(sR[5])/100)
+				gabor_1['Xpos']=float(int(sR[6])/100)
+				# gabor_1['phaseDelta'] = float(int(sR[4])/100)
+				# gabor_1['Xpos']=float(int(sR[6])/10)
+				# print(gabor_1['Xpos'])
+				# gabor_1['Ypos']=float(int(sR[5])/10)
+				# print(gabor_1['Ypos'])
+				# gabor_1['size']=float(int(sR[7])/10)
+				# print(gabor_1['Size'])
 				
 				
 				serTrack=1
@@ -179,6 +185,6 @@ mywin.close()
 exp.close()
 
 cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-filename = savePath + animalID + 'stim_' + cStr
+filename = sesVars['savePath'] + sesVars['animalID'] + 'stim_' + cStr
 exp.saveAsWideText(filename)
 core.quit()

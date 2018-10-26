@@ -181,7 +181,7 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 
 
 char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'z', 'q', 'e', 'x', 'y', 'z'};
-uint32_t knownValues[] = { 0,  5, 8000, 0,  0,  4,  2, 1, 0, 90, 10, 0, 0, 0, 0, 0, 100, 1, 2, 0, 10};
+int32_t knownValues[] = { 0,  5, 8000, 0,  0,  4,  2, 1, 0, 90, 10, 0, 0, 0, 0, 0, 100, 1, 2, 0, 10};
 int knownCount = 21;
 
 
@@ -540,7 +540,7 @@ void dataReport() {
   Serial.println(genAnalogInput3);
 }
 
-int flagReceive(char varAr[], uint32_t valAr[]) {
+int flagReceive(char varAr[], int32_t valAr[]) {
   static byte ndx = 0;
   char endMarker = '>';
   char feedbackMarker = '<';
@@ -551,6 +551,7 @@ int flagReceive(char varAr[], uint32_t valAr[]) {
   int selectedVar = 0;
   static boolean recvInProgress = false;
   bool newData = 0;
+  int32_t negScale = 1;
 
   while (Serial.available() > 0 && newData == 0) {
     rc = Serial.read();
@@ -570,8 +571,8 @@ int flagReceive(char varAr[], uint32_t valAr[]) {
         recvInProgress = false;
         ndx = 0;
         newData = 1;
-        nVal = uint32_t(String(writeChar).toInt());
-        valAr[selectedVar] = nVal;
+        nVal = int32_t(String(writeChar).toInt());
+        valAr[selectedVar] = nVal * negScale;
         return selectedVar;
       }
 
@@ -588,7 +589,9 @@ int flagReceive(char varAr[], uint32_t valAr[]) {
         Serial.print(',');
         Serial.println('~');
       }
-
+      else if (rc == '-') {
+        negScale = -1;
+      }
       else if (rc != feedbackMarker || rc != endMarker) {
         writeChar[ndx] = rc;
         ndx++;
