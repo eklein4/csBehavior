@@ -56,7 +56,7 @@ except:
 class csGUI(object):
 	
 	# a) Init will make primary window.
-	def __init__(self, master, varDict,timingDict,timingLabels,sesDict,sesLabels):
+	def __init__(self,master,varDict,timingDict,visualDict,opticalDict):
 		
 		self.master = master
 
@@ -241,7 +241,7 @@ class csGUI(object):
 			command= lambda: self.makeDevControl(varDict))
 		self.devControlButton.grid(row=cpRw,column=1,padx=10,sticky=W)
 
-
+		# options:
 		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
 		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)
 		cpRw=cpRw+1
@@ -249,8 +249,18 @@ class csGUI(object):
 		self.quitButton.grid(row=cpRw,column=0,padx=10,pady=5,sticky=W)
 		
 		self.tBtn_timeWin = Button(self.taskBar,text="Options: Timing",justify=LEFT,width=c1Wd,\
-			command=lambda: self.makeTimingWindow(self,timingDict,timingLabels))
+			command=lambda: self.makeTimingWindow(self,timingDict))
 		self.tBtn_timeWin.grid(row=cpRw,column=1,padx=10,pady=5,sticky=W)
+
+		self.tBtn_visualWin = Button(self.taskBar,text="Options: Visual",justify=LEFT,width=c1Wd,\
+			command=lambda: self.makeVisualWindow(self,visualDict))
+		self.tBtn_visualWin.grid(row=cpRw+1,column=1,padx=10,pady=2,sticky=W)
+
+		self.tBtn_opticalWin = Button(self.taskBar,text="Options: Optical",justify=LEFT,width=c1Wd,\
+			command=lambda: self.makeOpticalWindow(self,opticalDict))
+		self.tBtn_opticalWin.grid(row=cpRw+2,column=1,padx=10,pady=2,sticky=W)
+		
+
 		# Finish the window
 		self.taskBar.pack(side=TOP, fill=X)
 
@@ -258,60 +268,46 @@ class csGUI(object):
 		self.makeDevControl(varDict)
 	
 	# b) Functions that make other windows
+	def populateVarFrameFromDict(self,dictName,stCol,varPerCol,headerString,frameName,excludeKeys=[],entryWidth=5):
+		rowC=2
+		stBCol=stCol+1
+		spillCount=0
+		exec('r_label = Label(self.{}, text="{}")'.format(frameName,headerString))
+		exec('r_label.grid(row=1,column=stCol,sticky=W)'.format(dictName))
+		for key in list(dictName.keys()):
+			if key not in excludeKeys:
+				if varPerCol != 0:
+					if (rowC % varPerCol)==0:
+						rowC=2
+						spillCount=spillCount+1
+						stCol=stCol+(spillCount+1)
+						stBCol=stCol+(spillCount+2)
+				exec('self.{}_TV=StringVar(self.{})'.format(key,frameName))
+				exec('self.{}_label = Label(self.{}, text="{}")'.format(key,frameName,key))
+				exec('self.{}_entries=Entry(self.{},width={},textvariable=self.{}_TV)'.format(key,frameName,entryWidth,key))
+				exec('self.{}_label.grid(row={}, column=stBCol,sticky=W)'.format(key,rowC))
+				exec('self.{}_entries.grid(row={}, column=stCol)'.format(key,rowC))
+				if type(dictName[key]) is not range:
+					exec('self.{}_TV.set({})'.format(key,dictName[key]))
+				if type(dictName[key]) is range:
+					tempStr = ["{},...,{}".format(dictName[key][0],dictName[key][-1])]
+					exec('self.{}_TV.set({})'.format(key,tempStr)) 
 
-	def makeTimingWindow(self,master,timeDict,timeLabels):
-		dCBWd = 12
+				rowC=rowC+1
+
+	def makeTimingWindow(self,master,timingDict):
 		self.timingControl_frame = Toplevel(self.master)
 		self.timingControl_frame.title('Session/Trial Timing')
+		self.populateVarFrameFromDict(timingDict,0,0,'Time Sucker','timingControl_frame',['varLabels','trialCount'],12)
+	def makeVisualWindow(self,master,visualDict):
+		self.visualControl_frame = Toplevel(self.master)
+		self.visualControl_frame.title('Visual Probs')
+		self.populateVarFrameFromDict(visualDict,0,12,'Cur Val','visualControl_frame',['varLabels','trialCount'])
+	def makeOpticalWindow(self,master,opticalDict):
+		self.opticalControl_frame = Toplevel(self.master)
+		self.opticalControl_frame.title('Optical Probs')
+		self.populateVarFrameFromDict(opticalDict,0,22,'Pew Pew','opticalControl_frame',['varLabels','trialCount'])
 
-		self.maxTVLabel = Label(self.timingControl_frame,text="Max Trials:",justify=LEFT)
-		self.maxTVLabel.grid(row=0,column=0)
-		self.maxTrialsTV=StringVar(self.timingControl_frame)
-		self.maxTrialsTV.set(timeDict['trialLength'])
-		self.maxTrialsTV_Entry = Entry(self.timingControl_frame,\
-			width=8,textvariable=self.maxTrialsTV)
-		self.maxTrialsTV_Entry.grid(row=0,column=1)
-
-		self.minTVLabel = Label(self.timingControl_frame,text="Min ISI (ms):",justify=LEFT)
-		self.minTVLabel.grid(row=1,column=0)
-		self.minISI_TV=StringVar(self.timingControl_frame)
-		self.minISI_TV.set(timeDict['trial_wait_null'])
-		self.minISI_TV_Entry = Entry(self.timingControl_frame,\
-			width=8,textvariable=self.minISI_TV)
-		self.minISI_TV_Entry.grid(row=1,column=1)
-
-		self.maxTVLabel = Label(self.timingControl_frame,text="Max ISI (ms):",justify=LEFT)
-		self.maxTVLabel.grid(row=2,column=0)
-		self.maxISI_TV=StringVar(self.timingControl_frame)
-		self.maxISI_TV.set(timeDict['trial_wait_max'])
-		self.maxISI_TV_Entry = Entry(self.timingControl_frame,\
-			width=8,textvariable=self.maxISI_TV)
-		self.maxISI_TV_Entry.grid(row=2,column=1)
-
-		self.minNoLickTVLabel = Label(self.timingControl_frame,text="Min No-Lick (ms):",justify=LEFT)
-		self.minNoLickTVLabel.grid(row=3,column=0)
-		self.minNoLick_TV=StringVar(self.timingControl_frame)
-		self.minNoLick_TV.set(timeDict['lick_wait_null'])
-		self.minNoLick_TV_Entry = Entry(self.timingControl_frame,\
-			width=8,textvariable=self.minNoLick_TV)
-		self.minNoLick_TV_Entry.grid(row=3,column=1)
-
-		self.maxNoLickTVLabel = Label(self.timingControl_frame,text="Max No-Lick (ms):",justify=LEFT)
-		self.maxNoLickTVLabel.grid(row=4,column=0)
-		self.maxNoLick_TV=StringVar(self.timingControl_frame)
-		self.maxNoLick_TV.set(timeDict['lick_wait_max'])
-		self.maxNoLick_TV_Entry = Entry(self.timingControl_frame,\
-			width=8,textvariable=self.maxNoLick_TV)
-		self.maxNoLick_TV_Entry.grid(row=4,column=1)
-
-		self.updateTimingBtn = Button(self.timingControl_frame,text="Update Vars",width=dCBWd,\
-			command=lambda: self.updateTiming(timeDict))
-		self.updateTimingBtn.grid(row=5,column=1)
-
-		self.updateTimingProbsBtn = Button(self.timingControl_frame,text="Update Probs",width=dCBWd,\
-			command=lambda: self.updateTiming(timeDict))
-		self.updateTimingProbsBtn.grid(row=5,column=0)
-		# self.updateTimingBtn['state'] = 'normal'
 	def makeParentWindow(self,master,varDict):
 		
 		pass
@@ -476,7 +472,6 @@ class csGUI(object):
 				devPathStrings.append(child.name)
 		self.devPathStrings = devPathStrings
 		return self.devPathStrings
-
 	def getPath(self,varDict):
 		try:
 			selectPath = fd.askdirectory(title ="what what?")
@@ -552,24 +547,23 @@ class csGUI(object):
 			except:
 				pass
 		return varDict
-	def updateTiming(self,timeDict):
-		timeDict['trialLength']=int(self.maxTrialsTV.get())
-		timeDict['trial_wait_null']=int(self.minISI_TV.get())
-		timeDict['trial_wait_max']=int(self.maxISI_TV.get())
-		timeDict['lick_wait_null']=int(self.minNoLick_TV.get())
-		timeDict['lick_wait_max']=int(self.maxNoLick_TV.get())
-		timeDict['trial_wait_steps']=np.arange(timeDict['trial_wait_null'],timeDict['trial_wait_max'])
-		timeDict['lick_wait_steps']=np.arange(timeDict['lick_wait_null'],timeDict['lick_wait_max'])
-		return timeDict
+	def updateTiming(self,timingDict):
+		timingDict['trialLength']=int(self.maxTrialsTV.get())
+		timingDict['trial_wait_null']=int(self.minISI_TV.get())
+		timingDict['trial_wait_max']=int(self.maxISI_TV.get())
+		timingDict['lick_wait_null']=int(self.minNoLick_TV.get())
+		timingDict['lick_wait_max']=int(self.maxNoLick_TV.get())
+		timingDict['trial_wait_steps']=np.arange(timingDict['trial_wait_null'],timingDict['trial_wait_max'])
+		timingDict['lick_wait_steps']=np.arange(timingDict['lick_wait_null'],timingDict['lick_wait_max'])
+		return timingDict
 	def dictToPandas(self,varDict):
-			
-			curKey=[]
-			curVal=[]
-			for key in list(varDict.keys()):
-				curKey.append(key)
-				curVal.append(varDict[key])
-				self.pdReturn=pd.Series(curVal,index=curKey)
-			return self.pdReturn
+		curKey=[]
+		curVal=[]
+		for key in list(varDict.keys()):
+			curKey.append(key)
+			curVal.append(varDict[key])
+			self.pdReturn=pd.Series(curVal,index=curKey)
+		return self.pdReturn
 	def closeup(self,varDict):
 		self.toggleTaskButtons(1)
 		self.tBtn_detection
@@ -613,7 +607,6 @@ class csGUI(object):
 
 		teensy.close()
 		return varDict
-
 	def readSerialVariable(self,comObj):
 		sR=[]
 		newData=0
@@ -629,7 +622,6 @@ class csGUI(object):
 		self.newData=newData
 		self.bytesAvail = bytesAvail
 		return self.sR,self.newData
-
 	def deltaTeensy(self,varDict,commandHeader,delta):
 		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
 		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
@@ -691,7 +683,6 @@ class csGUI(object):
 	def do_trialOpto(self):
 		
 		runTrialOptoTask()
-
 class csVariables(object):
 	def __init__(self,sesVarDict={},sesSensDict={}):
 
@@ -707,65 +698,65 @@ class csVariables(object):
 		'serBufSize':4096,'ramp1Dur':2000,'ramp1Amp':4095,'ramp2Dur':2000,'ramp2Amp':4095,\
 		'detectPlotNum':100,'updateCount':500,'plotSamps':200}
 
-		self.sesSensDict={'trialCount':1000,'vis_contrast_null':0,'vis_contrast_max':100,\
-		'vis_contrast_steps':[1,2,5,10,20,30,50,70],'vis_contrast_nullProb':0.47,'vis_contrast_maxProb':1.0,\
-		'vis_orientation_null':0,'vis_orientation_max':270,\
-		'vis_orientation_steps':[90],'vis_orientation_nullProb':0.33,'vis_orientation_maxProb':0.33,\
-		'vis_spatialFreq_null':4,'vis_spatialFreq_max':4,\
-		'vis_spatialFreq_steps':[],'vis_spatialFreq_nullProb':0.5,'vis_spatialFreq_maxProb':0.5,
-		'vis_xPos_null':0,'vis_xPos_max':0,\
-		'vis_xPos_steps':[],'vis_xPos_nullProb':0.0,'vis_xPos_maxProb':1.0,
-		'vis_yPos_null':10,'vis_yPos_max':-10,\
-		'vis_yPos_steps':[],'vis_yPos_nullProb':0.5,'vis_yPos_maxProb':0.5,
-		'vis_stimSize_null':12,'vis_stimSize_max':12,\
-		'vis_stimSize_steps':[12],'vis_stimSize_nullProb':0.33,'vis_stimSize_maxProb':0.33,\
-		'varLabels':['vis_contrast','vis_orientation','vis_spatialFreq','vis_xPos','vis_yPos','vis_stimSize']}
+		self.sesSensDict={'trialCount':1000,'contrast_null':0,'contrast_max':100,\
+		'contrast_steps':[1,2,5,10,20,30,50,70],'contrast_nullProb':0.47,'contrast_maxProb':1.0,\
+		'orientation_null':0,'orientation_max':270,\
+		'orientation_steps':[90],'orientation_nullProb':0.33,'orientation_maxProb':0.33,\
+		'spatialFreq_null':4,'spatialFreq_max':4,\
+		'spatialFreq_steps':[],'spatialFreq_nullProb':0.5,'spatialFreq_maxProb':0.5,
+		'xPos_null':0,'xPos_max':0,\
+		'xPos_steps':[],'xPos_nullProb':0.0,'xPos_maxProb':1.0,
+		'yPos_null':10,'yPos_max':-10,\
+		'yPos_steps':[],'yPos_nullProb':0.5,'yPos_maxProb':0.5,
+		'stimSize_null':12,'stimSize_max':12,\
+		'stimSize_steps':[12],'stimSize_nullProb':0.33,'stimSize_maxProb':0.33,\
+		'varLabels':['contrast','orientation','spatialFreq','xPos','yPos','stimSize']}
 
 		self.sesOpticalDict={'trialCount':1000,\
-		'opt_stim1_amp_null':0,'opt_stim1_amp_max':4095,'opt_stim1_amp_steps':[1000,2000,3000],\
-		'opt_stim1_amp_nullProb':0.0,'opt_stim1_amp_maxProb':0.5,\
-		'opt_stim1_pulseDur_null':10,'opt_stim1_pulseDur_max':10,'opt_stim1_pulseDur_steps':[],\
-		'opt_stim1_pulseDur_nullProb':0.0,'opt_stim1_pulseDur_maxProb':1.0,
-		'opt_stim1_ipi_null':90,'opt_stim1_ipi_max':90,'opt_stim1_ipi_steps':[],\
-		'opt_stim1_ipi_nullProb':0.0,'opt_stim1_ipi_maxProb':1.0,\
-		'opt_stim1_pulseCount_null':5,'opt_stim1_pulseCount_max':100,'opt_stim1_pulseCount_steps':[],\
-		'opt_stim1_pulseCount_nullProb':0.5,'opt_stim1_pulseCount_maxProb':0.5,\
-		'opt_stim2_amp_null':0,'opt_stim2_amp_max':4095,'opt_stim2_amp_steps':[1000,2000,3000],\
-		'opt_stim2_amp_nullProb':0.0,'opt_stim2_amp_maxProb':0.5,\
-		'opt_stim2_pulseDur_null':10,'opt_stim2_pulseDur_max':10,'opt_stim2_pulseDur_steps':[],\
-		'opt_stim2_pulseDur_nullProb':0.0,'opt_stim2_pulseDur_maxProb':1.0,
-		'opt_stim2_ipi_null':90,'opt_stim2_ipi_max':90,'opt_stim2_ipi_steps':[],\
-		'opt_stim2_ipi_nullProb':0.0,'opt_stim2_ipi_maxProb':1.0,\
-		'opt_stim2_pulseCount_null':5,'opt_stim2_pulseCount_max':100,'opt_stim2_pulseCount_steps':[],\
-		'opt_stim2_pulseCount_nullProb':0.5,'opt_stim2_pulseCount_maxProb':0.5,\
-		'opt_stim3_amp_null':0,'opt_stim3_amp_max':4095,'opt_stim3_amp_steps':[1000,2000,3000],\
-		'opt_stim3_amp_nullProb':0.4,'opt_stim3_amp_maxProb':0.6,\
-		'opt_stim3_pulseDur_null':10,'opt_stim3_pulseDur_max':10,'opt_stim3_pulseDur_steps':[],\
-		'opt_stim3_pulseDur_nullProb':0.0,'opt_stim3_pulseDur_maxProb':1.0,
-		'opt_stim3_ipi_null':90,'opt_stim3_ipi_max':90,'opt_stim3_ipi_steps':[],\
-		'opt_stim3_ipi_nullProb':0.0,'opt_stim3_ipi_maxProb':1.0,\
-		'opt_stim3_pulseCount_null':100,'opt_stim3_pulseCount_max':100,'opt_stim3_pulseCount_steps':[],\
-		'opt_stim3_pulseCount_nullProb':0.0,'opt_stim3_pulseCount_maxProb':1.0,\
-		'opt_stim4_amp_null':0,'opt_stim4_amp_max':4095,'opt_stim4_amp_steps':[1000,2000,3000],\
-		'opt_stim4_amp_nullProb':0.4,'opt_stim4_amp_maxProb':0.6,\
-		'opt_stim4_pulseDur_null':0,'opt_stim4_pulseDur_max':10,'opt_stim4_pulseDur_steps':[],\
-		'opt_stim4_pulseDur_nullProb':0.0,'opt_stim4_pulseDur_maxProb':1.0,
-		'opt_stim4_ipi_null':0,'opt_stim4_ipi_max':90,'opt_stim4_ipi_steps':[],\
-		'opt_stim4_ipi_nullProb':0.0,'opt_stim4_ipi_maxProb':1.0,\
-		'opt_stim4_pulseCount_null':100,'opt_stim4_pulseCount_max':100,'opt_stim4_pulseCount_steps':[],\
-		'opt_stim4_pulseCount_nullProb':0.0,'opt_stim4_pulseCount_maxProb':1.0,\
-		'varLabels': ['opt_stim1_amp','opt_stim1_pulseDur','opt_stim1_ipi','opt_stim1_pulseCount',\
-		'opt_stim2_amp','opt_stim2_pulseDur','opt_stim2_ipi','opt_stim2_pulseCount',\
-		'opt_stim3_amp','opt_stim3_pulseDur','opt_stim3_ipi','opt_stim3_pulseCount',\
-		'opt_stim4_amp','opt_stim4_pulseDur','opt_stim4_ipi','opt_stim4_pulseCount']}
+		'c1_amp_null':0,'c1_amp_max':4095,'c1_amp_steps':[1000,2000,3000],\
+		'c1_amp_nullProb':0.0,'c1_amp_maxProb':0.5,\
+		'c1_pulseDur_null':10,'c1_pulseDur_max':10,'c1_pulseDur_steps':[],\
+		'c1_pulseDur_nullProb':0.0,'c1_pulseDur_maxProb':1.0,
+		'c1_ipi_null':90,'c1_ipi_max':90,'c1_ipi_steps':[],\
+		'c1_ipi_nullProb':0.0,'c1_ipi_maxProb':1.0,\
+		'c1_pulseCount_null':5,'c1_pulseCount_max':100,'c1_pulseCount_steps':[],\
+		'c1_pulseCount_nullProb':0.5,'c1_pulseCount_maxProb':0.5,\
+		'c2_amp_null':0,'c2_amp_max':4095,'c2_amp_steps':[1000,2000,3000],\
+		'c2_amp_nullProb':0.0,'c2_amp_maxProb':0.5,\
+		'c2_pulseDur_null':10,'c2_pulseDur_max':10,'c2_pulseDur_steps':[],\
+		'c2_pulseDur_nullProb':0.0,'c2_pulseDur_maxProb':1.0,
+		'c2_ipi_null':90,'c2_ipi_max':90,'c2_ipi_steps':[],\
+		'c2_ipi_nullProb':0.0,'c2_ipi_maxProb':1.0,\
+		'c2_pulseCount_null':5,'c2_pulseCount_max':100,'c2_pulseCount_steps':[],\
+		'c2_pulseCount_nullProb':0.5,'c2_pulseCount_maxProb':0.5,\
+		'c3_amp_null':0,'c3_amp_max':4095,'c3_amp_steps':[1000,2000,3000],\
+		'c3_amp_nullProb':0.4,'c3_amp_maxProb':0.6,\
+		'c3_pulseDur_null':10,'c3_pulseDur_max':10,'c3_pulseDur_steps':[],\
+		'c3_pulseDur_nullProb':0.0,'c3_pulseDur_maxProb':1.0,
+		'c3_ipi_null':90,'c3_ipi_max':90,'c3_ipi_steps':[],\
+		'c3_ipi_nullProb':0.0,'c3_ipi_maxProb':1.0,\
+		'c3_pulseCount_null':100,'c3_pulseCount_max':100,'c3_pulseCount_steps':[],\
+		'c3_pulseCount_nullProb':0.0,'c3_pulseCount_maxProb':1.0,\
+		'c4_amp_null':0,'c4_amp_max':4095,'c4_amp_steps':[1000,2000,3000],\
+		'c4_amp_nullProb':0.4,'c4_amp_maxProb':0.6,\
+		'c4_pulseDur_null':0,'c4_pulseDur_max':10,'c4_pulseDur_steps':[],\
+		'c4_pulseDur_nullProb':0.0,'c4_pulseDur_maxProb':1.0,
+		'c4_ipi_null':0,'c4_ipi_max':90,'c4_ipi_steps':[],\
+		'c4_ipi_nullProb':0.0,'c4_ipi_maxProb':1.0,\
+		'c4_pulseCount_null':100,'c4_pulseCount_max':100,'c4_pulseCount_steps':[],\
+		'c4_pulseCount_nullProb':0.0,'c4_pulseCount_maxProb':1.0,\
+		'varLabels': ['c1_amp','c1_pulseDur','c1_ipi','c1_pulseCount',\
+		'c2_amp','c2_pulseDur','c2_ipi','c2_pulseCount',\
+		'c3_amp','c3_pulseDur','c3_ipi','c3_pulseCount',\
+		'c4_amp','c4_pulseDur','c4_ipi','c4_pulseCount']}
 
 		
 		self.sesTimingDict={'trialCount':1000,'trial_wait_null':3000,'trial_wait_max':11000,\
 		'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
 		'lick_wait_null':599,'lick_wait_max':2999,'lick_wait_maxProb':0.0,'lick_wait_nullProb':0.0,\
 		'varLabels':['trial_wait','lick_wait']}
-		self.sesTimingDict['trial_wait_steps']=np.arange(self.sesTimingDict['trial_wait_null'],self.sesTimingDict['trial_wait_max'])
-		self.sesTimingDict['lick_wait_steps']=np.arange(self.sesTimingDict['lick_wait_null'],self.sesTimingDict['lick_wait_max'])
+		self.sesTimingDict['trial_wait_steps']=range(self.sesTimingDict['trial_wait_null']+1,self.sesTimingDict['trial_wait_max'])
+		self.sesTimingDict['lick_wait_steps']=range(self.sesTimingDict['lick_wait_null']+1,self.sesTimingDict['lick_wait_max'])
 
 	def updateDictFromTXT(self,varDict,configF):
 		for key in list(varDict.keys()):
@@ -896,7 +887,6 @@ class csVariables(object):
 					exec('dictName["{}"]="{}"'.format(key,a))
 			except:
 				g=1
-
 class csHDF(object):
 	def __init__(self,a):
 		self.a=1
@@ -904,7 +894,6 @@ class csHDF(object):
 		cStr=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 		self.sesHDF = h5py.File(Path(basePath+"{}_behav_{}.hdf".format(subID,cStr)),"a")
 		return self.sesHDF
-
 class csMQTT(object):
 	def __init__(self,dStamp):
 		self.dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
@@ -1085,7 +1074,6 @@ class csMQTT(object):
 			self.updatedRow=numRows
 			self.updatedCol=varCol
 		return 
-
 class csSerial(object):
 	
 	def __init__(self,a):
@@ -1170,16 +1158,15 @@ class csSerial(object):
 
 	def sendVisualValues(self,comObj,trialNum):
 		
-		comObj.write('c{}>'.format(int(csVar.vis_contrast[trialNum])).encode('utf-8'))
-		comObj.write('o{}>'.format(int(csVar.vis_orientation[trialNum])).encode('utf-8'))
-		comObj.write('s{}>'.format(int(csVar.vis_spatialFreq[trialNum])).encode('utf-8'))
+		comObj.write('c{}>'.format(int(csVar.contrast[trialNum])).encode('utf-8'))
+		comObj.write('o{}>'.format(int(csVar.orientation[trialNum])).encode('utf-8'))
+		comObj.write('s{}>'.format(int(csVar.spatialFreq[trialNum])).encode('utf-8'))
 
 	def sendVisualPlaceValues(self,comObj,trialNum):
 
-		comObj.write('z{}>'.format(int(csVar.vis_stimSize[trialNum])).encode('utf-8'))
-		comObj.write('x{}>'.format(int(csVar.vis_xPos[trialNum])).encode('utf-8'))
-		comObj.write('y{}>'.format(int(csVar.vis_yPos[trialNum])).encode('utf-8'))
-
+		comObj.write('z{}>'.format(int(csVar.stimSize[trialNum])).encode('utf-8'))
+		comObj.write('x{}>'.format(int(csVar.xPos[trialNum])).encode('utf-8'))
+		comObj.write('y{}>'.format(int(csVar.yPos[trialNum])).encode('utf-8'))
 class csPlot(object):
 	
 	def __init__(self,stPlotX={},stPlotY={},stPlotRel={},pClrs={},pltX=[],pltY=[]):
@@ -1359,7 +1346,7 @@ csPlt=csPlot(1)
 # make a GUI instance if we aren't using config.
 if useGUI==1:
 
-	csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.sesTimingDict['varLabels'],csVar.sesSensDict,csVar.sesSensDict['varLabels'])
+	csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.sesSensDict,csVar.sesOpticalDict)
 
 
 
@@ -1690,8 +1677,8 @@ def runDetectionTask():
 						# 4) inform the user via the terminal what's going on.
 						print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],\
 							csVar.sesVarDict['totalTrials']))
-						print('target contrast: {:0.2f} ; orientation: {}'.format(csVar.vis_contrast[tTrial],csVar.vis_orientation[tTrial]))
-						print('target xpos: {} ; size: {}'.format(csVar.vis_xPos[tTrial],csVar.vis_stimSize[tTrial]))
+						print('target contrast: {:0.2f} ; orientation: {}'.format(csVar.contrast[tTrial],csVar.orientation[tTrial]))
+						print('target xpos: {} ; size: {}'.format(csVar.xPos[tTrial],csVar.stimSize[tTrial]))
 						print('estimated trial time = {}'.format(csVar.lick_wait[tTrial] + csVar.trial_wait[tTrial]))
 
 						# close the header and flip the others open.
@@ -1709,26 +1696,26 @@ def runDetectionTask():
 					
 					# send optical/analog output values, but spread the serial load across loops.
 					elif serialVarTracker[2] == 0 and curStateTime>=210:
-						optoVoltages = [int(csVar.opt_stim1_amp[tTrial]),int(csVar.opt_stim2_amp[tTrial]),\
-						int(csVar.opt_stim3_amp[tTrial]),int(csVar.opt_stim4_amp[tTrial])]
+						optoVoltages = [int(csVar.c1_amp[tTrial]),int(csVar.c2_amp[tTrial]),\
+						int(csVar.c3_amp[tTrial]),int(csVar.c4_amp[tTrial])]
 						csSer.sendAnalogOutValues(teensy,'v',optoVoltages)
 						serialVarTracker[2] = 1
 
 					elif serialVarTracker[3] == 0 and curStateTime>=310:
-						optoPulseDurs = [int(csVar.opt_stim1_pulseDur[tTrial]),int(csVar.opt_stim2_pulseDur[tTrial]),\
-						int(csVar.opt_stim3_pulseDur[tTrial]),int(csVar.opt_stim4_pulseDur[tTrial])]
+						optoPulseDurs = [int(csVar.c1_pulseDur[tTrial]),int(csVar.c2_pulseDur[tTrial]),\
+						int(csVar.c3_pulseDur[tTrial]),int(csVar.c4_pulseDur[tTrial])]
 						csSer.sendAnalogOutValues(teensy,'p',optoPulseDurs)
 						serialVarTracker[3] = 1
 
 					elif serialVarTracker[4] == 0 and curStateTime>=410:
-						optoIPIs = [int(csVar.opt_stim1_ipi[tTrial]),int(csVar.opt_stim2_ipi[tTrial]),\
-						int(csVar.opt_stim3_ipi[tTrial]),int(csVar.opt_stim4_ipi[tTrial])]
+						optoIPIs = [int(csVar.c1_ipi[tTrial]),int(csVar.c2_ipi[tTrial]),\
+						int(csVar.c3_ipi[tTrial]),int(csVar.c4_ipi[tTrial])]
 						csSer.sendAnalogOutValues(teensy,'d',optoIPIs)
 						serialVarTracker[4] = 1
 
 					elif serialVarTracker[5] == 0 and curStateTime>=510:
-						optoPulseNum = [int(csVar.opt_stim1_pulseCount[tTrial]),int(csVar.opt_stim2_pulseCount[tTrial]),\
-						int(csVar.opt_stim3_pulseCount[tTrial]),int(csVar.opt_stim4_pulseCount[tTrial])]
+						optoPulseNum = [int(csVar.c1_pulseCount[tTrial]),int(csVar.c2_pulseCount[tTrial]),\
+						int(csVar.c3_pulseCount[tTrial]),int(csVar.c4_pulseCount[tTrial])]
 						csSer.sendAnalogOutValues(teensy,'m',optoPulseNum)
 						serialVarTracker[5] = 1
 
@@ -1743,10 +1730,10 @@ def runDetectionTask():
 
 					if curStateTime>waitTime:
 						stateSync=0
-						if csVar.vis_contrast[tTrial]>0:
+						if csVar.contrast[tTrial]>0:
 							pyState=2
 							teensy.write('a2>'.encode('utf-8'))
-						elif csVar.vis_contrast[tTrial]==0:
+						elif csVar.contrast[tTrial]==0:
 							pyState=3
 							teensy.write('a3>'.encode('utf-8'))
 
