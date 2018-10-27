@@ -745,10 +745,13 @@ class csVariables(object):
 		'c4_ipi_nullProb':0.0,'c4_ipi_maxProb':1.0,\
 		'c4_pulseCount_null':100,'c4_pulseCount_max':100,'c4_pulseCount_steps':[],\
 		'c4_pulseCount_nullProb':0.0,'c4_pulseCount_maxProb':1.0,\
+		'c1_mask_null':2,'c1_mask_max':1,'c1_mask_steps':[],\
+		'c1_mask_nullProb':0.2,'c1_mask_maxProb':0.8,\
 		'varLabels': ['c1_amp','c1_pulseDur','c1_ipi','c1_pulseCount',\
 		'c2_amp','c2_pulseDur','c2_ipi','c2_pulseCount',\
 		'c3_amp','c3_pulseDur','c3_ipi','c3_pulseCount',\
-		'c4_amp','c4_pulseDur','c4_ipi','c4_pulseCount']}
+		'c4_amp','c4_pulseDur','c4_ipi','c4_pulseCount',\
+		'c1_mask']}
 
 		
 		self.sesTimingDict={'trialCount':1000,'trial_wait_null':3000,'trial_wait_max':11000,\
@@ -1653,7 +1656,18 @@ def runDetectionTask():
 							eval("csVar.{}.append(csVar.trialVars_opticalStim[tTrial,tCount])".format(x))
 							tCount = tCount+1
 						
-						
+						if csVar.c1_mask[tTrial]==2:
+							print("mask trial; mask amp = {}".format(csVar.c2_amp[tTrial]))
+							csVar.c1_amp[tTrial]=0
+							csVar.c2_amp[tTrial]=csVar.c2_amp[tTrial]
+
+						elif csVar.c1_mask[tTrial]==1:
+							print("stim trial; stim amp = {}".format(csVar.c1_amp[tTrial]))
+							csVar.c1_amp[tTrial]=csVar.c1_amp[tTrial]
+							csVar.c2_amp[tTrial]=0
+
+
+
 						csVar.sesVarDict['minNoLickTime']=csVar.lick_wait[tTrial]
 						serialVarTracker = [0,0,0,0,0,0]
 
