@@ -55,9 +55,53 @@ except:
 
 class csGUI(object):
 	
-	# a) Init will make primary window.
+	# a) Init will make default variable dictionaries
 	def __init__(self,master,varDict,timingDict,visualDict,opticalDict):
+		pass
 		
+	# b) Functions that make other windows
+	def populateVarFrameFromDict(self,dictName,stCol,varPerCol,headerString,frameName,excludeKeys=[],entryWidth=5):
+		rowC=2
+		stBCol=stCol+1
+		spillCount=0
+		exec('r_label = Label(self.{}, text="{}")'.format(frameName,headerString))
+		exec('r_label.grid(row=1,column=stCol,sticky=W)'.format(dictName))
+		for key in list(dictName.keys()):
+			if key not in excludeKeys:
+				if varPerCol != 0:
+					if (rowC % varPerCol)==0:
+						rowC=2
+						spillCount=spillCount+1
+						stCol=stCol+(spillCount+1)
+						stBCol=stCol+(spillCount+2)
+				exec('self.{}_TV=StringVar(self.{})'.format(key,frameName))
+				exec('self.{}_label = Label(self.{}, text="{}")'.format(key,frameName,key))
+				exec('self.{}_entries=Entry(self.{},width={},textvariable=self.{}_TV)'.format(key,frameName,entryWidth,key))
+				exec('self.{}_label.grid(row={}, column=stBCol,sticky=W)'.format(key,rowC))
+				exec('self.{}_entries.grid(row={}, column=stCol)'.format(key,rowC))
+				if type(dictName[key]) is not range:
+					exec('self.{}_TV.set({})'.format(key,dictName[key]))
+				if type(dictName[key]) is range:
+					tempStr = ["{},...,{}".format(dictName[key][0],dictName[key][-1])]
+					exec('self.{}_TV.set({})'.format(key,tempStr)) 
+
+				rowC=rowC+1
+
+	def makeTimingWindow(self,master,timingDict):
+		self.timingControl_frame = Toplevel(self.master)
+		self.timingControl_frame.title('Session/Trial Timing')
+		self.populateVarFrameFromDict(timingDict,0,0,'Time Sucker','timingControl_frame',['varLabels','trialCount'],12)
+	def makeVisualWindow(self,master,visualDict):
+		self.visualControl_frame = Toplevel(self.master)
+		self.visualControl_frame.title('Visual Probs')
+		self.populateVarFrameFromDict(visualDict,0,12,'Cur Val','visualControl_frame',['varLabels','trialCount'])
+	def makeOpticalWindow(self,master,opticalDict):
+		self.opticalControl_frame = Toplevel(self.master)
+		self.opticalControl_frame.title('Optical Probs')
+		self.populateVarFrameFromDict(opticalDict,0,22,'Pew Pew','opticalControl_frame',['varLabels','trialCount'])
+
+	def makeParentWindow(self,master,varDict,timingDict,visualDict,opticalDict):
+
 		self.master = master
 
 		c1Wd=14
@@ -68,7 +112,7 @@ class csGUI(object):
 		self.master.title("csBehavior")
 		
 		self.tb = Button(self.taskBar,text="set path",justify=LEFT,width=c1Wd,\
-			command=lambda: self.getPath(varDict))
+			command=lambda: self.getPath(varDict,timingDict,visualDict,opticalDict))
 		self.tb.grid(row=cpRw+1,column=1,sticky=W,padx=10)
 		self.dirPath_label=Label(self.taskBar, text="Save Path:", justify=LEFT)
 		self.dirPath_label.grid(row=cpRw,column=0,padx=0,sticky=W)
@@ -245,7 +289,7 @@ class csGUI(object):
 		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
 		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)
 		cpRw=cpRw+1
-		self.quitButton = Button(self.taskBar,text="Quit",width=c1Wd,command=lambda: self.closeup(varDict))
+		self.quitButton = Button(self.taskBar,text="Quit",width=c1Wd,command=lambda: self.closeup(varDict,timingDict,visualDict,opticalDict))
 		self.quitButton.grid(row=cpRw,column=0,padx=10,pady=5,sticky=W)
 		
 		self.tBtn_timeWin = Button(self.taskBar,text="Options: Timing",justify=LEFT,width=c1Wd,\
@@ -266,51 +310,7 @@ class csGUI(object):
 
 		# open the dev control window by default
 		self.makeDevControl(varDict)
-	
-	# b) Functions that make other windows
-	def populateVarFrameFromDict(self,dictName,stCol,varPerCol,headerString,frameName,excludeKeys=[],entryWidth=5):
-		rowC=2
-		stBCol=stCol+1
-		spillCount=0
-		exec('r_label = Label(self.{}, text="{}")'.format(frameName,headerString))
-		exec('r_label.grid(row=1,column=stCol,sticky=W)'.format(dictName))
-		for key in list(dictName.keys()):
-			if key not in excludeKeys:
-				if varPerCol != 0:
-					if (rowC % varPerCol)==0:
-						rowC=2
-						spillCount=spillCount+1
-						stCol=stCol+(spillCount+1)
-						stBCol=stCol+(spillCount+2)
-				exec('self.{}_TV=StringVar(self.{})'.format(key,frameName))
-				exec('self.{}_label = Label(self.{}, text="{}")'.format(key,frameName,key))
-				exec('self.{}_entries=Entry(self.{},width={},textvariable=self.{}_TV)'.format(key,frameName,entryWidth,key))
-				exec('self.{}_label.grid(row={}, column=stBCol,sticky=W)'.format(key,rowC))
-				exec('self.{}_entries.grid(row={}, column=stCol)'.format(key,rowC))
-				if type(dictName[key]) is not range:
-					exec('self.{}_TV.set({})'.format(key,dictName[key]))
-				if type(dictName[key]) is range:
-					tempStr = ["{},...,{}".format(dictName[key][0],dictName[key][-1])]
-					exec('self.{}_TV.set({})'.format(key,tempStr)) 
-
-				rowC=rowC+1
-
-	def makeTimingWindow(self,master,timingDict):
-		self.timingControl_frame = Toplevel(self.master)
-		self.timingControl_frame.title('Session/Trial Timing')
-		self.populateVarFrameFromDict(timingDict,0,0,'Time Sucker','timingControl_frame',['varLabels','trialCount'],12)
-	def makeVisualWindow(self,master,visualDict):
-		self.visualControl_frame = Toplevel(self.master)
-		self.visualControl_frame.title('Visual Probs')
-		self.populateVarFrameFromDict(visualDict,0,12,'Cur Val','visualControl_frame',['varLabels','trialCount'])
-	def makeOpticalWindow(self,master,opticalDict):
-		self.opticalControl_frame = Toplevel(self.master)
-		self.opticalControl_frame.title('Optical Probs')
-		self.populateVarFrameFromDict(opticalDict,0,22,'Pew Pew','opticalControl_frame',['varLabels','trialCount'])
-
-	def makeParentWindow(self,master,varDict):
 		
-		pass
 	def makeDevControl(self,varDict):
 		
 		dCBWd = 12
@@ -403,6 +403,7 @@ class csGUI(object):
 			command=lambda: self.deltaTeensy(varDict,'b',-10))
 		self.decBrightnessBtn.grid(row=5,column=1)
 		self.decBrightnessBtn['state'] = 'normal'
+	
 	def makePulseControl(self,varDict):
 
 		self.dC_Pulse = Toplevel(self.master)
@@ -511,7 +512,8 @@ class csGUI(object):
 				varDict[varKey]=tType
 		except:
 			g=1
-		# update_GVars()
+		
+		# if there is ...
 	def toggleTaskButtons(self,boolState):
 		if boolState == 1:
 			self.tBtn_trialOpto['state'] = 'normal'
@@ -564,15 +566,23 @@ class csGUI(object):
 			curVal.append(varDict[key])
 			self.pdReturn=pd.Series(curVal,index=curKey)
 		return self.pdReturn
-	def closeup(self,varDict):
+
+	def closeup(self,varDict,visualDict,timingDict,opticalDict):
 		self.toggleTaskButtons(1)
 		self.tBtn_detection
 		self.updateDictFromGUI(varDict)
 		try:
 			self.sesVarDict_bindings=self.dictToPandas(varDict)
 			self.sesVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'sesVars.csv')
+			self.sensVarDict_bindings=self.dictToPandas(visualDict)
+			self.sensVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'sensVars.csv')
+			self.opticalVarDict_bindings=self.dictToPandas(opticalDict)
+			self.opticalVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'opticalVars.csv')
+			self.timingVarDict_bindings=self.dictToPandas(timingDict)
+			self.timingVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'timingVars.csv')
+	
 		except:
-			g=1
+			pass
 
 		try:
 			varDict['sessionOn']=0
@@ -971,8 +981,6 @@ class csMQTT(object):
 		
 		return self.waterConsumed,self.hourDif
 
-
-
 	def rigOnLog(self,mqObj,sID,sWeight,hostName,mqDel):
 		
 		# a) log on to the rig's on-off feed.
@@ -988,7 +996,6 @@ class csMQTT(object):
 				time.sleep(mqDel)
 			except:
 				print('mqtt: failed to create new rig feed')
-			
 
 
 		# b) log the rig string the subject is on to the subject's rig tracking feed.
@@ -1002,24 +1009,24 @@ class csMQTT(object):
 				mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName.lower()))
 				time.sleep(mqDel)
 			except:
-				print("mqtt: failed to create {}'s rig feed".format(sID))
+				print("mqtt: failed to create {}'s rig feed".format(sID.lower()))
 
 			# if we had to make a new subject weight feed, then others may not exist that we need
 			try:
-				mqObj.create_feed(Feed(name="{}-waterconsumed".format(sID)))
+				mqObj.create_feed(Feed(name="{}-waterconsumed".format(sID.lower())))
 				print("mqtt: created {}'s consumption feed".format(sID))
 				mqObj.send('{}-waterconsumed'.format(sID),0)
 				time.sleep(mqDel)
 			except:
-				print("mqtt: failed to create {}'s consumption feed".format(sID))
+				print("mqtt: failed to create {}'s consumption feed".format(sID.lower()))
 
 			try:
-				mqObj.create_feed(Feed(name="{}-topvol".format(sID)))
-				print("mqtt: created {}'s top volume feed".format(sID))
-				mqObj.send('{}-topvol'.format(sID),1.2)
+				mqObj.create_feed(Feed(name="{}-topvol".format(sID.lower())))
+				print("mqtt: created {}'s top volume feed".format(sID.lower()))
+				mqObj.send('{}-topvol'.format(sID.lower()),1.2)
 				time.sleep(mqDel)
 			except:
-				print("mqtt: failed to create {}'s top volume feed".format(sID))
+				print("mqtt: failed to create {}'s top volume feed".format(sID.lower()))
 
 
 		# c) log the weight to subject's weight tracking feed.
@@ -1028,14 +1035,12 @@ class csMQTT(object):
 			print("mqtt: logged weight of {}".format(sWeight))
 		except:
 			try:
-				mqObj.create_feed(Feed(name='{}-weight'.format(sID)))
-				print("mqtt: created {}'s weight feed".format(sID))
-				mqObj.send('{}-weight'.format(sID),sWeight)
+				mqObj.create_feed(Feed(name='{}-weight'.format(sID.lower())))
+				print("mqtt: created {}'s weight feed".format(sID.lower()))
+				mqObj.send('{}-weight'.format(sID.lower()),sWeight)
 				print("mqtt: logged weight of {}".format(sWeight))
 			except:
 				print("mqtt: failed to create {}'s weight feed".format(sID))
-
-
 
 	def rigOffLog(self,mqObj,sID,sWeight,hostName,mqDel):
 		
@@ -1335,21 +1340,37 @@ class csPlot(object):
 # $$$$$$$$$$$$$ Main Program Body $$$$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-# **** Initialize class instances
+# >> Make Class Instances <<
 csVar=csVariables(1)
-# --> if we aren't using the GUI we may need to override some variables from the config.
+# If we are not using 
+csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.sesSensDict,csVar.sesOpticalDict)
+if useGUI==1:
+	csGui.makeParentWindow(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.sesSensDict,csVar.sesOpticalDict)
 if useGUI==0:
-	
-	csVar.sesVarDict['subjID']=config['sesVars']['subjID']
-# B) Make hdf instance.
+	try:
+		csVar.sesVarDict['subjID']=config['sesVars']['subjID']
+	except:
+		print("load: no session variables")
+	try:
+		csVar.sensVarDict['subjID']=config['sensVars']['subjID']
+	except:
+		print("load: no sensory variables")
+	try:
+		csVar.opticalVarDict['subjID']=config['opticalVars']['subjID']
+	except:
+		print("load: no optical variables")
+	try:
+		csVar.timingVarDict['subjID']=config['timingVars']['subjID']
+	except:
+		print("load: no timing variables")
+
+
+
 csSesHDF=csHDF(1)
 csAIO=csMQTT(1)
 csSer=csSerial(1)
 csPlt=csPlot(1)
 # make a GUI instance if we aren't using config.
-if useGUI==1:
-
-	csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.sesSensDict,csVar.sesOpticalDict)
 
 
 
