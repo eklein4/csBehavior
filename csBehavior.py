@@ -61,31 +61,43 @@ class csGUI(object):
 		
 	# b) Functions that make other windows
 	def populateVarFrameFromDict(self,dictName,stCol,varPerCol,headerString,frameName,excludeKeys=[],entryWidth=5):
-		rowC=2
-		stBCol=stCol+1
-		spillCount=0
+		
+		rowOffset = 2
+		rowCounter = 0
+		curColumn = stCol
+		curColumnEnt = curColumn + 1
+
+		if varPerCol == 0:
+			varPerCol = len(list(dictName.keys()))
+
+		
+		
 		exec('r_label = Label(self.{}, text="{}")'.format(frameName,headerString))
 		exec('r_label.grid(row=1,column=stCol,sticky=W)'.format(dictName))
+		
 		for key in list(dictName.keys()):
 			if key not in excludeKeys:
-				if varPerCol != 0:
-					if (rowC % varPerCol)==0:
-						rowC=2
-						spillCount=spillCount+1
-						stCol=stCol+(spillCount+1)
-						stBCol=stCol+(spillCount+2)
+				
 				exec('self.{}_TV=StringVar(self.{})'.format(key,frameName))
 				exec('self.{}_label = Label(self.{}, text="{}")'.format(key,frameName,key))
 				exec('self.{}_entries=Entry(self.{},width={},textvariable=self.{}_TV)'.format(key,frameName,entryWidth,key))
-				exec('self.{}_label.grid(row={}, column=stBCol,sticky=W)'.format(key,rowC))
-				exec('self.{}_entries.grid(row={}, column=stCol)'.format(key,rowC))
+				exec('self.{}_label.grid(row={}, column=curColumnEnt,sticky=W)'.format(key,rowCounter+rowOffset))
+				exec('self.{}_entries.grid(row={}, column=curColumn)'.format(key,rowCounter+rowOffset))
+				
 				if type(dictName[key]) is not range:
 					exec('self.{}_TV.set({})'.format(key,dictName[key]))
 				if type(dictName[key]) is range:
 					tempStr = ["{},...,{}".format(dictName[key][0],dictName[key][-1])]
 					exec('self.{}_TV.set({})'.format(key,tempStr)) 
 
-				rowC=rowC+1
+				rowCounter=rowCounter+1
+				if rowCounter >= varPerCol:
+					rowCounter = 0
+					curColumn = curColumn + 2
+					curColumnEnt = curColumn + 1
+
+
+
 
 	def makeTimingWindow(self,master,timingDict):
 		self.timingControl_frame = Toplevel(self.master)
@@ -94,11 +106,11 @@ class csGUI(object):
 	def makeVisualWindow(self,master,visualDict):
 		self.visualControl_frame = Toplevel(self.master)
 		self.visualControl_frame.title('Visual Probs')
-		self.populateVarFrameFromDict(visualDict,0,12,'Cur Val','visualControl_frame',['varLabels','trialCount'])
+		self.populateVarFrameFromDict(visualDict,0,10,'Cur Val','visualControl_frame',['varLabels','trialCount'])
 	def makeOpticalWindow(self,master,opticalDict):
 		self.opticalControl_frame = Toplevel(self.master)
 		self.opticalControl_frame.title('Optical Probs')
-		self.populateVarFrameFromDict(opticalDict,0,22,'Pew Pew','opticalControl_frame',['varLabels','trialCount'])
+		self.populateVarFrameFromDict(opticalDict,0,20,'Pew Pew','opticalControl_frame',['varLabels','trialCount'])
 
 	def makeParentWindow(self,master,varDict,timingDict,visualDict,opticalDict):
 
@@ -694,7 +706,7 @@ class csGUI(object):
 		
 		runTrialOptoTask()
 class csVariables(object):
-	def __init__(self,sesVarDict={},sesSensDict={}):
+	def __init__(self,sesVarDict={},sesSensDict={},sesTimingDict={},sesOpticalDict={}):
 
 		self.sesVarDict={'curSession':1,'comPath_teensy':'/dev/cu.usbmodem4589151',\
 		'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':100,\
@@ -1340,11 +1352,15 @@ class csPlot(object):
 # $$$$$$$$$$$$$ Main Program Body $$$$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-# >> Make Class Instances <<
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# >>> Make Class Instances <<<
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 csVar=csVariables(1)
 # If we are not using 
 csGui = csGUI(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.sesSensDict,csVar.sesOpticalDict)
 if useGUI==1:
+	
 	csGui.makeParentWindow(root,csVar.sesVarDict,csVar.sesTimingDict,csVar.sesSensDict,csVar.sesOpticalDict)
 if useGUI==0:
 	try:
@@ -1363,19 +1379,15 @@ if useGUI==0:
 		csVar.timingVarDict['subjID']=config['timingVars']['subjID']
 	except:
 		print("load: no timing variables")
-
-
-
 csSesHDF=csHDF(1)
 csAIO=csMQTT(1)
 csSer=csSerial(1)
 csPlt=csPlot(1)
-# make a GUI instance if we aren't using config.
 
+# ~~~~~~~~~~~~~~~~~~~~
+# >>> Define Tasks <<<
+# ~~~~~~~~~~~~~~~~~~~~
 
-
-
-# This is Chris' Detection Task
 def runDetectionTask():
 
 	# a) datestamp/rig id/session variables
