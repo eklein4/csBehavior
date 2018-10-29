@@ -139,6 +139,10 @@ volatile uint32_t pulseCount = 0;
 // d) Flyback Signal
 volatile uint32_t flybackVal = 0;
 
+volatile uint32_t lineTime = 0;
+volatile uint32_t curLine = 0;
+volatile uint32_t lastLine = 0;
+
 // e) State Machine (vStates) Interupt Timing
 int sampsPerSecond = 1000;
 float evalEverySample = 1.0; // number of times to poll the vStates funtion
@@ -221,8 +225,8 @@ bool rewarding = 0;
 bool scopeState = 1;
 // ***** All states have a header we keep track of whether it fired with an array.
 // !!!!!! So, if you add a state, add a header entry and increment stateCount.
-int headerStates[] = {0, 0, 0, 0, 0, 0, 0, 0};
-int stateCount = 8;
+int headerStates[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+int stateCount = 9;
 
 // i) csDashboard
 //char knownDashHeaders[] = {'b', 'n','v'};
@@ -479,12 +483,29 @@ void vStates() {
       setAnalogOutValues(analogOutVals, pulseTrainVars);
       genericStateBody();
     }
+    
+    // ****************************************
+    // State 8: Flyback Pulse State
+    // ****************************************
+    else if (knownValues[0] == 8) {
+      if (headerStates[8] == 0) {
+        genericHeader(8);
+        visStim(0);
+        blockStateChange = 0;
+      }
+      analogOutVals[0] = 0;
+      analogOutVals[1] = 0;
+      analogOutVals[2] = 0;
+      analogOutVals[3] = 0;
+      genericStateBody();
+    }
 
     // ******* Stuff we do for all non-boot states at the end.
     dataReport();
     loopCount++;
   }
 }
+
 
 void setPulseTrainVars(int recVar, int recVal) {
 
@@ -537,7 +558,7 @@ void dataReport() {
   Serial.print(',');
   Serial.print(genAnalogInput2);
   Serial.print(',');
-  Serial.println(genAnalogInput3);
+  Serial.println(lineTime);
 }
 
 int flagReceive(char varAr[], int32_t valAr[]) {
@@ -765,31 +786,24 @@ void frameCount() {
 }
 
 void flybackStim_On() {
-  // todo:
-  // we need to allow scaling of pulse and dur to fit faster sampling in the interrupt.
-  // line period could be determined by the interrupts
-  //
-  // vars:
-  // (global) knownValues[15] == a duration in micros to keep the stim on.
-  // (local) pfTime == a microsecond timer object
-  //  attachInterrupt(yGalvo, flybackStim_Off, RISING);
+  curLine = micros();
+  lineTime = curLine - lastLine;
   elapsedMicros pfTime;
   pfTime = 0;
-  digitalWrite(pmtBlank, HIGH);
-  while (pfTime <= knownValues[16]) {
-    stimGen(pulseTrainVars);
-    analogWrite(DAC1, pulseTrainVars[0][7]);
-    analogWrite(DAC2, pulseTrainVars[1][7]);
+  if (knownValues[0] == 8) {
+    digitalWrite(pmtBlank, HIGH);
+    while (pfTime <= knownValues[16]) {
+      stimGen(pulseTrainVars);
+      analogWrite(DAC1, pulseTrainVars[0][7]);
+      analogWrite(DAC2, pulseTrainVars[1][7]);
+      delayMicroseconds(1);
+    }
+    analogWrite(DAC1, 0);
+    analogWrite(DAC2, 0);
+    digitalWrite(pmtBlank, LOW);
   }
-  analogWrite(DAC1, 0);
-  analogWrite(DAC2, 0);
-  digitalWrite(pmtBlank, LOW);
+  lastLine = curLine;
 }
-
-//void flybackStim_Off() {
-//  analogWrite(DAC1, 0);
-//  analogWrite(DAC2, 0);
-//}
 
 
 
