@@ -1353,7 +1353,7 @@ class csPlot(object):
 		self.stPlotX={'init':0.10,'wait':0.10,'stim':0.30}
 		self.stPlotY={'init':0.65,'wait':0.40,'stim':0.52}
 		# # todo:link actual state dict to plot state dict, now its a hack
-		self.stPlotRel={'0':0,'1':1,'2':7}
+		self.stPlotRel={'0':0,'1':1,'2':7,'2':8}
 		self.pltX=[]
 		for xVals in list(self.stPlotX.values()):
 			self.pltX.append(xVals)
@@ -1518,6 +1518,7 @@ class csPlot(object):
 		except:
 			 a=1
 	def updateStateFig(self,curState):
+		print("up state")
 		try:
 			self.curStLine.set_xdata(self.pltX[curState])
 			self.curStLine.set_ydata(self.pltY[curState])
@@ -1527,9 +1528,12 @@ class csPlot(object):
 
 			self.trialFig.canvas.draw_idle()
 			self.trialFig.canvas.flush_events()
+			print("done state a")
 
 		except:
-			 pass
+			print(curState)
+			print("done state b")
+		
 	def updateOutcome(self,stimTrials,stimResponses,noStimTrials,noStimResponses,totalTrials):
 		sM=0.001
 		nsM=0.001
@@ -1996,11 +2000,11 @@ def runDetectionTask():
 					if curStateTime>waitTime:
 						stateSync=0
 						if csVar.contrast[tTrial]>0:
-							pyState=2
-							teensy.write('a2>'.encode('utf-8'))
+							pyState=7
+							teensy.write('a7>'.encode('utf-8'))
 						elif csVar.contrast[tTrial]==0:
-							pyState=3
-							teensy.write('a3>'.encode('utf-8'))
+							pyState=8
+							teensy.write('a8>'.encode('utf-8'))
 
 				if pyState == 2 and stateSync==1:
 					if sHeaders[pyState]==0:
@@ -2632,8 +2636,8 @@ def runTrialOptoTask():
 						# 4) inform the user via the terminal what's going on.
 						print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],\
 							csVar.sesVarDict['totalTrials']))
-						print('stim amp ch1: {} ; stim amp ch2: {}'.format(csVar.c1_amp[tTrial],csVar.c1_amp[tTrial]))
-						print('estimated trial time = {}'.format(csVar.lick_wait[tTrial] + csVar.trial_wait[tTrial]))
+						print('stim amp ch1: {} ; stim amp ch2: {}'.format(csVar.c1_amp[tTrial],csVar.c1_amp[tTrial-1]))
+						print('estimated trial time = {}'.format(csVar.lick_wait[tTrial] + csVar.trial_wait[tTrial-1]))
 
 						# close the header and flip the others open.
 						sHeaders[pyState]=1
@@ -2819,41 +2823,56 @@ def runTrialOptoTask():
 					if sHeaders[pyState]==0:
 						if useGUI==1:
 							csPlt.updateStateFig(pyState)
+						reported=0
 						lickCounter=0
 						lastLick=0
 						outSyncCount=0
 						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0
-						print("leaving header")
-					
-					# exit
-					if curStateTime>=csVar.sesVarDict['pulsetraintime']:
-						print('will exit')
-						trialSamps[1]=loopCnt
-						sampLog.append(np.diff(trialSamps)[0])
+						sHeaders[np.setdiff1d(sList,pyState)]=0                        
+	 
+					if lastLick>0.02:
+						reported=1
+
+					if curStateTime>csVar.sesVarDict['minStimTime']:
+			
+						stimTrials.append(csVar.sesVarDict['trialNum'])
+						stimResponses.append(0)
 						stateSync=0
 						pyState=1
+						trialSamps[1]=loopCnt
+						sampLog.append(np.diff(trialSamps)[0])
 						teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(sampLog[-1]/1000))
+						if useGUI==1:
+							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
+								csVar.sesVarDict['totalTrials'])
+							
 
 				if pyState == 8 and stateSync==1:
 					if sHeaders[pyState]==0:
 						if useGUI==1:
 							csPlt.updateStateFig(pyState)
+						reported=0
 						lickCounter=0
 						lastLick=0
 						outSyncCount=0
 						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0
-					
-					# exit
-					if curStateTime>csVar.sesVarDict['pulsetraintime']:
-						trialSamps[1]=loopCnt
-						sampLog.append(np.diff(trialSamps)[0])
+						sHeaders[np.setdiff1d(sList,pyState)]=0                        
+	 
+					if lastLick>0.02:
+						reported=1
+
+					if curStateTime>csVar.sesVarDict['minStimTime']:
+			
+						stimTrials.append(csVar.sesVarDict['trialNum'])
+						stimResponses.append(0)
 						stateSync=0
 						pyState=1
+						trialSamps[1]=loopCnt
+						sampLog.append(np.diff(trialSamps)[0])
 						teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(sampLog[-1]/1000))
+						if useGUI==1:
+							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
+								csVar.sesVarDict['totalTrials'])
 		except:
 			sesData.flush()
 			np.save('sesData.npy',sesData)
