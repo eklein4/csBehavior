@@ -54,64 +54,10 @@ except:
 
 
 class csGUI(object):
-	
-	# a) Init will make default variable dictionaries
 	def __init__(self,master,varDict,timingDict,visualDict,opticalDict):
-		pass
-		
-	# b) Functions that make other windows
-	def populateVarFrameFromDict(self,dictName,stCol,varPerCol,headerString,frameName,excludeKeys=[],entryWidth=5):
-		
-		rowOffset = 2
-		rowCounter = 0
-		curColumn = stCol
-		curColumnEnt = curColumn + 1
-
-		if varPerCol == 0:
-			varPerCol = len(list(dictName.keys()))
-
-		
-		
-		exec('r_label = Label(self.{}, text="{}")'.format(frameName,headerString))
-		exec('r_label.grid(row=1,column=stCol,sticky=W)'.format(dictName))
-		
-		for key in list(dictName.keys()):
-			if key not in excludeKeys:
-				
-				exec('self.{}_TV=StringVar(self.{})'.format(key,frameName))
-				exec('self.{}_label = Label(self.{}, text="{}")'.format(key,frameName,key))
-				exec('self.{}_entries=Entry(self.{},width={},textvariable=self.{}_TV)'.format(key,frameName,entryWidth,key))
-				exec('self.{}_label.grid(row={}, column=curColumnEnt,sticky=W)'.format(key,rowCounter+rowOffset))
-				exec('self.{}_entries.grid(row={}, column=curColumn)'.format(key,rowCounter+rowOffset))
-				
-				if type(dictName[key]) is not range:
-					exec('self.{}_TV.set({})'.format(key,dictName[key]))
-				if type(dictName[key]) is range:
-					tempStr = ["{},...,{}".format(dictName[key][0],dictName[key][-1])]
-					exec('self.{}_TV.set({})'.format(key,tempStr)) 
-
-				rowCounter=rowCounter+1
-				if rowCounter >= varPerCol:
-					rowCounter = 0
-					curColumn = curColumn + 2
-					curColumnEnt = curColumn + 1
-
-
-
-
-	def makeTimingWindow(self,master,timingDict):
-		self.timingControl_frame = Toplevel(self.master)
-		self.timingControl_frame.title('Session/Trial Timing')
-		self.populateVarFrameFromDict(timingDict,0,0,'Time Sucker','timingControl_frame',['varLabels','trialCount'],12)
-	def makeVisualWindow(self,master,visualDict):
-		self.visualControl_frame = Toplevel(self.master)
-		self.visualControl_frame.title('Visual Probs')
-		self.populateVarFrameFromDict(visualDict,0,10,'Cur Val','visualControl_frame',['varLabels','trialCount'])
-	def makeOpticalWindow(self,master,opticalDict):
-		self.opticalControl_frame = Toplevel(self.master)
-		self.opticalControl_frame.title('Optical Probs')
-		self.populateVarFrameFromDict(opticalDict,0,20,'Pew Pew','opticalControl_frame',['varLabels','trialCount'])
-
+		# code folding in stext fails if we pass here
+		aaa=1
+	# b) window generation
 	def makeParentWindow(self,master,varDict,timingDict,visualDict,opticalDict):
 
 		self.master = master
@@ -322,7 +268,67 @@ class csGUI(object):
 
 		# open the dev control window by default
 		self.makeDevControl(varDict)
+	def populateVarFrameFromDict(self,dictName,stCol,varPerCol,headerString,frameName,excludeKeys=[],entryWidth=5):
 		
+		rowOffset = 2
+		rowCounter = 0
+		curColumn = stCol
+		curColumnEnt = curColumn + 1
+
+		if varPerCol == 0:
+			varPerCol = len(list(dictName.keys()))
+
+		exec('r_label = Label(self.{}, text="{}")'.format(frameName,headerString))
+		exec('r_label.grid(row=1,column=stCol,sticky=W)'.format(dictName))
+		
+		for key in list(dictName.keys()):
+			if key not in excludeKeys:
+				
+				exec('self.{}_TV=StringVar(self.{})'.format(key,frameName))
+				exec('self.{}_label = Label(self.{}, text="{}")'.format(key,frameName,key))
+				exec('self.{}_entries=Entry(self.{},width={},textvariable=self.{}_TV)'.format(key,frameName,entryWidth,key))
+				exec('self.{}_label.grid(row={}, column=curColumnEnt,sticky=W)'.format(key,rowCounter+rowOffset))
+				exec('self.{}_entries.grid(row={}, column=curColumn)'.format(key,rowCounter+rowOffset))
+				# This stuff lets us display ints, floats, ranges and lists correctly
+				if type(dictName[key]) is int or type(dictName[key]) is float:
+					exec('self.{}_TV.set({})'.format(key,dictName[key]))
+				elif type(dictName[key]) is range:
+					tempStr = ["{},>,{}".format(dictName[key][0],dictName[key][-1])]
+					exec('self.{}_TV.set({})'.format(key,tempStr))
+				elif type(dictName[key]) is list:
+					tempStr = ''
+					if len(dictName[key]) == 0:
+						tempStr = ','
+					elif len(dictName[key]) > 0:
+						for x in dictName[key]:
+							tempStr = tempStr + '{}'.format(x) + ','
+					if tempStr[-1] is ',':
+						tempStr=tempStr[0:-1]
+					exec('self.{}_TV.set(tempStr)'.format(key))
+
+				rowCounter=rowCounter+1
+				if rowCounter >= varPerCol:
+					rowCounter = 0
+					curColumn = curColumn + 2
+					curColumnEnt = curColumn + 1
+	def makeTimingWindow(self,master,timingDict):
+		
+		self.timingControl_frame = Toplevel(self.master)
+		self.timingControl_frame.title('Session/Trial Timing')
+		self.populateVarFrameFromDict(timingDict,0,0,'Time Sucker','timingControl_frame',['varLabels','trialCount'],12)
+	def makeVisualWindow(self,master,visualDict):
+		
+		self.visualControl_frame = Toplevel(self.master)
+		self.visualControl_frame.title('Visual Probs')
+		self.populateVarFrameFromDict(visualDict,0,10,'Cur Val','visualControl_frame',['varLabels','trialCount'])
+		self.tBtn_updateVisualDict = Button(self.visualControl_frame,text="Update Visual",justify=LEFT,width=15,\
+			command=lambda: self.updateDictFromGUI(visualDict))
+		self.tBtn_updateVisualDict.grid(row=12,column=1,padx=10,pady=2,sticky=W)
+	def makeOpticalWindow(self,master,opticalDict):
+		
+		self.opticalControl_frame = Toplevel(self.master)
+		self.opticalControl_frame.title('Optical Probs')
+		self.populateVarFrameFromDict(opticalDict,0,20,'Pew Pew','opticalControl_frame',['varLabels','trialCount'])
 	def makeDevControl(self,varDict):
 		
 		dCBWd = 12
@@ -415,7 +421,6 @@ class csGUI(object):
 			command=lambda: self.deltaTeensy(varDict,'b',-10))
 		self.decBrightnessBtn.grid(row=5,column=1)
 		self.decBrightnessBtn['state'] = 'normal'
-	
 	def makePulseControl(self,varDict):
 
 		self.dC_Pulse = Toplevel(self.master)
@@ -475,7 +480,6 @@ class csGUI(object):
 
 		self.ramp2AmpTV_Entry = Entry(self.dC_Pulse,width=8,textvariable=self.ramp2AmpTV)
 		self.ramp2AmpTV_Entry.grid(row=2,column=ptst+3)
-
 	# c) Methods
 	def checkForDevicesUnix(self,startString):
 		dpth=Path('/dev')
@@ -485,7 +489,7 @@ class csGUI(object):
 				devPathStrings.append(child.name)
 		self.devPathStrings = devPathStrings
 		return self.devPathStrings
-	def getPath(self,varDict):
+	def getPath(self,varDict,timingDict,visualDict,opticalDict):
 		try:
 			selectPath = fd.askdirectory(title ="what what?")
 		except:
@@ -534,18 +538,59 @@ class csGUI(object):
 			self.tBtn_trialOpto['state'] = 'disabled'
 			self.tBtn_detection['state'] = 'disabled'
 	def updateDictFromGUI(self,varDict):
+
 		for key in list(varDict.keys()):
+
+			isRange = 0
+			isList = 0
+			excludedListChars = ['"',"'",'(',')',',']
+
 			try:
-				a=eval('self.{}_TV.get()'.format(key))                
-				try:
-					a=float(a)
-					if a.is_integer():
-						a=int(a)
-					exec('varDict["{}"]={}'.format(key,a))
-				except:
-					exec('varDict["{}"]="{}"'.format(key,a))
+				a=eval('self.{}_TV.get()'.format(key))
+				# if a exists, then check to see if it is a list or range, assume singleton if not
+				if '>' in a:
+					# then range
+					isRange = 1
+					tSplit = a.split(',')
+					tRange = range(int(tSplit[0]),int(tSplit[2])+1)
+					exec('varDict["{}"]={}'.format(key,tRange))
+				elif ',' in a and '>' not in a:
+					# when it sees a list it comes from tkinter in what is an attempt at a tuple, but ends up a string form
+					# so there is some strip hackery going on here. 
+					isList = 1
+					if a[0] is not '(':
+						a = ',' + a
+						print(a)
+					a = a.strip('"(''"')[1:].split(',')
+					print(a)
+					tempList = []
+					for n in a:
+						try: 
+							n = float(n)
+							if n.is_integer():
+								n = int(n)
+							print("n = {}".format(n))
+							tempList.append(n)
+						except:
+							if n not in excludedListChars:
+								print("n = {}".format(n))
+								tempList.append(n)
+					#debug
+					print("listy")
+					print(tempList)
+					varDict[key]=tempList
+				elif ',' not in a and '>' not in a:
+					# then singleton           
+					try:
+						a=float(a)
+						if a.is_integer():
+							a=int(a)
+						exec('varDict["{}"]={}'.format(key,a))
+					except:
+						exec('varDict["{}"]="{}"'.format(key,a))
 			except:
-				g=1
+				pass
+		print(varDict)
 		return varDict
 	def updateDictFromTXT(self,varDict,configF):
 		for key in list(varDict.keys()):
@@ -578,7 +623,6 @@ class csGUI(object):
 			curVal.append(varDict[key])
 			self.pdReturn=pd.Series(curVal,index=curKey)
 		return self.pdReturn
-
 	def closeup(self,varDict,visualDict,timingDict,opticalDict):
 		self.toggleTaskButtons(1)
 		self.tBtn_detection
@@ -697,7 +741,6 @@ class csGUI(object):
 		print(float(np.mean(wVals)))
 		teensy.close()
 		return varDict	
-	
 	# d) Call outside task functions via a function.
 	def do_detection(self):
 		
@@ -705,6 +748,7 @@ class csGUI(object):
 	def do_trialOpto(self):
 		
 		runTrialOptoTask()
+
 class csVariables(object):
 	def __init__(self,sesVarDict={},sesSensDict={},sesTimingDict={},sesOpticalDict={}):
 
@@ -901,17 +945,37 @@ class csVariables(object):
 	
 	def updateDictFromGUI(self,dictName):
 		for key in list(dictName.keys()):
+			isRange = 0
+			isList = 0
 			try:
-				a=eval('{}_TV.get()'.format(key))                
-				try:
-					a=float(a)
-					if a.is_integer():
-						a=int(a)
-					exec('dictName["{}"]={}'.format(key,a))
-				except:
-					exec('dictName["{}"]="{}"'.format(key,a))
+				a=eval('{}_TV.get()'.format(key))
+				# if a exists, then check to see if it is a list or range, assume singleton if not
+				if '>' in a:
+					# then range
+					isRange = 1
+					#debug
+					print("range detected")
+					tSplit = a.split(',')
+					tRange = range(int(tSplit[0]),int(tSplit[2])-1)
+					#debug
+					print("debug range = {}".format(tRange))
+					exec('dictName["{}"]={}'.format(key,tRange))
+				elif ',' in a and '>' not in a:
+					# then list
+					isList = 1
+					#debug
+					print("list detected")
+				elif ',' not in a and '>' not in a:
+					# then singleton           
+					try:
+						a=float(a)
+						if a.is_integer():
+							a=int(a)
+						exec('dictName["{}"]={}'.format(key,a))
+					except:
+						exec('dictName["{}"]="{}"'.format(key,a))
 			except:
-				g=1
+				pass
 class csHDF(object):
 	def __init__(self,a):
 		self.a=1
