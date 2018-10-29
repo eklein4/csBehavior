@@ -247,7 +247,7 @@ class csGUI(object):
 		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
 		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)
 		cpRw=cpRw+1
-		self.quitButton = Button(self.taskBar,text="Quit",width=c1Wd,command=lambda: self.closeup(varDict,timingDict,visualDict,opticalDict))
+		self.quitButton = Button(self.taskBar,text="Quit",width=c1Wd,command=lambda: self.closeup(varDict,visualDict,timingDict,opticalDict))
 		self.quitButton.grid(row=cpRw,column=0,padx=10,pady=5,sticky=W)
 		
 		self.tBtn_timeWin = Button(self.taskBar,text="Options: Timing",justify=LEFT,width=c1Wd,\
@@ -560,24 +560,18 @@ class csGUI(object):
 					isList = 1
 					if a[0] is not '(':
 						a = ',' + a
-						print(a)
 					a = a.strip('"(''"')[1:].split(',')
-					print(a)
 					tempList = []
 					for n in a:
 						try: 
 							n = float(n)
 							if n.is_integer():
 								n = int(n)
-							print("n = {}".format(n))
 							tempList.append(n)
 						except:
 							if n not in excludedListChars:
-								print("n = {}".format(n))
 								tempList.append(n)
-					#debug
-					print("listy")
-					print(tempList)
+
 					varDict[key]=tempList
 				elif ',' not in a and '>' not in a:
 					# then singleton           
@@ -627,6 +621,10 @@ class csGUI(object):
 		self.toggleTaskButtons(1)
 		self.tBtn_detection
 		self.updateDictFromGUI(varDict)
+		self.updateDictFromGUI(visualDict)
+		self.updateDictFromGUI(timingDict)
+		self.updateDictFromGUI(opticalDict)
+
 		try:
 			self.sesVarDict_bindings=self.dictToPandas(varDict)
 			self.sesVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'sesVars.csv')
@@ -884,14 +882,17 @@ class csVariables(object):
 				curAvail=len(availIndicies)
 
 			# C) compute steps
-			curSteps = eval('probDict["{}_steps"]'.format(curStr))
-			if len(curSteps)>0:
-				for g in range(0,len(availIndicies)):
-					tempArray[availIndicies[g],x] = curSteps[np.random.randint(len(curSteps))]
-			elif len(curSteps)==0 and len(availIndicies)>0:
-				for g in range(0,len(availIndicies)):
-					tempRand=[curMax,curNull]
-					tempArray[availIndicies[g],x] = tempRand[np.random.randint(2)]
+			try:
+				curSteps = eval('probDict["{}_steps"]'.format(curStr))
+				if len(curSteps)>0:
+					for g in range(0,len(availIndicies)):
+						tempArray[availIndicies[g],x] = curSteps[np.random.randint(len(curSteps))]
+				elif len(curSteps)==0 and len(availIndicies)>0:
+					for g in range(0,len(availIndicies)):
+						tempRand=[curMax,curNull]
+						tempArray[availIndicies[g],x] = tempRand[np.random.randint(2)]
+			except:
+				pass
 
 		return tempArray,tempCountArray
 
@@ -953,18 +954,12 @@ class csVariables(object):
 				if '>' in a:
 					# then range
 					isRange = 1
-					#debug
-					print("range detected")
 					tSplit = a.split(',')
 					tRange = range(int(tSplit[0]),int(tSplit[2])-1)
-					#debug
-					print("debug range = {}".format(tRange))
 					exec('dictName["{}"]={}'.format(key,tRange))
 				elif ',' in a and '>' not in a:
 					# then list
 					isList = 1
-					#debug
-					print("list detected")
 				elif ',' not in a and '>' not in a:
 					# then singleton           
 					try:
