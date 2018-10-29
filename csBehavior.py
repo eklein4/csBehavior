@@ -315,20 +315,26 @@ class csGUI(object):
 		
 		self.timingControl_frame = Toplevel(self.master)
 		self.timingControl_frame.title('Session/Trial Timing')
-		self.populateVarFrameFromDict(timingDict,0,0,'Time Sucker','timingControl_frame',['varLabels','trialCount'],12)
+		self.populateVarFrameFromDict(timingDict,0,0,'Time Sucker','timingControl_frame',['varLabels','trialCount'],entryWidth=12)
+		self.tBtn_updateTimingDict = Button(self.timingControl_frame,text="Update Timing Vars",justify=LEFT,width=15,\
+			command=lambda: self.updateDictFromGUI(timingDict))
+		self.tBtn_updateTimingDict.grid(row=12,column=0,padx=2,pady=2)
 	def makeVisualWindow(self,master,visualDict):
 		
 		self.visualControl_frame = Toplevel(self.master)
 		self.visualControl_frame.title('Visual Probs')
-		self.populateVarFrameFromDict(visualDict,0,10,'Cur Val','visualControl_frame',['varLabels','trialCount'])
-		self.tBtn_updateVisualDict = Button(self.visualControl_frame,text="Update Visual",justify=LEFT,width=15,\
+		self.populateVarFrameFromDict(visualDict,0,10,'Cur Val','visualControl_frame',['varLabels','trialCount'],entryWidth=12)
+		self.tBtn_updateVisualDict = Button(self.visualControl_frame,text="Update Visual Vars",justify=LEFT,width=15,\
 			command=lambda: self.updateDictFromGUI(visualDict))
-		self.tBtn_updateVisualDict.grid(row=12,column=1,padx=10,pady=2,sticky=W)
+		self.tBtn_updateVisualDict.grid(row=12,column=0,padx=2,pady=2)
 	def makeOpticalWindow(self,master,opticalDict):
 		
 		self.opticalControl_frame = Toplevel(self.master)
 		self.opticalControl_frame.title('Optical Probs')
-		self.populateVarFrameFromDict(opticalDict,0,20,'Pew Pew','opticalControl_frame',['varLabels','trialCount'])
+		self.populateVarFrameFromDict(opticalDict,0,20,'Pew Pew','opticalControl_frame',['varLabels','trialCount'],entryWidth=12)
+		self.tBtn_updateOpticalDict = Button(self.opticalControl_frame,text="Update Optical Vars",justify=LEFT,width=15,\
+			command=lambda: self.updateDictFromGUI(opticalDict))
+		self.tBtn_updateOpticalDict.grid(row=22,column=0,padx=2,pady=2)
 	def makeDevControl(self,varDict):
 		
 		dCBWd = 12
@@ -506,7 +512,6 @@ class csGUI(object):
 			for x in range(0,len(tempMeta)):
 				varKey=tempMeta.iloc[x].name
 				varVal=tempMeta.iloc[x][1]
-				
 				# now we need to divine curVar's data type.
 				# we first try to see if it is numeric.
 				try:
@@ -527,8 +532,90 @@ class csGUI(object):
 						g=1
 				varDict[varKey]=tType
 		except:
-			g=1
-		
+			pass
+		try:
+			tempMeta=pd.read_csv(selectPath +'/' + 'sensVars.csv',index_col=0,header=None)
+			for x in range(0,len(tempMeta)):
+				varKey=tempMeta.iloc[x].name
+				varVal=tempMeta.iloc[x][1]
+				# now we need to divine curVar's data type.
+				# we first try to see if it is numeric.
+				if ',' in varVal:
+					varVal=varVal[1:-1].split(',')
+					tempList = []
+					for n in varVal:
+						try: 
+							n = float(n)
+							if n.is_integer():
+								n = int(n)
+							tempList.append(n)
+						except:
+							tempList.append(n)
+					tType = tempList
+
+				elif '[' not in varVal:
+					try:
+						tType=float(varVal)
+						if int(tType)==tType:
+							tType=int(tType)
+						# update any text variables that may exist.
+						try:
+							exec('self.' + varKey + '_TV.set({})'.format(tType))
+						except:
+							g=1
+					except:
+						tType=varVal
+				# update any text variables that may exist.
+				try:
+					exec('self.' + varKey + '_TV.set("{}")'.format(tType))
+				except:
+					g=1
+				visualDict[varKey]=tType
+		except:
+			pass
+		try:
+			tempMeta=pd.read_csv(selectPath +'/' + 'opticalVars.csv',index_col=0,header=None)
+			for x in range(0,len(tempMeta)):
+				varKey=tempMeta.iloc[x].name
+				varVal=tempMeta.iloc[x][1]
+				# now we need to divine curVar's data type.
+				# we first try to see if it is numeric.
+				if ',' in varVal:
+					
+					varVal=varVal[1:-1].split(',')
+
+					tempList = []
+					for n in varVal:
+						try: 
+							n = float(n)
+							if n.is_integer():
+								n = int(n)
+							tempList.append(n)
+						except:
+							tempList.append(n)
+					tType = tempList
+
+				elif '[' not in varVal:
+					try:
+						tType=float(varVal)
+						if int(tType)==tType:
+							tType=int(tType)
+						# update any text variables that may exist.
+						try:
+							exec('self.' + varKey + '_TV.set({})'.format(tType))
+						except:
+							g=1
+					except:
+						tType=varVal
+				# update any text variables that may exist.
+				try:
+					exec('self.' + varKey + '_TV.set("{}")'.format(tType))
+				except:
+					g=1
+				opticalDict[varKey]=tType
+		except:
+			pass
+		return varDict,visualDict,opticalDict,timingDict
 		# if there is ...
 	def toggleTaskButtons(self,boolState):
 		if boolState == 1:
@@ -537,54 +624,54 @@ class csGUI(object):
 		elif boolState == 0:
 			self.tBtn_trialOpto['state'] = 'disabled'
 			self.tBtn_detection['state'] = 'disabled'
-	def updateDictFromGUI(self,varDict):
+	def updateDictFromGUI(self,varDict,excludeKeys=['varLabels']):
 
 		for key in list(varDict.keys()):
+			if key not in excludeKeys:
 
-			isRange = 0
-			isList = 0
-			excludedListChars = ['"',"'",'(',')',',']
+				isRange = 0
+				isList = 0
+				excludedListChars = ['"',"'",'(',')',',']
 
-			try:
-				a=eval('self.{}_TV.get()'.format(key))
-				# if a exists, then check to see if it is a list or range, assume singleton if not
-				if '>' in a:
-					# then range
-					isRange = 1
-					tSplit = a.split(',')
-					tRange = range(int(tSplit[0]),int(tSplit[2])+1)
-					exec('varDict["{}"]={}'.format(key,tRange))
-				elif ',' in a and '>' not in a:
-					# when it sees a list it comes from tkinter in what is an attempt at a tuple, but ends up a string form
-					# so there is some strip hackery going on here. 
-					isList = 1
-					if a[0] is not '(':
-						a = ',' + a
-					a = a.strip('"(''"')[1:].split(',')
-					tempList = []
-					for n in a:
-						try: 
-							n = float(n)
-							if n.is_integer():
-								n = int(n)
-							tempList.append(n)
-						except:
-							if n not in excludedListChars:
+				try:
+					a=eval('self.{}_TV.get()'.format(key))
+					# if a exists, then check to see if it is a list or range, assume singleton if not
+					if '>' in a:
+						# then range
+						isRange = 1
+						tSplit = a.split(',')
+						tRange = range(int(tSplit[0]),int(tSplit[2])+1)
+						exec('varDict["{}"]={}'.format(key,tRange))
+					elif ',' in a and '>' not in a:
+						# when it sees a list it comes from tkinter in what is an attempt at a tuple, but ends up a string form
+						# so there is some strip hackery going on here. 
+						isList = 1
+						if a[0] is not '(':
+							a = ',' + a
+						a = a.strip('"(''"')[1:].split(',')		
+						tempList = []
+						for n in a:
+							try: 
+								n = float(n)
+								if n.is_integer():
+									n = int(n)
 								tempList.append(n)
+							except:
+								if n not in excludedListChars:
+									tempList.append(n)
 
-					varDict[key]=tempList
-				elif ',' not in a and '>' not in a:
-					# then singleton           
-					try:
-						a=float(a)
-						if a.is_integer():
-							a=int(a)
-						exec('varDict["{}"]={}'.format(key,a))
-					except:
-						exec('varDict["{}"]="{}"'.format(key,a))
-			except:
-				pass
-		print(varDict)
+							varDict[key]=tempList
+					elif ',' not in a and '>' not in a:
+						# then singleton           
+						try:
+							a=float(a)
+							if a.is_integer():
+								a=int(a)
+							exec('varDict["{}"]={}'.format(key,a))
+						except:
+							exec('varDict["{}"]="{}"'.format(key,a))
+				except:
+					pass
 		return varDict
 	def updateDictFromTXT(self,varDict,configF):
 		for key in list(varDict.keys()):
@@ -609,13 +696,14 @@ class csGUI(object):
 		timingDict['trial_wait_steps']=np.arange(timingDict['trial_wait_null'],timingDict['trial_wait_max'])
 		timingDict['lick_wait_steps']=np.arange(timingDict['lick_wait_null'],timingDict['lick_wait_max'])
 		return timingDict
-	def dictToPandas(self,varDict):
+	def dictToPandas(self,varDict,excludeKeys=['varLabels']):
 		curKey=[]
 		curVal=[]
 		for key in list(varDict.keys()):
-			curKey.append(key)
-			curVal.append(varDict[key])
-			self.pdReturn=pd.Series(curVal,index=curKey)
+			if key not in excludeKeys:
+				curKey.append(key)
+				curVal.append(varDict[key])
+				self.pdReturn=pd.Series(curVal,index=curKey)
 		return self.pdReturn
 	def closeup(self,varDict,visualDict,timingDict,opticalDict):
 		self.toggleTaskButtons(1)
@@ -640,10 +728,10 @@ class csGUI(object):
 
 		try:
 			varDict['sessionOn']=0
+
 		except:
 			varDict['canQuit']=1
 			quitButton['text']="Quit"
-
 
 		if varDict['canQuit']==1:
 			# try to close a plot and exit    
@@ -746,7 +834,6 @@ class csGUI(object):
 	def do_trialOpto(self):
 		
 		runTrialOptoTask()
-
 class csVariables(object):
 	def __init__(self,sesVarDict={},sesSensDict={},sesTimingDict={},sesOpticalDict={}):
 
