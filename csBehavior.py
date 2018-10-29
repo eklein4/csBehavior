@@ -840,14 +840,15 @@ class csVariables(object):
 		self.sesVarDict={'curSession':1,'comPath_teensy':'/dev/cu.usbmodem4589151',\
 		'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':100,\
 		'logMQTT':1,'mqttUpDel':0.05,'curWeight':20,'rigGMTZoneDif':5,'volPerRwd':0.0023,\
-		'waterConsumed':0,'consumpTarg':1.5,'dirPath':'/Users/Deister/BData',\
+		'wate0rConsumed':0,'consumpTarg':1.5,'dirPath':'/Users/Deister/BData',\
 		'hashPath':'/Users/cad','trialNum':0,'sessionOn':1,'canQuit':1,\
 		'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':15,\
 		'rewardDur':500,'lickAThr':3900,'lickLatchA':0,'minNoLickTime':1000,\
 		'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStimTime':1500,\
 		'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':0,'loadScale':1,\
 		'serBufSize':4096,'ramp1Dur':2000,'ramp1Amp':4095,'ramp2Dur':2000,'ramp2Amp':4095,\
-		'detectPlotNum':100,'updateCount':500,'plotSamps':200,'taskType':'detection','useFlybackOpto':0,'flybackScale':100}
+		'detectPlotNum':100,'updateCount':500,'plotSamps':200,'taskType':'detection',\
+		'useFlybackOpto':0,'flybackScale':100,'pulsefrequency':20,'pulsedutycycle':10}
 
 		self.sesSensDict={'trialCount':1000,'contrast_null':0,'contrast_max':100,\
 		'contrast_steps':[1,2,5,10,20,30,50,70],'contrast_nullProb':0.47,'contrast_maxProb':1.0,\
@@ -1338,7 +1339,6 @@ class csPlot(object):
 		self.pClrs={'right':'#D9220D','cBlue':'#33A4F3','cPurp':'#6515D9',\
 		'cOrange':'#F7961D','left':'cornflowerblue','cGreen':'#29AA03'}
 	def initializeDetectFigVars(self,stPlotX={},stPlotY={},stPlotRel={},pClrs={},pltX=[],pltY=[]):
-
 		self.stPlotX={'init':0.10,'wait':0.10,'stim':0.30,'catch':0.30,'rwd':0.50,'TO':0.50}
 		self.stPlotY={'init':0.65,'wait':0.40,'stim':0.52,'catch':0.28,'rwd':0.52,'TO':0.28}
 		# # todo:link actual state dict to plot state dict, now its a hack
@@ -1518,7 +1518,6 @@ class csPlot(object):
 		except:
 			 a=1
 	def updateStateFig(self,curState):
-		print("up state")
 		try:
 			self.curStLine.set_xdata(self.pltX[curState])
 			self.curStLine.set_ydata(self.pltY[curState])
@@ -1528,12 +1527,9 @@ class csPlot(object):
 
 			self.trialFig.canvas.draw_idle()
 			self.trialFig.canvas.flush_events()
-			print("done state a")
 
 		except:
-			print(curState)
-			print("done state b")
-		
+			 pass
 	def updateOutcome(self,stimTrials,stimResponses,noStimTrials,noStimResponses,totalTrials):
 		sM=0.001
 		nsM=0.001
@@ -2000,11 +1996,11 @@ def runDetectionTask():
 					if curStateTime>waitTime:
 						stateSync=0
 						if csVar.contrast[tTrial]>0:
-							pyState=7
-							teensy.write('a7>'.encode('utf-8'))
+							pyState=2
+							teensy.write('a2>'.encode('utf-8'))
 						elif csVar.contrast[tTrial]==0:
-							pyState=8
-							teensy.write('a8>'.encode('utf-8'))
+							pyState=3
+							teensy.write('a3>'.encode('utf-8'))
 
 				if pyState == 2 and stateSync==1:
 					if sHeaders[pyState]==0:
@@ -2636,8 +2632,8 @@ def runTrialOptoTask():
 						# 4) inform the user via the terminal what's going on.
 						print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],\
 							csVar.sesVarDict['totalTrials']))
-						print('stim amp ch1: {} ; stim amp ch2: {}'.format(csVar.c1_amp[tTrial],csVar.c1_amp[tTrial-1]))
-						print('estimated trial time = {}'.format(csVar.lick_wait[tTrial] + csVar.trial_wait[tTrial-1]))
+						print('stim amp ch1: {} ; stim amp ch2: {}'.format(csVar.c1_amp[tTrial],csVar.c1_amp[tTrial]))
+						print('estimated trial time = {}'.format(csVar.lick_wait[tTrial] + csVar.trial_wait[tTrial]))
 
 						# close the header and flip the others open.
 						sHeaders[pyState]=1
@@ -2696,6 +2692,33 @@ def runTrialOptoTask():
 						# if csVar.sesVarDict['trialNum']==csVar.sesVarDict['totalTrials']:
 						# 		csVar.sesVarDict['sessionOn']=0
 						stateSync=0
+
+						### SF: set up pulse parameters based on user input 
+						### SF: g0 = pulse. g1 = ramps, p = light on time. d = light off time, m = number of pulses 
+						teensy.write('g0>'.encode('utf-8'))
+						### SF: determine the period given pulsefrequency input 
+						per = 1000/csVar.sesVarDict['pulsefrequency']
+						### SF: determine light on time given duty cycle input 
+						LON = per*csVar.sesVarDict['pulsedutycycle']*.01
+						### SF: determine light off time given LON
+						LOFF = per - LON 
+						### SF: determine number of pulses given pulse frequency and pulse time 
+						#numpulses = csVar.sesVarDict['pulsefrequency']*csVar.trial_wait_o[tTrial]*0.001 
+						### SF: send LON, LOFFm and numpulses to the teensy depending on state
+						if csVar.sesVarDict['useFlybackOpto']==1:
+							teensy.write('p{}1>'.format(LON).encode('utf-8'))
+							teensy.write('d{}1>'.format(LOFF).encode('utf-8'))
+							#teensy.write('m{}1>'.format(numpulses).encode('utf-8'))
+							teensy.write('p{}2>'.format(LON).encode('utf-8'))
+							teensy.write('d{}2>'.format(LOFF).encode('utf-8'))
+							#teensy.write('m{}2>'.format(numpulses).encode('utf-8'))
+						elif csVar.sesVarDict['useFlybackOpto']==0:
+							teensy.write('p{}1>'.format(LON).encode('utf-8'))
+							teensy.write('d{}1>'.format(LOFF).encode('utf-8'))
+							#teensy.write('m{}1>'.format(numpulses).encode('utf-8'))
+
+						# we ask teensy to go to new state.
+						#SF: state 7 = nonflyback stim; state 8 = flyback stim
 						if csVar.sesVarDict['useFlybackOpto']==1:
 							pyState=8
 							teensy.write('a8>'.encode('utf-8'))
@@ -2819,60 +2842,48 @@ def runTrialOptoTask():
 						teensy.write('a1>'.encode('utf-8'))
 						print('last trial took: {} seconds'.format(sampLog[-1]/1000))
 
+
 				if pyState == 7 and stateSync==1:
 					if sHeaders[pyState]==0:
 						if useGUI==1:
 							csPlt.updateStateFig(pyState)
-						reported=0
+							print("updated State fig state 7")
 						lickCounter=0
 						lastLick=0
 						outSyncCount=0
 						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0                        
-	 
-					if lastLick>0.02:
-						reported=1
-
-					if curStateTime>csVar.sesVarDict['minStimTime']:
-			
-						stimTrials.append(csVar.sesVarDict['trialNum'])
-						stimResponses.append(0)
-						stateSync=0
-						pyState=1
+						sHeaders[np.setdiff1d(sList,pyState)]=0
+						print("leaving header")
+					
+					# exit
+					if curStateTime>=csVar.sesVarDict['minStimTime']:
+						print('will exit')
 						trialSamps[1]=loopCnt
 						sampLog.append(np.diff(trialSamps)[0])
+						stateSync=0
+						pyState=1
 						teensy.write('a1>'.encode('utf-8'))
-						if useGUI==1:
-							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-								csVar.sesVarDict['totalTrials'])
-							
+						print('last trial took: {} seconds'.format(sampLog[-1]/1000))
 
 				if pyState == 8 and stateSync==1:
 					if sHeaders[pyState]==0:
 						if useGUI==1:
 							csPlt.updateStateFig(pyState)
-						reported=0
+							print("updated State fig state 7")
 						lickCounter=0
 						lastLick=0
 						outSyncCount=0
 						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0                        
-	 
-					if lastLick>0.02:
-						reported=1
-
+						sHeaders[np.setdiff1d(sList,pyState)]=0
+					
+					# exit
 					if curStateTime>csVar.sesVarDict['minStimTime']:
-			
-						stimTrials.append(csVar.sesVarDict['trialNum'])
-						stimResponses.append(0)
-						stateSync=0
-						pyState=1
 						trialSamps[1]=loopCnt
 						sampLog.append(np.diff(trialSamps)[0])
+						stateSync=0
+						pyState=1
 						teensy.write('a1>'.encode('utf-8'))
-						if useGUI==1:
-							csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-								csVar.sesVarDict['totalTrials'])
+						print('last trial took: {} seconds'.format(sampLog[-1]/1000))
 		except:
 			sesData.flush()
 			np.save('sesData.npy',sesData)
