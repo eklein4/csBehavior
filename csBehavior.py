@@ -1001,7 +1001,7 @@ class csVariables(object):
 		'optoITI_null':self.sesVarDict['minOptoITI'],'optoITI_max':self.sesVarDict['maxOptoITI'],\
 		'optoITI_steps':np.round(np.linspace(self.sesVarDict['minOptoITI'],self.sesVarDict['maxOptoITI'],num=self.sesVarDict['numITIsteps'])),\
 		'optoITI_maxProb':0.0,'optoITI_nullProb':0.0,\
-		'varLabels':['trial_wait','lick_wait']}#,'optoITI']}
+		'varLabels':['trial_wait','lick_wait','optoITI']}
 		self.sesTimingDict['trial_wait_steps']=range(self.sesTimingDict['trial_wait_null']+1,self.sesTimingDict['trial_wait_max'])
 		self.sesTimingDict['lick_wait_steps']=range(self.sesTimingDict['lick_wait_null']+1,self.sesTimingDict['lick_wait_max'])
 
@@ -2723,12 +2723,17 @@ def runTrialOptoTask():
 						
 						# 3) incrment the trial count and 
 						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
+						print("crash here?")
+						print(csVar.optoITI)
 						csVar.optoITI[0]=csVar.sesVarDict['firstTrialWait']
-						csVar.waitTime[0]=csVar.sesVarDict['firstTrialWait']
-
+						print("crash here 2?")
+												
 
 						waitTime = csVar.trial_wait[tTrial]
 						optoITI = csVar.optoITI[tTrial]
+						print("crash here 3?")
+						print(waitTime)
+						print(optoITI)
 
 						lickWaitTime = 0
 						# csVar.lick_wait[tTrial]
@@ -2792,6 +2797,7 @@ def runTrialOptoTask():
 
 
 					if lickCounter>lastLickCount:
+						
 						lastLickCount=lickCounter
 						# if the lick happens such that the minimum lick time will go over the pre time, 
 						# then we advance waitTime by the minumum
@@ -2799,23 +2805,28 @@ def runTrialOptoTask():
 							waitTime = waitTime + lickWaitTime
 							actualWait[-1]=waitTime
 
-					if curStateTime>waitTime:
+					if curStateTime>optoITI:
+						print("deciding to exit")
 						# if csVar.sesVarDict['trialNum']==csVar.sesVarDict['totalTrials']:
 						# 		csVar.sesVarDict['sessionOn']=0
 						stateSync=0
-
+						print("deciding to exit2")
 						### SF: set up pulse parameters based on user input 
 						### SF: g0 = pulse. g1 = ramps, p = light on time. d = light off time, m = number of pulses 
-						teensy.write('g0>'.encode('utf-8'))
+						#teensy.write('g0>'.encode('utf-8'))
 
 						### SF: determine the period given pulsefrequency input 
 						per = int(1000/csVar.sesVarDict['pulsefrequency'])
+						print("deciding to exit3")
 						### SF: determine light on time given duty cycle input 
 						LON = int(per*csVar.sesVarDict['pulsedutycycle']*.01)
+						print("deciding to exit4")
 						### SF: determine light off time given LON
 						LOFF = per - LON 
+						print("deciding to exit4")
 						## SF: determine number of pulses given pulse frequency and pulse time 
-						numpulses = csVar.sesVarDict['pulsefrequency']*csVar.trial_wait_o[tTrial]*0.001 
+						numpulses = int(csVar.sesVarDict['pulsefrequency']*csVar.optoITI[tTrial]*0.001)
+						print("deciding to exit5") 
 						## SF: send LON, LOFFm and numpulses to the teensy depending on state
 						if csVar.sesVarDict['useFlybackOpto']==1:
 							teensy.write('p{}1>'.format(LON).encode('utf-8'))
@@ -2831,10 +2842,13 @@ def runTrialOptoTask():
 
 						# we ask teensy to go to new state.
 						#SF: state 7 = nonflyback stim; state 8 = flyback stim
+						print("deciding where to exit")
 						if csVar.sesVarDict['useFlybackOpto']==1:
+							print("to 8")
 							pyState=8
 							teensy.write('a8>'.encode('utf-8'))
 						elif csVar.sesVarDict['useFlybackOpto']==0:
+							print("to 7")
 							pyState=7
 							teensy.write('a7>'.encode('utf-8'))
 
