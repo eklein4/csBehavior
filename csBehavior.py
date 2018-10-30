@@ -136,6 +136,17 @@ class csGUI(object):
 		self.te = Entry(self.taskBar,width=eWidth,textvariable=self.curSession_TV)
 		self.te.grid(row=cpRw,column=0,padx=0,sticky=E)
 
+		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
+		self.blL.grid(row=cpRw+1,column=0,padx=0,sticky=W)
+
+		cpRw=cpRw+2 
+		self.blL=Label(self.taskBar,text="Detection Task Controls: ",justify=LEFT)
+		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)  
+
+		cpRw=cpRw+1     
+		self.blL=Label(self.taskBar, text=" - - - - - - - - - - - - - - - - - - - - - ",justify=LEFT)
+		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)
+
 		cpRw=cpRw+1
 		self.lickAThr_label=Label(self.taskBar, text="Lick Thresh:", justify=LEFT)
 		self.lickAThr_label.grid(row=cpRw,column=0,padx=0,sticky=W)
@@ -176,8 +187,85 @@ class csGUI(object):
 		self.shapingTrial_Toggle.grid(row=cpRw,column=0,pady=4,sticky=W)
 		self.shapingTrial_Toggle.select()
 
+		cpRw=cpRw+1
+		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
+		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)   
 
-		anOrigin=anOrigin-3
+		cpRw=cpRw+1 
+		self.blL=Label(self.taskBar,text="Opto Controls: ",justify=LEFT)
+		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)   
+
+		cpRw=cpRw+1     
+		self.blL=Label(self.taskBar, text=" - - - - - - - - - - - - - - - - - - - - - ",justify=LEFT)
+		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)
+
+		cpRw=cpRw+1
+		self.useFlybackOpto_TV=IntVar()
+		self.useFlybackOpto_TV.set(varDict['chanPlot'])
+		self.useFlybackOpto_Toggle=Checkbutton(self.taskBar,text="Use Flyback Opto?",\
+			variable=self.useFlybackOpto_TV,onvalue=1,offvalue=0)
+		self.useFlybackOpto_Toggle.grid(row=cpRw,column=0,sticky=W)
+		self.useFlybackOpto_Toggle.select()
+
+		cpRw=cpRw+1
+		self.pulseTrainLength_label=Label(self.taskBar, text="Pulse Train Length:", justify=LEFT)
+		self.pulseTrainLength_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.pulseTrainLength_TV=StringVar(self.taskBar)
+		self.pulseTrainLength_TV.set(varDict['pulseTrainLength'])
+		self.pulseTrainLength_entry=Entry(self.taskBar, width=10, textvariable=self.pulseTrainLength_TV)
+		self.pulseTrainLength_entry.grid(row=cpRw,column=0,padx=0,sticky=E) 
+
+		cpRw=cpRw+1
+		self.pulsefrequency_label=Label(self.taskBar, text="Pulse Frequency:", justify=LEFT)
+		self.pulsefrequency_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.pulsefrequency_TV=StringVar(self.taskBar)
+		self.pulsefrequency_TV.set(varDict['pulsefrequency'])
+		self.pulsefrequency_entry=Entry(self.taskBar, width=10, textvariable=self.pulsefrequency_TV)
+		self.pulsefrequency_entry.grid(row=cpRw,column=0,padx=0,sticky=E) 
+
+		cpRw=cpRw+1
+		self.pulsedutycycle_label=Label(self.taskBar, text="Pulse Duty Cycle:", justify=LEFT)
+		self.pulsedutycycle_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.pulsedutycycle_TV=StringVar(self.taskBar)
+		self.pulsedutycycle_TV.set(varDict['pulsedutycycle'])
+		self.pulsedutycycle_entry=Entry(self.taskBar, width=10, textvariable=self.pulsedutycycle_TV)
+		self.pulsedutycycle_entry.grid(row=cpRw,column=0,padx=0,sticky=E) 
+
+		cpRw=cpRw+1
+		self.firstTrialWait_label=Label(self.taskBar, text="First Trial Wait:", justify=LEFT)
+		self.firstTrialWait_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.firstTrialWait_TV=StringVar(self.taskBar)
+		self.firstTrialWait_TV.set(varDict['firstTrialWait'])
+		self.firstTrialWait_entry=Entry(self.taskBar, width=10, textvariable=self.firstTrialWait_TV)
+		self.firstTrialWait_entry.grid(row=cpRw,column=0,padx=0,sticky=E) 
+
+		cpRw=cpRw+1
+		self.minOptoITI_label=Label(self.taskBar, text="Min ITI:", justify=LEFT)
+		self.minOptoITI_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.minOptoITI_TV=StringVar(self.taskBar)
+		self.minOptoITI_TV.set(varDict['minOptoITI'])
+		self.minOptoITI_entry=Entry(self.taskBar, width=10, textvariable=self.minOptoITI_TV)
+		self.minOptoITI_entry.grid(row=cpRw,column=0,padx=0,sticky=E) 
+
+		cpRw=cpRw+1
+		self.maxOptoITI_label=Label(self.taskBar, text="Max ITI:", justify=LEFT)
+		self.maxOptoITI_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.maxOptoITI_TV=StringVar(self.taskBar)
+		self.maxOptoITI_TV.set(varDict['maxOptoITI'])
+		self.maxOptoITI_entry=Entry(self.taskBar, width=10, textvariable=self.maxOptoITI_TV)
+		self.maxOptoITI_entry.grid(row=cpRw,column=0,padx=0,sticky=E) 
+
+		cpRw=cpRw+1
+		self.numITIsteps_label=Label(self.taskBar, text="Num ITI Steps:", justify=LEFT)
+		self.numITIsteps_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.numITIsteps_TV=StringVar(self.taskBar)
+		self.numITIsteps_TV.set(varDict['maxOptoITI'])
+		self.numITIsteps_entry=Entry(self.taskBar, width=10, textvariable=self.numITIsteps_TV)
+		self.numITIsteps_entry.grid(row=cpRw,column=0,padx=0,sticky=E) 
+
+
+
+		anOrigin=anOrigin+2
 		self.chanPlotIV=IntVar()
 		self.chanPlotIV.set(varDict['chanPlot'])
 		Radiobutton(self.taskBar, text="Load Cell", \
@@ -205,12 +293,12 @@ class csGUI(object):
 		self.logMQTT_Toggle=Checkbutton(self.taskBar,text="Log MQTT Info?",\
 			variable=self.logMQTT_TV,onvalue=1,offvalue=0)
 		self.logMQTT_Toggle.grid(row=cpRw,column=0,sticky=W)
-		self.logMQTT_Toggle.select()
+		self.logMQTT_Toggle.select
 
 
 		self.tBtn_detection = Button(self.taskBar,text="Task:Detection",justify=LEFT,\
 			width=c1Wd,command=self.do_detection)
-		self.tBtn_detection.grid(row=cpRw,column=1,padx=10,sticky=W)
+		self.tBtn_detection.grid(row=cpRw-10,column=1,padx=10,sticky=W)
 		self.tBtn_detection['state'] = 'disabled'
 
 		cpRw=cpRw+1
@@ -223,7 +311,7 @@ class csGUI(object):
 
 		self.tBtn_trialOpto = Button(self.taskBar,text="Task:Trial Opto",justify=LEFT,width=c1Wd,\
 			command=self.do_trialOpto)
-		self.tBtn_trialOpto.grid(row=cpRw,column=1,padx=10,sticky=W)
+		self.tBtn_trialOpto.grid(row=cpRw-10,column=1,padx=10,sticky=W)
 		self.tBtn_trialOpto['state'] = 'disabled'
 
 		cpRw=cpRw+1
@@ -236,27 +324,27 @@ class csGUI(object):
 
 		self.stimButton = Button(self.taskBar,text="Dev:Stim",justify=LEFT,width=c1Wd,\
 			command= lambda: self.makePulseControl(varDict))
-		self.stimButton.grid(row=cpRw,column=1,padx=10,sticky=W)
+		self.stimButton.grid(row=cpRw-10,column=1,padx=10,sticky=W)
 
 		cpRw=cpRw+1
 		self.devControlButton = Button(self.taskBar,text="Dev:Gen",justify=LEFT,width=c1Wd,\
 			command= lambda: self.makeDevControl(varDict))
-		self.devControlButton.grid(row=cpRw,column=1,padx=10,sticky=W)
+		self.devControlButton.grid(row=cpRw-10,column=1,padx=10,sticky=W)
 
 		# options:
 		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
 		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)
 		cpRw=cpRw+1
 		self.quitButton = Button(self.taskBar,text="Quit",width=c1Wd,command=lambda: self.closeup(varDict,visualDict,timingDict,opticalDict))
-		self.quitButton.grid(row=cpRw,column=0,padx=10,pady=5,sticky=W)
+		self.quitButton.grid(row=cpRw-6,column=1,padx=10,pady=5,sticky=W)
 		
 		self.tBtn_timeWin = Button(self.taskBar,text="Options: Timing",justify=LEFT,width=c1Wd,\
 			command=lambda: self.makeTimingWindow(self,timingDict))
-		self.tBtn_timeWin.grid(row=cpRw,column=1,padx=10,pady=5,sticky=W)
+		self.tBtn_timeWin.grid(row=cpRw-10,column=1,padx=10,pady=5,sticky=W)
 
 		self.tBtn_visualWin = Button(self.taskBar,text="Options: Visual",justify=LEFT,width=c1Wd,\
 			command=lambda: self.makeVisualWindow(self,visualDict))
-		self.tBtn_visualWin.grid(row=cpRw+1,column=1,padx=10,pady=2,sticky=W)
+		self.tBtn_visualWin.grid(row=cpRw-9,column=1,padx=10,pady=2,sticky=W)
 
 		self.tBtn_opticalWin = Button(self.taskBar,text="Options: Optical",justify=LEFT,width=c1Wd,\
 			command=lambda: self.makeOpticalWindow(self,opticalDict))
@@ -848,7 +936,8 @@ class csVariables(object):
 		'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':0,'loadScale':1,\
 		'serBufSize':4096,'ramp1Dur':2000,'ramp1Amp':4095,'ramp2Dur':2000,'ramp2Amp':4095,\
 		'detectPlotNum':100,'updateCount':500,'plotSamps':200,'taskType':'detection',\
-		'useFlybackOpto':0,'flybackScale':100,'pulsefrequency':20,'pulsedutycycle':10}
+		'useFlybackOpto':1,'flybackScale':100,'pulsefrequency':20,'pulsedutycycle':10,\
+		'firstTrialWait':10000,'minOptoITI':3000,'maxOptoITI':10000,'numITIsteps':5,'pulseTrainLength':5000}
 
 		self.sesSensDict={'trialCount':1000,'contrast_null':0,'contrast_max':100,\
 		'contrast_steps':[1,2,5,10,20,30,50,70],'contrast_nullProb':0.47,'contrast_maxProb':1.0,\
@@ -909,9 +998,14 @@ class csVariables(object):
 		self.sesTimingDict={'trialCount':1000,'trial_wait_null':3000,'trial_wait_max':11000,\
 		'trial_wait_maxProb':0.0,'trial_wait_nullProb':0.0,\
 		'lick_wait_null':599,'lick_wait_max':2999,'lick_wait_maxProb':0.0,'lick_wait_nullProb':0.0,\
-		'varLabels':['trial_wait','lick_wait']}
+		'optoITI_null':self.sesVarDict['minOptoITI'],'optoITI_max':self.sesVarDict['maxOptoITI'],\
+		'optoITI_steps':np.round(np.linspace(self.sesVarDict['minOptoITI'],self.sesVarDict['maxOptoITI'],num=self.sesVarDict['numITIsteps'])),\
+		'optoITI_maxProb':0.0,'optoITI_nullProb':0.0,\
+		'varLabels':['trial_wait','lick_wait','optoITI']}
 		self.sesTimingDict['trial_wait_steps']=range(self.sesTimingDict['trial_wait_null']+1,self.sesTimingDict['trial_wait_max'])
 		self.sesTimingDict['lick_wait_steps']=range(self.sesTimingDict['lick_wait_null']+1,self.sesTimingDict['lick_wait_max'])
+
+
 
 	def updateDictFromTXT(self,varDict,configF):
 		for key in list(varDict.keys()):
@@ -2625,7 +2719,11 @@ def runTrialOptoTask():
 						
 						# 3) incrment the trial count and 
 						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
+						csVar.optoITI[0]=csVar.sesVarDict['firstTrialWait']
+
 						waitTime = csVar.trial_wait[tTrial]
+						optoITI = csVar.optoITI[tTrial]
+
 						lickWaitTime = 0
 						# csVar.lick_wait[tTrial]
 
@@ -2688,7 +2786,7 @@ def runTrialOptoTask():
 							waitTime = waitTime + lickWaitTime
 							actualWait[-1]=waitTime
 
-					if curStateTime>waitTime:
+					if curStateTime>optoITI:
 						# if csVar.sesVarDict['trialNum']==csVar.sesVarDict['totalTrials']:
 						# 		csVar.sesVarDict['sessionOn']=0
 						stateSync=0
@@ -2856,7 +2954,7 @@ def runTrialOptoTask():
 						print("leaving header")
 					
 					# exit
-					if curStateTime>=csVar.sesVarDict['minStimTime']:
+					if curStateTime>=csVar.sesVarDict['pulseTrainLength']:
 						print('will exit')
 						trialSamps[1]=loopCnt
 						sampLog.append(np.diff(trialSamps)[0])
@@ -2877,7 +2975,7 @@ def runTrialOptoTask():
 						sHeaders[np.setdiff1d(sList,pyState)]=0
 					
 					# exit
-					if curStateTime>csVar.sesVarDict['minStimTime']:
+					if curStateTime>csVar.sesVarDict['pulseTrainLength']:
 						trialSamps[1]=loopCnt
 						sampLog.append(np.diff(trialSamps)[0])
 						stateSync=0
