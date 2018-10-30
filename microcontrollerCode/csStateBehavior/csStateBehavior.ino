@@ -200,7 +200,7 @@ int knownCount = 21;
 // 7: Write Value (determined by the pulseGen function and is what we write to the DAC each interrupt).
 // 8: number of pulses to complete
 // todo: swap 7 and 8
-uint32_t pulseTrainVars[][9] =
+volatile uint32_t pulseTrainVars[][9] =
 { {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13]},
   {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13]},
   {1, 1, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13]},
@@ -396,8 +396,10 @@ void vStates() {
         visStim(2);
         blockStateChange = 0;
       }
-      stimGen(pulseTrainVars);
-      setAnalogOutValues(analogOutVals, pulseTrainVars);
+      analogOutVals[0] = 0;
+      analogOutVals[1] = 0;
+      analogOutVals[2] = 0;
+      analogOutVals[3] = 0;
       genericStateBody();
     }
 
@@ -493,6 +495,7 @@ void vStates() {
         visStim(0);
         blockStateChange = 0;
       }
+      stimGen(pulseTrainVars);
       analogOutVals[0] = 0;
       analogOutVals[1] = 0;
       analogOutVals[2] = 0;
@@ -786,23 +789,39 @@ void frameCount() {
 }
 
 void flybackStim_On() {
-  curLine = micros();
-  lineTime = curLine - lastLine;
+  int tickDwell = 10;
   elapsedMicros pfTime;
+  elapsedMicros tickTime;
+//  pulseTrainVars[0][2] = pulseTrainVars[0][2]*100;
+//  pulseTrainVars[1][2] = pulseTrainVars[1][2]*100;
+//  
   pfTime = 0;
+  tickTime = 0;
+  bool ticked = 0;
   if (knownValues[0] == 8) {
-    digitalWrite(pmtBlank, HIGH);
+//    pulseTrainVars[0][2] = pulseTrainVars[0][2]*100;
+//    pulseTrainVars[1][2] = pulseTrainVars[1][2]*100;
     while (pfTime <= knownValues[16]) {
-      stimGen(pulseTrainVars);
-      analogWrite(DAC1, pulseTrainVars[0][7]);
-      analogWrite(DAC2, pulseTrainVars[1][7]);
-      delayMicroseconds(1);
+      if (ticked==0){
+        stimGen(pulseTrainVars);
+        analogWrite(DAC1, pulseTrainVars[0][7]);
+        analogWrite(DAC2, pulseTrainVars[1][7]);
+        ticked=1;
+      }
+      else if (ticked == 1){
+        analogWrite(DAC1, 0);
+        analogWrite(DAC2, 0);
+        if (tickTime >= tickDwell){
+          ticked=0;
+          tickTime=0;
+        }
+      }
     }
     analogWrite(DAC1, 0);
     analogWrite(DAC2, 0);
-    digitalWrite(pmtBlank, LOW);
+//    pulseTrainVars[0][2] = pulseTrainVars[0][2]*0.001;
+//    pulseTrainVars[1][2] = pulseTrainVars[1][2]*0.001;
   }
-  lastLine = curLine;
 }
 
 
@@ -810,7 +829,7 @@ void flybackStim_On() {
 // ****************************************************************
 // **************  Pulse Train Function ***************************
 // ****************************************************************
-void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][9]) {
+void setAnalogOutValues(uint32_t dacVals[], volatile uint32_t pulseTracker[][9]) {
   dacVals[0] = pulseTracker[0][7];
   dacVals[1] = pulseTracker[1][7];
   dacVals[2] = pulseTracker[2][7];
@@ -824,7 +843,7 @@ void writeAnalogOutValues(uint32_t dacVals[]) {
   //  dac4.setVoltage(dacVals[3], false);
 }
 
-void stimGen(uint32_t pulseTracker[][9]) {
+void stimGen(volatile uint32_t pulseTracker[][9]) {
   int i;
   for (i = 0; i < 4; i = i + 1) {
     // *** 0 == Square Waves

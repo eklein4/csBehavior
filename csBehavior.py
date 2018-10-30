@@ -865,16 +865,16 @@ class csVariables(object):
 		'varLabels':['contrast','orientation','spatialFreq','xPos','yPos','stimSize']}
 
 		self.sesOpticalDict={'trialCount':1000,\
-		'c1_amp_null':0,'c1_amp_max':4095,'c1_amp_steps':[1000,2000,3000],\
-		'c1_amp_nullProb':0.0,'c1_amp_maxProb':0.5,\
+		'c1_amp_null':0,'c1_amp_max':4095,'c1_amp_steps':[],\
+		'c1_amp_nullProb':0.0,'c1_amp_maxProb':1.0,\
 		'c1_pulseDur_null':10,'c1_pulseDur_max':10,'c1_pulseDur_steps':[],\
 		'c1_pulseDur_nullProb':0.0,'c1_pulseDur_maxProb':1.0,
 		'c1_ipi_null':90,'c1_ipi_max':90,'c1_ipi_steps':[],\
 		'c1_ipi_nullProb':0.0,'c1_ipi_maxProb':1.0,\
 		'c1_pulseCount_null':5,'c1_pulseCount_max':100,'c1_pulseCount_steps':[],\
 		'c1_pulseCount_nullProb':0.5,'c1_pulseCount_maxProb':0.5,\
-		'c2_amp_null':0,'c2_amp_max':4095,'c2_amp_steps':[1000,2000,3000],\
-		'c2_amp_nullProb':0.0,'c2_amp_maxProb':0.5,\
+		'c2_amp_null':0,'c2_amp_max':4095,'c2_amp_steps':[],\
+		'c2_amp_nullProb':0.0,'c2_amp_maxProb':1.0,\
 		'c2_pulseDur_null':10,'c2_pulseDur_max':10,'c2_pulseDur_steps':[],\
 		'c2_pulseDur_nullProb':0.0,'c2_pulseDur_maxProb':1.0,
 		'c2_ipi_null':90,'c2_ipi_max':90,'c2_ipi_steps':[],\
@@ -898,7 +898,7 @@ class csVariables(object):
 		'c4_pulseCount_null':100,'c4_pulseCount_max':100,'c4_pulseCount_steps':[],\
 		'c4_pulseCount_nullProb':0.0,'c4_pulseCount_maxProb':1.0,\
 		'c1_mask_null':2,'c1_mask_max':1,'c1_mask_steps':[],\
-		'c1_mask_nullProb':0.2,'c1_mask_maxProb':0.8,\
+		'c1_mask_nullProb':0.5,'c1_mask_maxProb':0.5,\
 		'varLabels': ['c1_amp','c1_pulseDur','c1_ipi','c1_pulseCount',\
 		'c2_amp','c2_pulseDur','c2_ipi','c2_pulseCount',\
 		'c3_amp','c3_pulseDur','c3_ipi','c3_pulseCount',\
@@ -1316,12 +1316,14 @@ class csSerial(object):
 		return self.returnVar,self.dNew
 
 	def sendAnalogOutValues(self,comObj,varChar,sendValues):
+		print("sending analog")
 		# Specific to csStateBehavior defaults.
 		# Analog output is handled by passing a variable and specifying a channel (1-4)
 		comObj.write('{}{}1>'.format(varChar,sendValues[0]).encode('utf-8'))
 		comObj.write('{}{}2>'.format(varChar,sendValues[1]).encode('utf-8'))
 		comObj.write('{}{}3>'.format(varChar,sendValues[2]).encode('utf-8'))
 		comObj.write('{}{}4>'.format(varChar,sendValues[3]).encode('utf-8'))
+		print("success")
 
 	def sendVisualValues(self,comObj,trialNum):
 		
@@ -2595,15 +2597,17 @@ def runTrialOptoTask():
 							eval("csVar.{}.append(csVar.trialVars_opticalStim[tTrial,tCount])".format(x))
 							tCount = tCount+1
 						
+						print("MASK VALUE IS ****** {}".format(csVar.c1_mask[tTrial]))
 						if csVar.c1_mask[tTrial]==2:
-							print("mask trial; mask amp = {}".format(csVar.c2_amp[tTrial]))
 							csVar.c1_amp[tTrial]=0
-							csVar.c2_amp[tTrial]=csVar.c2_amp[tTrial]
+							# csVar.c2_amp[tTrial]=csVar.c2_amp[tTrial]
+							print("mask trial; mask amp = {}; stim amp = {}".format(csVar.c2_amp[tTrial],csVar.c1_amp[tTrial]))
 
 						elif csVar.c1_mask[tTrial]==1:
-							print("stim trial; stim amp = {}".format(csVar.c1_amp[tTrial]))
-							csVar.c1_amp[tTrial]=csVar.c1_amp[tTrial]
+							
+							# csVar.c1_amp[tTrial]=csVar.c1_amp[tTrial]
 							csVar.c2_amp[tTrial]=0
+							print("stim trial; mask amp = {}; stim amp = {}".format(csVar.c2_amp[tTrial],csVar.c1_amp[tTrial]))
 
 
 
@@ -2656,20 +2660,27 @@ def runTrialOptoTask():
 						serialVarTracker[2] = 1
 
 					elif serialVarTracker[3] == 0 and curStateTime>=310:
+						per = int(1000/csVar.sesVarDict['pulsefrequency'])
+						### SF: determine light on time given duty cycle input 
+						p_on = int(per*csVar.sesVarDict['pulsedutycycle']*.01)
+						### SF: determine light off time given p_on
+						p_off = per - p_on
+
+
 						if csVar.sesVarDict['useFlybackOpto']==1:
-							csVar.c1_pulseDur[tTrial] = csVar.c1_pulseDur[tTrial]*csVar.sesVarDict['flybackScale']
-							csVar.c2_pulseDur[tTrial] = csVar.c2_pulseDur[tTrial]*csVar.sesVarDict['flybackScale']
-						optoPulseDurs = [int(csVar.c1_pulseDur[tTrial]),int(csVar.c2_pulseDur[tTrial]),\
-						int(csVar.c3_pulseDur[tTrial]),int(csVar.c4_pulseDur[tTrial])]
+							p_on=p_on*csVar.sesVarDict['flybackScale']
+							p_off=p_off*csVar.sesVarDict['flybackScale']
+							print(p_on)
+							print(p_off)
+							print(type(p_on))
+						optoPulseDurs = [p_on,p_on,p_on,p_on]
+
+
 						csSer.sendAnalogOutValues(teensy,'p',optoPulseDurs)
 						serialVarTracker[3] = 1
 
 					elif serialVarTracker[4] == 0 and curStateTime>=410:
-						if csVar.sesVarDict['useFlybackOpto']==1:
-							csVar.c1_ipi[tTrial] = csVar.c1_ipi[tTrial]*csVar.sesVarDict['flybackScale']
-							csVar.c2_ipi[tTrial] = csVar.c2_ipi[tTrial]*csVar.sesVarDict['flybackScale']
-						optoIPIs = [int(csVar.c1_ipi[tTrial]),int(csVar.c2_ipi[tTrial]),\
-						int(csVar.c3_ipi[tTrial]),int(csVar.c4_ipi[tTrial])]
+						optoIPIs = [p_off,p_off,p_off,p_off]
 						csSer.sendAnalogOutValues(teensy,'d',optoIPIs)
 						serialVarTracker[4] = 1
 
@@ -2695,27 +2706,28 @@ def runTrialOptoTask():
 
 						### SF: set up pulse parameters based on user input 
 						### SF: g0 = pulse. g1 = ramps, p = light on time. d = light off time, m = number of pulses 
-						teensy.write('g0>'.encode('utf-8'))
-						### SF: determine the period given pulsefrequency input 
-						per = 1000/csVar.sesVarDict['pulsefrequency']
-						### SF: determine light on time given duty cycle input 
-						LON = per*csVar.sesVarDict['pulsedutycycle']*.01
-						### SF: determine light off time given LON
-						LOFF = per - LON 
+						# teensy.write('g0>'.encode('utf-8'))
+
+						# ### SF: determine the period given pulsefrequency input 
+						# per = int(1000/csVar.sesVarDict['pulsefrequency'])
+						# ### SF: determine light on time given duty cycle input 
+						# LON = int(per*csVar.sesVarDict['pulsedutycycle']*.01)
+						# ### SF: determine light off time given LON
+						# LOFF = per - LON 
 						### SF: determine number of pulses given pulse frequency and pulse time 
 						#numpulses = csVar.sesVarDict['pulsefrequency']*csVar.trial_wait_o[tTrial]*0.001 
 						### SF: send LON, LOFFm and numpulses to the teensy depending on state
-						if csVar.sesVarDict['useFlybackOpto']==1:
-							teensy.write('p{}1>'.format(LON).encode('utf-8'))
-							teensy.write('d{}1>'.format(LOFF).encode('utf-8'))
-							#teensy.write('m{}1>'.format(numpulses).encode('utf-8'))
-							teensy.write('p{}2>'.format(LON).encode('utf-8'))
-							teensy.write('d{}2>'.format(LOFF).encode('utf-8'))
-							#teensy.write('m{}2>'.format(numpulses).encode('utf-8'))
-						elif csVar.sesVarDict['useFlybackOpto']==0:
-							teensy.write('p{}1>'.format(LON).encode('utf-8'))
-							teensy.write('d{}1>'.format(LOFF).encode('utf-8'))
-							#teensy.write('m{}1>'.format(numpulses).encode('utf-8'))
+						# if csVar.sesVarDict['useFlybackOpto']==1:
+						# 	teensy.write('p{}1>'.format(LON).encode('utf-8'))
+						# 	teensy.write('d{}1>'.format(LOFF).encode('utf-8'))
+						# 	#teensy.write('m{}1>'.format(numpulses).encode('utf-8'))
+						# 	teensy.write('p{}2>'.format(LON).encode('utf-8'))
+						# 	teensy.write('d{}2>'.format(LOFF).encode('utf-8'))
+						# 	#teensy.write('m{}2>'.format(numpulses).encode('utf-8'))
+						# elif csVar.sesVarDict['useFlybackOpto']==0:
+						# 	teensy.write('p{}1>'.format(LON).encode('utf-8'))
+						# 	teensy.write('d{}1>'.format(LOFF).encode('utf-8'))
+						# 	#teensy.write('m{}1>'.format(numpulses).encode('utf-8'))
 
 						# we ask teensy to go to new state.
 						#SF: state 7 = nonflyback stim; state 8 = flyback stim
