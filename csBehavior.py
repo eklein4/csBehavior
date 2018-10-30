@@ -2804,28 +2804,28 @@ def runTrialOptoTask():
 
 						### SF: set up pulse parameters based on user input 
 						### SF: g0 = pulse. g1 = ramps, p = light on time. d = light off time, m = number of pulses 
-						# teensy.write('g0>'.encode('utf-8'))
+						teensy.write('g0>'.encode('utf-8'))
 
-						# ### SF: determine the period given pulsefrequency input 
-						# per = int(1000/csVar.sesVarDict['pulsefrequency'])
-						# ### SF: determine light on time given duty cycle input 
-						# LON = int(per*csVar.sesVarDict['pulsedutycycle']*.01)
-						# ### SF: determine light off time given LON
-						# LOFF = per - LON 
-						### SF: determine number of pulses given pulse frequency and pulse time 
-						#numpulses = csVar.sesVarDict['pulsefrequency']*csVar.trial_wait_o[tTrial]*0.001 
-						### SF: send LON, LOFFm and numpulses to the teensy depending on state
-						# if csVar.sesVarDict['useFlybackOpto']==1:
-						# 	teensy.write('p{}1>'.format(LON).encode('utf-8'))
-						# 	teensy.write('d{}1>'.format(LOFF).encode('utf-8'))
-						# 	#teensy.write('m{}1>'.format(numpulses).encode('utf-8'))
-						# 	teensy.write('p{}2>'.format(LON).encode('utf-8'))
-						# 	teensy.write('d{}2>'.format(LOFF).encode('utf-8'))
-						# 	#teensy.write('m{}2>'.format(numpulses).encode('utf-8'))
-						# elif csVar.sesVarDict['useFlybackOpto']==0:
-						# 	teensy.write('p{}1>'.format(LON).encode('utf-8'))
-						# 	teensy.write('d{}1>'.format(LOFF).encode('utf-8'))
-						# 	#teensy.write('m{}1>'.format(numpulses).encode('utf-8'))
+						### SF: determine the period given pulsefrequency input 
+						per = int(1000/csVar.sesVarDict['pulsefrequency'])
+						### SF: determine light on time given duty cycle input 
+						LON = int(per*csVar.sesVarDict['pulsedutycycle']*.01)
+						### SF: determine light off time given LON
+						LOFF = per - LON 
+						## SF: determine number of pulses given pulse frequency and pulse time 
+						numpulses = csVar.sesVarDict['pulsefrequency']*csVar.trial_wait_o[tTrial]*0.001 
+						## SF: send LON, LOFFm and numpulses to the teensy depending on state
+						if csVar.sesVarDict['useFlybackOpto']==1:
+							teensy.write('p{}1>'.format(LON).encode('utf-8'))
+							teensy.write('d{}1>'.format(LOFF).encode('utf-8'))
+							#teensy.write('m{}1>'.format(numpulses).encode('utf-8'))
+							teensy.write('p{}2>'.format(LON).encode('utf-8'))
+							teensy.write('d{}2>'.format(LOFF).encode('utf-8'))
+							#teensy.write('m{}2>'.format(numpulses).encode('utf-8'))
+						elif csVar.sesVarDict['useFlybackOpto']==0:
+							teensy.write('p{}1>'.format(LON).encode('utf-8'))
+							teensy.write('d{}1>'.format(LOFF).encode('utf-8'))
+							#teensy.write('m{}1>'.format(numpulses).encode('utf-8'))
 
 						# we ask teensy to go to new state.
 						#SF: state 7 = nonflyback stim; state 8 = flyback stim
