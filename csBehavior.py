@@ -1001,7 +1001,7 @@ class csVariables(object):
 		'optoITI_null':self.sesVarDict['minOptoITI'],'optoITI_max':self.sesVarDict['maxOptoITI'],\
 		'optoITI_steps':np.round(np.linspace(self.sesVarDict['minOptoITI'],self.sesVarDict['maxOptoITI'],num=self.sesVarDict['numITIsteps'])),\
 		'optoITI_maxProb':0.0,'optoITI_nullProb':0.0,\
-		'varLabels':['trial_wait','lick_wait','optoITI']}
+		'varLabels':['trial_wait','lick_wait']}#,'optoITI']}
 		self.sesTimingDict['trial_wait_steps']=range(self.sesTimingDict['trial_wait_null']+1,self.sesTimingDict['trial_wait_max'])
 		self.sesTimingDict['lick_wait_steps']=range(self.sesTimingDict['lick_wait_null']+1,self.sesTimingDict['lick_wait_max'])
 
@@ -2724,6 +2724,8 @@ def runTrialOptoTask():
 						# 3) incrment the trial count and 
 						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
 						csVar.optoITI[0]=csVar.sesVarDict['firstTrialWait']
+						csVar.waitTime[0]=csVar.sesVarDict['firstTrialWait']
+
 
 						waitTime = csVar.trial_wait[tTrial]
 						optoITI = csVar.optoITI[tTrial]
@@ -2797,7 +2799,7 @@ def runTrialOptoTask():
 							waitTime = waitTime + lickWaitTime
 							actualWait[-1]=waitTime
 
-					if curStateTime>optoITI:
+					if curStateTime>waitTime:
 						# if csVar.sesVarDict['trialNum']==csVar.sesVarDict['totalTrials']:
 						# 		csVar.sesVarDict['sessionOn']=0
 						stateSync=0
