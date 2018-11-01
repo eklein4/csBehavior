@@ -1454,31 +1454,32 @@ class csPlot(object):
 		self.lA_Axes.draw_artist(self.lA_Axes.patch)
 		self.trialFig.canvas.flush_events()
 
-		# STATE AXES
-		self.stAxes = self.trialFig.add_subplot(2,2,2) #col,rows
-		self.stAxes.set_ylim([-0.02,1.02])
-		self.stAxes.set_xlim([-0.02,1.02])
-		self.stAxes.set_axis_off()
-		self.stMrkSz=28
-		self.txtOff=-0.02
-		self.stPLine,=self.stAxes.plot(self.pltX,self.pltY,marker='o',\
-			markersize=self.stMrkSz,markeredgewidth=2,\
-			markerfacecolor="white",markeredgecolor="black",lw=0)
-		k=0
-		for stAnTxt in list(self.stPlotX.keys()):
-			tASt="{}".format(stAnTxt)
-			self.stAxes.text(self.pltX[k],self.pltY[k]+self.txtOff,tASt,\
-				horizontalalignment='center',fontsize=9,fontdict={'family': 'monospace'})
-			k=k+1
+		# # STATE AXES
+		# self.stAxes = self.trialFig.add_subplot(2,2,2) #col,rows
+		# self.stAxes.set_ylim([-0.02,1.02])
+		# self.stAxes.set_xlim([-0.02,1.02])
+		# self.stAxes.set_axis_off()
+		# self.stMrkSz=28
+		# self.txtOff=-0.02
+		# self.stPLine,=self.stAxes.plot(self.pltX,self.pltY,marker='o',\
+		# 	markersize=self.stMrkSz,markeredgewidth=2,\
+		# 	markerfacecolor="white",markeredgecolor="black",lw=0)
+		# k=0
+		# for stAnTxt in list(self.stPlotX.keys()):
+		# 	print(self.pltX[k])
+		# 	tASt="{}".format(stAnTxt)
+		# 	self.stAxes.text(self.pltX[k],self.pltY[k]+self.txtOff,tASt,\
+		# 		horizontalalignment='center',fontsize=9,fontdict={'family': 'monospace'})
+		# 	k=k+1
 
-		self.curStLine,=self.stAxes.plot(self.pltX[1],self.pltY[1],marker='o',markersize=self.stMrkSz+1,\
-			markeredgewidth=2,markerfacecolor=self.pClrs['cBlue'],markeredgecolor='black',lw=0,alpha=0.5)
-		plt.show(block=False)
+		# self.curStLine,=self.stAxes.plot(self.pltX[1],self.pltY[1],marker='o',markersize=self.stMrkSz+1,\
+		# 	markeredgewidth=2,markerfacecolor=self.pClrs['cBlue'],markeredgecolor='black',lw=0,alpha=0.5)
+		# plt.show(block=False)
 		
-		self.trialFig.canvas.flush_events()
-		self.stAxes.draw_artist(self.stPLine)
-		self.stAxes.draw_artist(self.curStLine)
-		self.stAxes.draw_artist(self.stAxes.patch)
+		# self.trialFig.canvas.flush_events()
+		# self.stAxes.draw_artist(self.stPLine)
+		# self.stAxes.draw_artist(self.curStLine)
+		# self.stAxes.draw_artist(self.stAxes.patch)
 
 		# OUTCOME AXES
 		self.outcomeAxis=self.trialFig.add_subplot(2,2,3) #col,rows
@@ -1523,31 +1524,31 @@ class csPlot(object):
 		self.lA_Axes.draw_artist(self.lA_Axes.patch)
 		self.trialFig.canvas.flush_events()
 
-		# STATE AXES
-		self.stAxes = self.trialFig.add_subplot(2,2,2) #col,rows
-		self.stAxes.set_ylim([-0.02,1.02])
-		self.stAxes.set_xlim([-0.02,1.02])
-		self.stAxes.set_axis_off()
-		self.stMrkSz=28
-		self.txtOff=-0.02
-		self.stPLine,=self.stAxes.plot(self.pltX,self.pltY,marker='o',\
-			markersize=self.stMrkSz,markeredgewidth=2,\
-			markerfacecolor="white",markeredgecolor="black",lw=0)
-		k=0
-		for stAnTxt in list(self.stPlotX.keys()):
-			tASt="{}".format(stAnTxt)
-			self.stAxes.text(self.pltX[k],self.pltY[k]+self.txtOff,tASt,\
-				horizontalalignment='center',fontsize=9,fontdict={'family': 'monospace'})
-			k=k+1
+		# # STATE AXES
+		# self.stAxes = self.trialFig.add_subplot(2,2,2) #col,rows
+		# self.stAxes.set_ylim([-0.02,1.02])
+		# self.stAxes.set_xlim([-0.02,1.02])
+		# self.stAxes.set_axis_off()
+		# self.stMrkSz=28
+		# self.txtOff=-0.02
+		# self.stPLine,=self.stAxes.plot(self.pltX,self.pltY,marker='o',\
+		# 	markersize=self.stMrkSz,markeredgewidth=2,\
+		# 	markerfacecolor="white",markeredgecolor="black",lw=0)
+		# k=0
+		# for stAnTxt in list(self.stPlotX.keys()):
+		# 	tASt="{}".format(stAnTxt)
+		# 	self.stAxes.text(self.pltX[k],self.pltY[k]+self.txtOff,tASt,\
+		# 		horizontalalignment='center',fontsize=9,fontdict={'family': 'monospace'})
+		# 	k=k+1
 
-		self.curStLine,=self.stAxes.plot(self.pltX[1],self.pltY[1],marker='o',markersize=self.stMrkSz+1,\
-			markeredgewidth=2,markerfacecolor=self.pClrs['cBlue'],markeredgecolor='black',lw=0,alpha=0.5)
-		plt.show(block=False)
+		# self.curStLine,=self.stAxes.plot(self.pltX[1],self.pltY[1],marker='o',markersize=self.stMrkSz+1,\
+		# 	markeredgewidth=2,markerfacecolor=self.pClrs['cBlue'],markeredgecolor='black',lw=0,alpha=0.5)
+		# plt.show(block=False)
 		
-		self.trialFig.canvas.flush_events()
-		self.stAxes.draw_artist(self.stPLine)
-		self.stAxes.draw_artist(self.curStLine)
-		self.stAxes.draw_artist(self.stAxes.patch)
+		# self.trialFig.canvas.flush_events()
+		# self.stAxes.draw_artist(self.stPLine)
+		# self.stAxes.draw_artist(self.curStLine)
+		# self.stAxes.draw_artist(self.stAxes.patch)
 
 		# OUTCOME AXES
 		self.outcomeAxis=self.trialFig.add_subplot(2,2,3) #col,rows
@@ -1591,7 +1592,6 @@ class csPlot(object):
 			self.stAxes.draw_artist(self.stPLine)
 			self.stAxes.draw_artist(self.curStLine)
 			self.stAxes.draw_artist(self.stAxes.patch)
-
 			self.trialFig.canvas.draw_idle()
 			self.trialFig.canvas.flush_events()
 
@@ -1943,7 +1943,7 @@ def runDetectionTask():
 						
 						
 						if useGUI==1:
-							csPlt.updateStateFig(1)
+							# csPlt.updateStateFig(1)
 						trialSamps[0]=loopCnt-1
 
 						# reset counters that track state stuff.
@@ -2078,7 +2078,7 @@ def runDetectionTask():
 				if pyState == 2 and stateSync==1:
 					if sHeaders[pyState]==0:
 						if useGUI==1:
-							csPlt.updateStateFig(pyState)
+							# csPlt.updateStateFig(pyState)
 						reported=0
 						lickCounter=0
 						lastLick=0
@@ -2116,7 +2116,7 @@ def runDetectionTask():
 				if pyState == 3 and stateSync==1:
 					if sHeaders[pyState]==0:
 						if useGUI==1:
-							csPlt.updateStateFig(pyState)
+							# csPlt.updateStateFig(pyState)
 						reported=0
 						lickCounter=0
 						lastLick=0
@@ -2154,7 +2154,7 @@ def runDetectionTask():
 				if pyState == 4 and stateSync==1:
 					if sHeaders[pyState]==0:
 						if useGUI==1:
-							csPlt.updateStateFig(pyState)
+							# csPlt.updateStateFig(pyState)
 						lickCounter=0
 						lastLick=0
 						outSyncCount=0
@@ -2174,7 +2174,7 @@ def runDetectionTask():
 				if pyState == 5 and stateSync==1:
 					if sHeaders[pyState]==0:
 						if useGUI==1:
-							csPlt.updateStateFig(pyState)
+							# csPlt.updateStateFig(pyState)
 						lickCounter=0
 						lastLick=0
 						outSyncCount=0
