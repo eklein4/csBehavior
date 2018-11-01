@@ -1942,7 +1942,7 @@ def runDetectionTask():
 					if sHeaders[pyState]==0:
 						
 						
-						if useGUI==1:
+						# if useGUI==1:
 							# csPlt.updateStateFig(1)
 						trialSamps[0]=loopCnt-1
 
@@ -2077,7 +2077,7 @@ def runDetectionTask():
 
 				if pyState == 2 and stateSync==1:
 					if sHeaders[pyState]==0:
-						if useGUI==1:
+						# if useGUI==1:
 							# csPlt.updateStateFig(pyState)
 						reported=0
 						lickCounter=0
@@ -2115,7 +2115,7 @@ def runDetectionTask():
 				
 				if pyState == 3 and stateSync==1:
 					if sHeaders[pyState]==0:
-						if useGUI==1:
+						# if useGUI==1:
 							# csPlt.updateStateFig(pyState)
 						reported=0
 						lickCounter=0
@@ -2153,7 +2153,7 @@ def runDetectionTask():
 
 				if pyState == 4 and stateSync==1:
 					if sHeaders[pyState]==0:
-						if useGUI==1:
+						# if useGUI==1:
 							# csPlt.updateStateFig(pyState)
 						lickCounter=0
 						lastLick=0
@@ -2173,7 +2173,7 @@ def runDetectionTask():
 
 				if pyState == 5 and stateSync==1:
 					if sHeaders[pyState]==0:
-						if useGUI==1:
+						# if useGUI==1:
 							# csPlt.updateStateFig(pyState)
 						lickCounter=0
 						lastLick=0
