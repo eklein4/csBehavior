@@ -8,12 +8,12 @@
 // b) data saving
 // c) state-flow logic
 //
-// By default, csStateBehavior runs at 1KHz.
-// It could run at 1.5-2KHz, but I don't reccomend it.
-// On a Teensy 3.6, each interrupt takes ~50-200 us depending on how many variables are processed.
+// By default, csStateBehavior runs at 1 KHz.
+// I can run up to 10 KHz, but I don't reccomend it.
+// On a Teensy 3.6, each interrupt takes ~50-100 us depending on how many variables are processed.
 //
 // Questions: Chris Deister --> cdeister@brown.edu
-// Last Update 9/29/2018 --> Added interrupt function to handle flyback-triggered opto stim w/ PMT blanking.
+// Last Update 10/30/2018 
 //
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
