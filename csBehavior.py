@@ -2002,7 +2002,7 @@ def runDetectionTask():
 							csVar.sesVarDict['totalTrials']))
 						print('target contrast: {:0.2f} ; orientation: {}'.format(csVar.contrast[tTrial],csVar.orientation[tTrial]))
 						print('target xpos: {} ; size: {}'.format(csVar.xPos[tTrial],csVar.stimSize[tTrial]))
-						print('estimated trial time = {}'.format(csVar.noLickTime[tTrial] + csVar.trialTime[tTrial]))
+						print('estimated trial time = {:0.3f} seconds'.format((csVar.noLickTime[tTrial] + csVar.trialTime[tTrial])*0.001))
 
 						# close the header and flip the others open.
 						sHeaders[pyState]=1
