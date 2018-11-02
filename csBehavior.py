@@ -1640,7 +1640,7 @@ except:
 	useGUI=1
 	print("using gui ...")
 	root = Tk()
-	csGui = csGUI(root,csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
+	csGui = csGUI(csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
 	csGui.makeParentWindow(root,csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
 
 if useGUI == 0:
@@ -2046,7 +2046,6 @@ def runDetectionTask():
 						# then we advance waitTime by the minumum
 						if curStateTime>(waitTime-lickWaitTime):
 							waitTime = waitTime + lickWaitTime
-							actualWait[-1]=waitTime
 
 					if curStateTime>waitTime:
 						stateSync=0
