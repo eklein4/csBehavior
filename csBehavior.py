@@ -775,14 +775,14 @@ class csGUI(object):
 				curVal.append(varDict[key])
 				self.pdReturn=pd.Series(curVal,index=curKey)
 		return self.pdReturn
-	def refreshPandas(self,varDict,visualDict,timingDict,opticalDict,guiBool=1):
-		if guiBool:
-			self.toggleTaskButtons(1)
-			self.tBtn_detection
+	def refreshPandas(self,varDict,visualDict,timingDict,opticalDict):
+		try:
 			self.updateDictFromGUI(varDict)
 			self.updateDictFromGUI(visualDict)
 			self.updateDictFromGUI(timingDict)
 			self.updateDictFromGUI(opticalDict)
+		except:
+			pass
 
 		try:
 			self.sesVarDict_bindings=self.dictToPandas(varDict)
@@ -795,11 +795,12 @@ class csGUI(object):
 			self.timingVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'timingVars.csv')
 	
 		except:
-			
 			pass
 		return varDict,visualDict,timingDict,opticalDict
 		
 	def closeup(self,varDict,visualDict,timingDict,opticalDict,guiBool=1):
+		self.toggleTaskButtons(1)
+		self.tBtn_detection
 		self.refreshPandas(varDict,visualDict,timingDict,opticalDict)
 
 		try:
