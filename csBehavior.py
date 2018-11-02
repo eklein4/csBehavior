@@ -32,23 +32,7 @@ import pygsheets
 from Adafruit_IO import *
 import configparser
 
-try:
-	config = configparser.ConfigParser()
-	config.read(sys.argv[1])
-	useGUI = int(config['settings']['useGUI'])
-	taskType = config['settings']['task']
-	temp_comPath_teensy = config['sesVars']['comPath_teensy']
-	temp_savePath = config['sesVars']['savePath']
-	temp_hashPath = config['sesVars']['hashPath']
-	if useGUI==1:
-		print("using gui ...")
-		root = Tk()
-	if useGUI == 0:
-		print("not using gui")
-except: 
-	useGUI=1
-	print("using gui ...")
-	root = Tk()
+
 
 
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
@@ -57,14 +41,13 @@ except:
 
 
 class csGUI(object):
-	def __init__(self,master,varDict,timingDict,visualDict,opticalDict):
+	def __init__(self,varDict,timingDict,visualDict,opticalDict):
 		# code folding in stext fails if we pass here
 		aaa=1
 	# b) window generation
 	def makeParentWindow(self,master,varDict,timingDict,visualDict,opticalDict):
 
 		self.master = master
-
 
 		c1Wd=14
 		c2Wd=8
@@ -435,8 +418,6 @@ class csGUI(object):
 		self.deviceControl_frame.title('Other Dev Control')
 
 
-		odStart = 0
-
 		self.weightOffsetBtn = Button(self.deviceControl_frame,text="Offset",width=dCBWd,\
 			command=lambda: self.markOffset(varDict))
 		self.weightOffsetBtn.grid(row=0,column=2)
@@ -599,6 +580,10 @@ class csGUI(object):
 		varDict['dirPath']=selectPath
 		varDict['subjID']=os.path.basename(selectPath)
 		self.toggleTaskButtons(1)
+		self.loadPandaSeries(selectPath,varDict,timingDict,visualDict,opticalDict)
+		
+		# if there is ...
+	def loadPandaSeries(self,selectPath,varDict,timingDict,visualDict,opticalDict):
 		# if there is a csVar.sesVarDict.csv load it. 
 		try:
 			tempMeta=pd.read_csv(selectPath +'/' + 'sesVars.csv',index_col=0,header=None)
@@ -709,7 +694,7 @@ class csGUI(object):
 		except:
 			pass
 		return varDict,visualDict,opticalDict,timingDict
-		# if there is ...
+
 	def toggleTaskButtons(self,boolState):
 		if boolState == 1:
 			self.tBtn_trialOpto['state'] = 'normal'
@@ -1628,29 +1613,43 @@ class csPlot(object):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 csVar=csVariables(1)
-# If we are not using 
-csGui = csGUI(root,csVar.sesVarDict,\
-	csVar.timing,csVar.sensory,csVar.optical)
-if useGUI==1:
+try:
+	config = configparser.ConfigParser()
+	config.read(sys.argv[1])
+	useGUI = int(config['settings']['useGUI'])
+	print("gui?={}".format(useGUI))
 	
-	csGui.makeParentWindow(root,csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
-if useGUI==0:
+
+	#todo: show sinda this pattern
+	#todo: loop through what could be in the config obj, or is
 	try:
+		csVar.sesVarDict['taskType'] = config['sesVars']['taskType']
+		print(csVar.sesVarDict['taskType'])
+		csVar.sesVarDict['comPath_teensy'] = config['sesVars']['comPath_teensy']
+		print(csVar.sesVarDict['comPath_teensy'])
+		csVar.sesVarDict['dirPath'] = config['sesVars']['savePath']
+		print(csVar.sesVarDict['dirPath'])
+		csVar.sesVarDict['hashPath'] = config['sesVars']['hashPath']
+		print(csVar.sesVarDict['hashPath'])
 		csVar.sesVarDict['subjID']=config['sesVars']['subjID']
+		print(csVar.sesVarDict['subjID'])
 	except:
-		print("load: no session variables")
-	try:
-		csVar.sensVarDict['subjID']=config['sensVars']['subjID']
-	except:
-		print("load: no sensory variables")
-	try:
-		csVar.opticalVarDict['subjID']=config['opticalVars']['subjID']
-	except:
-		print("load: no optical variables")
-	try:
-		csVar.timingVarDict['subjID']=config['timingVars']['subjID']
-	except:
-		print("load: no timing variables")
+		print("issue with config vars")
+		
+except:
+	useGUI=1
+	print("using gui ...")
+	root = Tk()
+	csGui = csGUI(root,csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
+	csGui.makeParentWindow(root,csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
+
+if useGUI == 0:
+	print("not using gui")
+	csGui = csGUI(csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
+	csGui.loadPandaSeries(csVar.sesVarDict['dirPath'] ,csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
+
+
+	
 csSesHDF=csHDF(1)
 csAIO=csMQTT(1)
 csSer=csSerial(1)
@@ -1733,7 +1732,7 @@ def mqttStart():
 		except:
 			print('did not log to google sheet')
 	return aio
-	
+
 
 
 
@@ -1759,9 +1758,6 @@ def runDetectionTask():
 	elif useGUI==0:
 		config.read(sys.argv[1])
 		csVar.sesVarDict=csVar.updateDictFromTXT(csVar.sesVarDict,config)
-		csVar.sesVarDict['comPath_teensy'] = temp_comPath_teensy
-		csVar.sesVarDict['dirPath'] = temp_savePath
-		csVar.sesVarDict['hashPath'] = temp_hashPath
 	
 	[teensy,tTeensyState] = initializeTeensy()
 	initializeLoadCell()
@@ -1811,7 +1807,7 @@ def runDetectionTask():
 	serialVarTracker = [0,0,0,0,0,0]
 	
 	sessionStarted = 0
-
+	print("debug: about to start session # {}".format(csVar.sesVarDict['curSession']))
 	# Send to 1, wait state.
 	teensy.write('a1>'.encode('utf-8')) 
 
@@ -2357,7 +2353,7 @@ if useGUI==1:
 	mainloop()
 
 elif useGUI==0:
-	if taskType=='detectionTask':
+	if csVar.sesVarDict['taskType']=='detectionTask':
 		runDetectionTask()
 
 

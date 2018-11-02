@@ -1,11 +1,10 @@
 [settings]
 useGUI = 0
 host = abc.com
-task = detectionTask
 
 
 [sesVars]
-comPath_teensy = /dev/
+comPath_teensy = /dev/cu.usbmodem2762720
 savePath = /Users/cad/csBehaviorData/cad
 hashPath = /Users/cad
 shapingTrial = 1
@@ -13,8 +12,8 @@ sessionOn = 1
 trialNum = 0
 curSession = 1
 subjID = cad
-taskType=detect
-totalTrials=6
+taskType=detectionTask
+totalTrials=5
 logMQTT=1
 mqttUpDel=0.05
 curWeight=20
@@ -25,3 +24,5 @@ consumpTarg=1.5
 canQuit = 1
 rewardDur = 500
 lickAThr = 39000
+
+[optical]
