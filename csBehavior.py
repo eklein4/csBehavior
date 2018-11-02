@@ -1443,6 +1443,7 @@ class csPlot(object):
 
 		# add the lickA axes and lines.
 		self.lA_Axes=self.trialFig.add_subplot(2,2,1) #col,rows
+
 		self.lA_Axes.set_ylim([-100,1200])
 		self.lA_Axes.set_xticks([])
 		# self.lA_Axes.set_yticks([])
@@ -1454,32 +1455,17 @@ class csPlot(object):
 		self.lA_Axes.draw_artist(self.lA_Axes.patch)
 		self.trialFig.canvas.flush_events()
 
-		# # STATE AXES
-		# self.stAxes = self.trialFig.add_subplot(2,2,2) #col,rows
-		# self.stAxes.set_ylim([-0.02,1.02])
-		# self.stAxes.set_xlim([-0.02,1.02])
+		self.stAxes=self.trialFig.add_subplot(2,2,2) #col,rows
+		self.stAxes.set_axis_off()
 		# self.stAxes.set_axis_off()
-		# self.stMrkSz=28
-		# self.txtOff=-0.02
-		# self.stPLine,=self.stAxes.plot(self.pltX,self.pltY,marker='o',\
-		# 	markersize=self.stMrkSz,markeredgewidth=2,\
-		# 	markerfacecolor="white",markeredgecolor="black",lw=0)
-		# k=0
-		# for stAnTxt in list(self.stPlotX.keys()):
-		# 	print(self.pltX[k])
-		# 	tASt="{}".format(stAnTxt)
-		# 	self.stAxes.text(self.pltX[k],self.pltY[k]+self.txtOff,tASt,\
-		# 		horizontalalignment='center',fontsize=9,fontdict={'family': 'monospace'})
-		# 	k=k+1
+		self.stText = self.stAxes.text(0.5,0.1,'trial # {} of {}; State # {}'.format([],[],0),\
+			bbox={'facecolor':'w', 'alpha':0.0, 'pad':5},transform=self.stAxes.transAxes, ha="center")
+		plt.show(block=False)
+		self.trialFig.canvas.flush_events()
+		self.stAxes.draw_artist(self.stText)
+		self.stAxes.draw_artist(self.stAxes.patch)
+		self.trialFig.canvas.flush_events()
 
-		# self.curStLine,=self.stAxes.plot(self.pltX[1],self.pltY[1],marker='o',markersize=self.stMrkSz+1,\
-		# 	markeredgewidth=2,markerfacecolor=self.pClrs['cBlue'],markeredgecolor='black',lw=0,alpha=0.5)
-		# plt.show(block=False)
-		
-		# self.trialFig.canvas.flush_events()
-		# self.stAxes.draw_artist(self.stPLine)
-		# self.stAxes.draw_artist(self.curStLine)
-		# self.stAxes.draw_artist(self.stAxes.patch)
 
 		# OUTCOME AXES
 		self.outcomeAxis=self.trialFig.add_subplot(2,2,3) #col,rows
@@ -1573,13 +1559,16 @@ class csPlot(object):
 		self.trialFig.canvas.flush_events()
 	def updateTrialFig(self,xData,yData,trialNum,totalTrials,curState,yLims):
 		try:
-			self.trialFig.suptitle('trial # {} of {}; State # {}'.format(trialNum,totalTrials,curState),fontsize=10)
+			# self.trialFig.suptitle('trial # {} of {}; State # {}'.format(trialNum,totalTrials,curState),fontsize=10)
+			self.stText.set_text('trial # {} of {}; State # {}'.format(trialNum,totalTrials,curState))
 			self.lA_Line.set_xdata(xData)
 			self.lA_Line.set_ydata(yData)
 			self.lA_Axes.set_xlim([xData[0],xData[-1]])
 			self.lA_Axes.set_ylim([yLims[0],yLims[1]])
 			self.lA_Axes.draw_artist(self.lA_Line)
 			self.lA_Axes.draw_artist(self.lA_Axes.patch)
+			self.stAxes.draw_artist(self.stText)
+			self.stAxes.draw_artist(self.stAxes.patch)
 			self.trialFig.canvas.draw_idle()
 			self.trialFig.canvas.flush_events()
 
@@ -1587,10 +1576,7 @@ class csPlot(object):
 			 a=1
 	def updateStateFig(self,curState):
 		try:
-			self.curStLine.set_xdata(self.pltX[curState])
-			self.curStLine.set_ydata(self.pltY[curState])
-			self.stAxes.draw_artist(self.stPLine)
-			self.stAxes.draw_artist(self.curStLine)
+			self.stAxes.draw_artist(self.stText)
 			self.stAxes.draw_artist(self.stAxes.patch)
 			self.trialFig.canvas.draw_idle()
 			self.trialFig.canvas.flush_events()
@@ -2077,8 +2063,6 @@ def runDetectionTask():
 
 				if pyState == 2 and stateSync==1:
 					if sHeaders[pyState]==0:
-						# if useGUI==1:
-							# csPlt.updateStateFig(pyState)
 						reported=0
 						lickCounter=0
 						lastLick=0
@@ -2115,8 +2099,6 @@ def runDetectionTask():
 				
 				if pyState == 3 and stateSync==1:
 					if sHeaders[pyState]==0:
-						# if useGUI==1:
-							# csPlt.updateStateFig(pyState)
 						reported=0
 						lickCounter=0
 						lastLick=0
@@ -2131,7 +2113,6 @@ def runDetectionTask():
 						if reported==1:
 							noStimTrials.append(csVar.sesVarDict['trialNum'])
 							noStimResponses.append(1)
-							# aio.send('{}_trial'.format(csVar.sesVarDict['subjID']),3)
 							stateSync=0
 							pyState=5
 							teensy.write('a5>'.encode('utf-8'))
