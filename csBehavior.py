@@ -785,7 +785,9 @@ class csGUI(object):
 			pass
 
 		try:
+			print("debug: can i make bindings on linuz?")
 			self.sesVarDict_bindings=self.dictToPandas(varDict)
+			print("made a binding")
 			self.sesVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'sesVars.csv')
 			self.sensVarDict_bindings=self.dictToPandas(visualDict)
 			self.sensVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'sensVars.csv')
