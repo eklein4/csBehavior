@@ -695,7 +695,7 @@ class csGUI(object):
 			pass
 		return varDict,visualDict,opticalDict,timingDict
 
-	def toggleTaskButtons(self,boolState):
+	def toggleTaskButtons(self,boolState=1):
 		if boolState == 1:
 			self.tBtn_trialOpto['state'] = 'normal'
 			self.tBtn_detection['state'] = 'normal'
@@ -770,17 +770,19 @@ class csGUI(object):
 		curVal=[]
 		for key in list(varDict.keys()):
 			if key not in excludeKeys:
+				print("Debug Cur Key = {}".format(key))
 				curKey.append(key)
 				curVal.append(varDict[key])
 				self.pdReturn=pd.Series(curVal,index=curKey)
 		return self.pdReturn
-	def closeup(self,varDict,visualDict,timingDict,opticalDict):
-		self.toggleTaskButtons(1)
-		self.tBtn_detection
-		self.updateDictFromGUI(varDict)
-		self.updateDictFromGUI(visualDict)
-		self.updateDictFromGUI(timingDict)
-		self.updateDictFromGUI(opticalDict)
+	def refreshPandas(self,varDict,visualDict,timingDict,opticalDict,guiBool=1):
+		if guiBool:
+			self.toggleTaskButtons(1)
+			self.tBtn_detection
+			self.updateDictFromGUI(varDict)
+			self.updateDictFromGUI(visualDict)
+			self.updateDictFromGUI(timingDict)
+			self.updateDictFromGUI(opticalDict)
 
 		try:
 			self.sesVarDict_bindings=self.dictToPandas(varDict)
@@ -793,7 +795,12 @@ class csGUI(object):
 			self.timingVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'timingVars.csv')
 	
 		except:
+			
 			pass
+		return varDict,visualDict,timingDict,opticalDict
+		
+	def closeup(self,varDict,visualDict,timingDict,opticalDict,guiBool=1):
+		self.refreshPandas(varDict,visualDict,timingDict,opticalDict)
 
 		try:
 			varDict['sessionOn']=0
@@ -2333,12 +2340,8 @@ def runDetectionTask():
 			print("failed to log")
 
 	print('finished your session')
-	if useGUI==1:
-		csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-	csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
+	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,useGUI)
 	csVar.sesVarDict['canQuit']=1
-	csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
-
 	csSer.flushBuffer(teensy)
 	teensy.close()
 	if useGUI==1:
