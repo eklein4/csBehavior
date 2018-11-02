@@ -786,15 +786,15 @@ class csGUI(object):
 
 		try:
 			print("debug: can i make bindings on linuz?")
-			self.sesVarDict_bindings=self.dictToPandas(varDict)
+			tbd=self.dictToPandas(varDict)
 			print("made a binding")
-			self.sesVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'sesVars.csv')
-			self.sensVarDict_bindings=self.dictToPandas(visualDict)
-			self.sensVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'sensVars.csv')
-			self.opticalVarDict_bindings=self.dictToPandas(opticalDict)
-			self.opticalVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'opticalVars.csv')
-			self.timingVarDict_bindings=self.dictToPandas(timingDict)
-			self.timingVarDict_bindings.to_csv(varDict['dirPath'] + '/' +'timingVars.csv')
+			tbd.to_csv(varDict['dirPath'] + '/' +'sesVars.csv')
+			tbd=self.dictToPandas(visualDict)
+			tbd.to_csv(varDict['dirPath'] + '/' +'sensVars.csv')
+			tbd=self.dictToPandas(opticalDict)
+			tbd.to_csv(varDict['dirPath'] + '/' +'opticalVars.csv')
+			tbd=self.dictToPandas(timingDict)
+			tbd.to_csv(varDict['dirPath'] + '/' +'timingVars.csv')
 	
 		except:
 			pass
