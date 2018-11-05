@@ -146,11 +146,26 @@ class csGUI(object):
 		self.updateCount_entry=Entry(self.taskBar, width=10, textvariable=self.updateCount_TV)
 		self.updateCount_entry.grid(row=startRow+10,column=0,padx=0,sticky=E)
 
+		self.lickAThr_label=Label(self.taskBar, text="Lick Thr:", justify=LEFT)
+		self.lickAThr_label.grid(row=startRow+11,column=0,padx=0,sticky=W)
+		self.lickAThr_TV=StringVar(self.taskBar)
+		self.lickAThr_TV.set(varDict['lickAThr'])
+		self.lickAThr_entry=Entry(self.taskBar, width=10, textvariable=self.lickAThr_TV)
+		self.lickAThr_entry.grid(row=startRow+11,column=0,padx=0,sticky=E)
+
+		self.minStim_label=Label(self.taskBar, text="Min Stim:", justify=LEFT)
+		self.minStim_label.grid(row=startRow+12,column=0,padx=0,sticky=W)
+		self.minStim_TV=StringVar(self.taskBar)
+		self.minStim_TV.set(varDict['minvisualStimTime'])
+		self.minStim_entry=Entry(self.taskBar, width=10, textvariable=self.minStim_TV)
+		self.minStim_entry.grid(row=startRow+12,column=0,padx=0,sticky=E)
+
+
 		self.shapingTrial_TV=IntVar()
 		self.shapingTrial_TV.set(varDict['shapingTrial'])
 		self.shapingTrial_Toggle=Checkbutton(self.taskBar,text="Shaping Trial",\
 			variable=self.shapingTrial_TV,onvalue=1,offvalue=0)
-		self.shapingTrial_Toggle.grid(row=startRow+11,column=0,pady=4,sticky=W)
+		self.shapingTrial_Toggle.grid(row=startRow+13,column=0,pady=4,sticky=W)
 		self.shapingTrial_Toggle.select()
 
 
@@ -158,7 +173,7 @@ class csGUI(object):
 		self.useFlybackOpto_TV.set(varDict['chanPlot'])
 		self.useFlybackOpto_Toggle=Checkbutton(self.taskBar,text="Use Flyback Opto?",\
 			variable=self.useFlybackOpto_TV,onvalue=1,offvalue=0)
-		self.useFlybackOpto_Toggle.grid(row=startRow+12,column=0,sticky=W)
+		self.useFlybackOpto_Toggle.grid(row=startRow+14,column=0,sticky=W)
 		self.useFlybackOpto_Toggle.select()
 
   
@@ -182,13 +197,13 @@ class csGUI(object):
 
 		# MQTT Stuff
 		self.blL=Label(self.taskBar, text="—— Notes ——————————",justify=LEFT)
-		self.blL.grid(row=startRow+13,column=leftCol,padx=0,sticky=W)		
+		self.blL.grid(row=startRow+15,column=leftCol,padx=0,sticky=W)		
 
 		self.logMQTT_TV=IntVar()
 		self.logMQTT_TV.set(varDict['chanPlot'])
 		self.logMQTT_Toggle=Checkbutton(self.taskBar,text="Log MQTT Info?",\
 			variable=self.logMQTT_TV,onvalue=1,offvalue=0)
-		self.logMQTT_Toggle.grid(row=startRow+14,column=0,sticky=W)
+		self.logMQTT_Toggle.grid(row=startRow+16,column=0,sticky=W)
 		self.logMQTT_Toggle.select
 
 
