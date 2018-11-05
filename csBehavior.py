@@ -887,9 +887,8 @@ class csVariables(object):
 		# A pre-canned set: [19,22,40]
 		# Special cases:
 		# You can range between min/max with a code --> ":,delta" to range between min and max by delta increments 
-		# example: min: 10; max: 20; steps [':'.2] --> range(10,22,2) --> 10,12,14,...,18,20 
-		# You can range between min/max with a code --> "/,divNum" to cut things between min/max by 'div'
-		# example: min: 10; max: 20; steps ['/',4]
+		# example: min: 10; max: 20; steps [':',2] --> range(10,22,2) --> 10,12,14,...,18,20 
+
 		self.timing={'trialCount':1000,'varsToUse':['trialTime','noLickTime','visualStimTime','opticalStimTime'],\
 		'trialTime_min':3000,'trialTime_max':11000,'trialTime_steps':[':',1],'trialTime_probs':[0.0,0.0],\
 		'noLickTime_min':599,'noLickTime_max':2999,'noLickTime_steps':[':',1],'noLickTime_probs':[0.0,0.0],\
@@ -952,7 +951,7 @@ class csVariables(object):
 					try:
 						newSteps = []
 						rangeDelta = int(curSteps[1])
-						tempRange = range(curMin,curMax + rangeDelta,rangeDelta)
+						tempRange = range(curMin+rangeDelta,(curMax - rangeDelta)+1,rangeDelta)
 						for n in tempRange:
 							newSteps.append(n)
 						curSteps = newSteps
