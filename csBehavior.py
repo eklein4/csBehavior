@@ -712,6 +712,7 @@ class csGUI(object):
 		timingDict['noLickTime_steps']=np.arange(timingDict['noLickTime_min'],timingDict['noLickTime_max'])
 		return timingDict
 	def dictToPandas(self,varDict,excludeKeys=['varsToUse']):
+		print("debug running dict to pandas")
 		curKey=[]
 		curVal=[]
 		for key in list(varDict.keys()):
@@ -734,10 +735,10 @@ class csGUI(object):
 
 		try:
 			print("debug: can i make bindings on linuz?")
-			tbd=csGUI.dictToPandas(varDict)
+			tbd=self.dictToPandas(varDict)
 			print("made a binding")
 			tbd.to_csv(varDict['dirPath'] + '/' +'sesVars.csv')
-			tbd=csGUI.dictToPandas(visualDict)
+			tbd=self.dictToPandas(visualDict)
 			tbd.to_csv(varDict['dirPath'] + '/' +'sensVars.csv')
 			tbd=self.dictToPandas(opticalDict)
 			tbd.to_csv(varDict['dirPath'] + '/' +'opticalVars.csv')
@@ -1019,6 +1020,7 @@ class csVariables(object):
 		self.hostMachine=mchString.split('.')[0]
 		return self.hostMachine
 	def dictToPandas(self,dictName):
+		print("trying to run pandas functions")
 		curKey=[]
 		curVal=[]
 		for key in list(dictName.keys()):
