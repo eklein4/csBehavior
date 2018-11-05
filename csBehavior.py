@@ -44,216 +44,202 @@ class csGUI(object):
 	def __init__(self,varDict,timingDict,visualDict,opticalDict):
 		
 		aaa=1
-	
+	def guessComPort(self):
+			cp = platform.system()
+			# if mac then teensy devices will be a cu.usbmodemXXXXX in /dev/ where XXXXX is the serial
+			# if arm linux, then the teensy is most likely /dev/ttyACM0
+			# if windows it will be some random COM.
+			self.comPath=''
+			if cp == 'Darwin':
+				try: 
+					devNames = self.checkForDevicesUnix('cu.u')
+					self.comPath='/dev/' + devNames[0]
+				except:
+					pass
+			elif cp == 'Windows':
+				self.comPath='COM3'
+
+			elif cp == 'Linux':
+				self.comPath='/dev/ttyACM0'
+
+			return self.comPath
+
 	# b) window generation
 	def makeParentWindow(self,master,varDict,timingDict,visualDict,opticalDict):
-		
+		# make the window object
 		self.master = master
-
-		c1Wd=14
-		c2Wd=8
-		cpRw=0
-
 		self.taskBar = Frame(self.master)
 		self.master.title("csBehavior")
 		# self.taskBar.configure(background='gray')
 		
-		self.tb = Button(self.taskBar,text="set path",justify=LEFT,width=c1Wd,\
+		# set the initial geometry variables
+		col1_width=14
+		col2_width=8
+		startRow=0
+		leftCol = 0
+		rightCol = 1
+		entryWidth = 8
+
+		# button is
+
+		self.dirPath_btn = Button(self.taskBar,text="set path",justify=LEFT,width=col1_width,\
 			command=lambda: self.getPath(varDict,timingDict,visualDict,opticalDict))
-		self.tb.grid(row=cpRw+1,column=1,sticky=W,padx=10)
+		self.dirPath_btn.grid(row=startRow+1,column=rightCol,sticky=W,padx=10)
 		self.dirPath_label=Label(self.taskBar, text="Save Path:", justify=LEFT)
-		self.dirPath_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.dirPath_label.grid(row=startRow,column=leftCol,padx=0,sticky=W)
 		self.dirPath_TV=StringVar(self.taskBar)
 		self.dirPath_TV.set(varDict['dirPath'])
 		self.dirPath_entry=Entry(self.taskBar, width=22, textvariable=self.dirPath_TV)
-		self.dirPath_entry.grid(row=cpRw+1,column=0,padx=0,columnspan=1,sticky=W)
+		self.dirPath_entry.grid(row=startRow+1,column=leftCol,padx=0,columnspan=1,sticky=W)
+
+		self.comPath_label=Label(self.taskBar, text="COM Port:", justify=LEFT)
+		self.comPath_label.grid(row=startRow+2,column=leftCol,padx=0,sticky=W)
+		self.comPath_TV=StringVar(self.taskBar)
 		
-		cpRw=2
-		self.comPath_teensy_label=Label(self.taskBar, text="COM Port:", justify=LEFT)
-		self.comPath_teensy_label.grid(row=cpRw,column=0,padx=0,sticky=W)
-		self.comPath_teensy_TV=StringVar(self.taskBar)
+		self.comPath_TV.set(varDict['comPath_teensy'])
+		tempPath = self.guessComPort()
+		if len(tempPath)>1:
+			varDict['comPath_teensy'] = tempPath
+			self.comPath_TV.set(tempPath)
+
+		self.comPath_entry=Entry(self.taskBar, width=22, textvariable=self.comPath_TV)
+		self.comPath_entry.grid(row=startRow+3,column=leftCol,padx=0,sticky=W)
 		
-		cp = platform.system()
-		# if mac then teensy devices will be a cu.usbmodemXXXXX in /dev/ where XXXXX is the serial
-		# if arm linux, then the teensy is most likely /dev/ttyACM0
-		# if windows it will be some random COM.
-		if cp == 'Darwin':
-			try: 
-				devNames = self.checkForDevicesUnix('cu.u')
-				self.comPath_teensy_TV.set('/dev/' + devNames[0])
-			except:
-				self.comPath_teensy_TV.set(varDict['comPath_teensy'])
+		self.blank=Label(self.taskBar, text=" ",justify=LEFT)
+		self.blank.grid(row=startRow+4,column=leftCol,padx=0,sticky=W)
 
-		elif cp == 'Windows':
-			self.comPath_teensy_TV.set('COM3')
-
-		elif cp == 'Linux':
-			self.comPath_teensy_TV.set('/dev/ttyACM0')
-		else:
-			self.comPath_teensy_TV.set(varDict['comPath_teensy'])
-
-		self.comPath_teensy_entry=Entry(self.taskBar, width=22, textvariable=self.comPath_teensy_TV)
-		self.comPath_teensy_entry.grid(row=cpRw+1,column=0,padx=0,sticky=W)
-		
-		self.blL=Label(self.taskBar, text=" ",justify=LEFT)
-		self.blL.grid(row=cpRw+2,column=0,padx=0,sticky=W)
-
-		self.blL=Label(self.taskBar, text="—— Session Metadata —————",justify=LEFT)
-		self.blL.grid(row=cpRw+1,column=0,padx=0,sticky=W)
-
-		eWidth = 8
-		cpRw=cpRw+3
-		anOrigin=cpRw+3
 		self.subjID_label=Label(self.taskBar, text="Subject ID:", justify=LEFT)
-		self.subjID_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.subjID_label.grid(row=startRow+5,column=0,padx=0,sticky=W)
 		self.subjID_TV=StringVar(self.taskBar)
 		self.subjID_TV.set(varDict['subjID'])
-		self.subjID_entry=Entry(self.taskBar, width=eWidth, textvariable=self.subjID_TV)
-		self.subjID_entry.grid(row=cpRw,column=0,padx=0,sticky=E)
+		self.subjID_entry=Entry(self.taskBar, width=entryWidth, textvariable=self.subjID_TV)
+		self.subjID_entry.grid(row=startRow+5,column=leftCol,padx=0,sticky=E)
 
-		cpRw=cpRw+1
 		self.teL=Label(self.taskBar, text="Total Trials:",justify=LEFT)
-		self.teL.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.teL.grid(row=startRow+6,column=0,padx=0,sticky=W)
 		self.totalTrials_TV=StringVar(self.taskBar)
 		self.totalTrials_TV.set(varDict['totalTrials'])
-		self.te = Entry(self.taskBar, text="Quit",width=eWidth,textvariable=self.totalTrials_TV)
-		self.te.grid(row=cpRw,column=0,padx=0,sticky=E)
+		self.totalTrials_entry = Entry(self.taskBar,width=entryWidth,textvariable=self.totalTrials_TV)
+		self.totalTrials_entry.grid(row=startRow+6,column=leftCol,padx=0,sticky=E)
 		
-		cpRw=cpRw+1
 		self.teL=Label(self.taskBar, text="Current Session:",justify=LEFT)
-		self.teL.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.teL.grid(row=startRow+7,column=leftCol,padx=0,sticky=W)
 		self.curSession_TV=StringVar(self.taskBar)
 		self.curSession_TV.set(varDict['curSession'])
-		self.te = Entry(self.taskBar,width=eWidth,textvariable=self.curSession_TV)
-		self.te.grid(row=cpRw,column=0,padx=0,sticky=E)
+		self.te = Entry(self.taskBar,width=entryWidth,textvariable=self.curSession_TV)
+		self.te.grid(row=startRow+7,column=leftCol,padx=0,sticky=E)
 
 		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
-		self.blL.grid(row=cpRw+1,column=0,padx=0,sticky=W)
+		self.blL.grid(row=startRow+8,column=leftCol,padx=0,sticky=W)
 
-		cpRw=cpRw+1
 		self.plotSamps_label=Label(self.taskBar, text="Samps per Plot:", justify=LEFT)
-		self.plotSamps_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.plotSamps_label.grid(row=startRow+9,column=0,padx=0,sticky=W)
 		self.plotSamps_TV=StringVar(self.taskBar)
 		self.plotSamps_TV.set(varDict['plotSamps'])
 		self.plotSamps_entry=Entry(self.taskBar, width=10, textvariable=self.plotSamps_TV)
-		self.plotSamps_entry.grid(row=cpRw,column=0,padx=0,sticky=E)
+		self.plotSamps_entry.grid(row=startRow+9,column=0,padx=0,sticky=E)
 
-		cpRw=cpRw+1
 		self.updateCount_label=Label(self.taskBar, text="Plot Update:", justify=LEFT)
-		self.updateCount_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.updateCount_label.grid(row=startRow+10,column=0,padx=0,sticky=W)
 		self.updateCount_TV=StringVar(self.taskBar)
 		self.updateCount_TV.set(varDict['updateCount'])
 		self.updateCount_entry=Entry(self.taskBar, width=10, textvariable=self.updateCount_TV)
-		self.updateCount_entry.grid(row=cpRw,column=0,padx=0,sticky=E)
+		self.updateCount_entry.grid(row=startRow+10,column=0,padx=0,sticky=E)
 
-		cpRw=cpRw+1
 		self.shapingTrial_TV=IntVar()
 		self.shapingTrial_TV.set(varDict['shapingTrial'])
 		self.shapingTrial_Toggle=Checkbutton(self.taskBar,text="Shaping Trial",\
 			variable=self.shapingTrial_TV,onvalue=1,offvalue=0)
-		self.shapingTrial_Toggle.grid(row=cpRw,column=0,pady=4,sticky=W)
+		self.shapingTrial_Toggle.grid(row=startRow+11,column=0,pady=4,sticky=W)
 		self.shapingTrial_Toggle.select()
 
 
-		cpRw=cpRw+1
 		self.useFlybackOpto_TV=IntVar()
 		self.useFlybackOpto_TV.set(varDict['chanPlot'])
 		self.useFlybackOpto_Toggle=Checkbutton(self.taskBar,text="Use Flyback Opto?",\
 			variable=self.useFlybackOpto_TV,onvalue=1,offvalue=0)
-		self.useFlybackOpto_Toggle.grid(row=cpRw,column=0,sticky=W)
+		self.useFlybackOpto_Toggle.grid(row=startRow+12,column=0,sticky=W)
 		self.useFlybackOpto_Toggle.select()
 
-		cpRw=cpRw+1
-		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
-		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)   
-
-		anOrigin=anOrigin+2
+  
+		self.chanPlot_label=Label(self.taskBar, text="Scope:", justify=LEFT)
+		self.chanPlot_label.grid(row=startRow+4,column=rightCol,padx=10,sticky=W)
 		self.chanPlotIV=IntVar()
 		self.chanPlotIV.set(varDict['chanPlot'])
 		Radiobutton(self.taskBar, text="Load Cell", \
-			variable=self.chanPlotIV, value=4).grid(row=anOrigin,column=1,padx=10,sticky=W)
+			variable=self.chanPlotIV, value=4).grid(row=startRow+5,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="Lick Sensor", \
-			variable=self.chanPlotIV, value=5).grid(row=anOrigin+1,column=1,padx=10,sticky=W)
+			variable=self.chanPlotIV, value=5).grid(row=startRow+6,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="Motion", \
-			variable=self.chanPlotIV, value=6).grid(row=anOrigin+2,column=1,padx=10,sticky=W)
-		Radiobutton(self.taskBar, text="Scope", \
-			variable=self.chanPlotIV, value=8).grid(row=anOrigin+3,column=1,padx=10,sticky=W)
+			variable=self.chanPlotIV, value=6).grid(row=startRow+7,column=rightCol,padx=10,pady=3,sticky=W)
+		Radiobutton(self.taskBar, text="DAC1", \
+			variable=self.chanPlotIV, value=8).grid(row=startRow+8,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="Thr Licks", \
-			variable=self.chanPlotIV, value=11).grid(row=anOrigin+4,column=1,padx=10,sticky=W)
+			variable=self.chanPlotIV, value=11).grid(row=startRow+9,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="Nothing", \
-			variable=self.chanPlotIV, value=0).grid(row=anOrigin+5,column=1,padx=10,sticky=W)
+			variable=self.chanPlotIV, value=0).grid(row=startRow+10,column=rightCol,padx=10,pady=3,sticky=W)
 
 
 		# MQTT Stuff
-		cpRw=cpRw+1
 		self.blL=Label(self.taskBar, text="—— Notes ——————————",justify=LEFT)
-		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)		
+		self.blL.grid(row=startRow+13,column=leftCol,padx=0,sticky=W)		
 
-		cpRw=cpRw+1
 		self.logMQTT_TV=IntVar()
 		self.logMQTT_TV.set(varDict['chanPlot'])
 		self.logMQTT_Toggle=Checkbutton(self.taskBar,text="Log MQTT Info?",\
 			variable=self.logMQTT_TV,onvalue=1,offvalue=0)
-		self.logMQTT_Toggle.grid(row=cpRw,column=0,sticky=W)
+		self.logMQTT_Toggle.grid(row=startRow+14,column=0,sticky=W)
 		self.logMQTT_Toggle.select
 
 
 		self.tBtn_detection = Button(self.taskBar,text="Task:Detection",justify=LEFT,\
-			width=c1Wd,command=self.do_detection)
-		self.tBtn_detection.grid(row=cpRw-10,column=1,padx=10,sticky=W)
+			width=col1_width,command=self.do_detection)
+		self.tBtn_detection.grid(row=startRow+15,column=rightCol,padx=10,sticky=W)
 		self.tBtn_detection['state'] = 'disabled'
 
-		cpRw=cpRw+1
+		self.tBtn_trialOpto = Button(self.taskBar,text="Task:Trial Opto",justify=LEFT,width=col1_width,\
+			command=self.do_trialOpto)
+		self.tBtn_trialOpto.grid(row=startRow+16,column=rightCol,padx=10,sticky=W)
+		self.tBtn_trialOpto['state'] = 'disabled'
+
 		self.hpL=Label(self.taskBar, text="Hash Path:",justify=LEFT)
-		self.hpL.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.hpL.grid(row=startRow+17,column=0,padx=0,sticky=W)
 		self.hashPath_TV=StringVar(self.taskBar)
 		self.hashPath_TV.set(varDict['hashPath'])
 		self.te = Entry(self.taskBar,width=11,textvariable=self.hashPath_TV)
-		self.te.grid(row=cpRw,column=0,padx=0,sticky=E)
+		self.te.grid(row=startRow+17,column=0,padx=0,sticky=E)
 
-		self.tBtn_trialOpto = Button(self.taskBar,text="Task:Trial Opto",justify=LEFT,width=c1Wd,\
-			command=self.do_trialOpto)
-		self.tBtn_trialOpto.grid(row=cpRw-10,column=1,padx=10,sticky=W)
-		self.tBtn_trialOpto['state'] = 'disabled'
 
-		cpRw=cpRw+1
 		self.vpR=Label(self.taskBar, text="Vol/Rwd (~):",justify=LEFT)
-		self.vpR.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.vpR.grid(row=startRow+18,column=0,padx=0,sticky=W)
 		self.volPerRwd_TV=StringVar(self.taskBar)
 		self.volPerRwd_TV.set(varDict['volPerRwd'])
 		self.te = Entry(self.taskBar,width=11,textvariable=self.volPerRwd_TV)
-		self.te.grid(row=cpRw,column=0,padx=0,sticky=E)
+		self.te.grid(row=startRow+18,column=0,padx=0,sticky=E)
 
-		self.stimButton = Button(self.taskBar,text="Dev:Stim",justify=LEFT,width=c1Wd,\
+		self.stimButton = Button(self.taskBar,text="Dev:Stim",justify=LEFT,width=col1_width,\
 			command= lambda: self.makePulseControl(varDict))
-		self.stimButton.grid(row=cpRw-10,column=1,padx=10,sticky=W)
+		self.stimButton.grid(row=startRow+18,column=rightCol,padx=10,sticky=W)
 
-		cpRw=cpRw+1
-		self.devControlButton = Button(self.taskBar,text="Dev:Gen",justify=LEFT,width=c1Wd,\
+		self.devControlButton = Button(self.taskBar,text="Dev:Gen",justify=LEFT,width=col1_width,\
 			command= lambda: self.makeDevControl(varDict))
-		self.devControlButton.grid(row=cpRw-10,column=1,padx=10,sticky=W)
+		self.devControlButton.grid(row=startRow+19,column=1,padx=10,sticky=W)
 
 		# options:
-		self.blL=Label(self.taskBar, text=" ",justify=LEFT)
-		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)
-		cpRw=cpRw+1
-		self.blL=Label(self.taskBar, text="—— Save/Exit —————————",justify=LEFT)
-		self.blL.grid(row=cpRw,column=0,padx=0,sticky=W)
-		cpRw=cpRw+1
-		self.quitButton = Button(self.taskBar,text="Quit",width=c1Wd,command=lambda: self.closeup(varDict,visualDict,timingDict,opticalDict))
-		self.quitButton.grid(row=cpRw-6,column=1,padx=10,pady=5,sticky=W)
+		self.quitButton = Button(self.taskBar,text="Quit",width=col1_width,command=lambda: self.closeup(varDict,visualDict,timingDict,opticalDict))
+		self.quitButton.grid(row=startRow+19,column=leftCol,padx=10,pady=5,sticky=W)
 		
-		self.tBtn_timeWin = Button(self.taskBar,text="Options: Timing",justify=LEFT,width=c1Wd,\
+		self.tBtn_timeWin = Button(self.taskBar,text="Options: Timing",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeTimingWindow(self,timingDict))
-		self.tBtn_timeWin.grid(row=cpRw-10,column=1,padx=10,pady=5,sticky=W)
+		self.tBtn_timeWin.grid(row=startRow+20,column=rightCol,padx=10,pady=5,sticky=W)
 
-		self.tBtn_visualWin = Button(self.taskBar,text="Options: Visual",justify=LEFT,width=c1Wd,\
+		self.tBtn_visualWin = Button(self.taskBar,text="Options: Visual",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeVisualWindow(self,visualDict))
-		self.tBtn_visualWin.grid(row=cpRw-9,column=1,padx=10,pady=2,sticky=W)
+		self.tBtn_visualWin.grid(row=startRow+21,column=rightCol,padx=10,pady=2,sticky=W)
 
-		self.tBtn_opticalWin = Button(self.taskBar,text="Options: Optical",justify=LEFT,width=c1Wd,\
+		self.tBtn_opticalWin = Button(self.taskBar,text="Options: Optical",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeOpticalWindow(self,opticalDict))
-		self.tBtn_opticalWin.grid(row=cpRw-8,column=1,padx=10,pady=2,sticky=W)
+		self.tBtn_opticalWin.grid(row=startRow+22,column=rightCol,padx=10,pady=2,sticky=W)
 		
 
 		# Finish the window
@@ -478,46 +464,46 @@ class csGUI(object):
 		self.ramp2AmpTV_Entry = Entry(self.dC_Pulse,width=8,textvariable=self.ramp2AmpTV)
 		self.ramp2AmpTV_Entry.grid(row=2,column=ptst+3)
 	def makeDetectionOptions(self,varDict,timingDict,visualDict,opticalDict):
-		cpRw=cpRw+1
+		startRow=startRow+1
 		self.lickAThr_label=Label(self.taskBar, text="Lick Thresh:", justify=LEFT)
-		self.lickAThr_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.lickAThr_label.grid(row=startRow,column=0,padx=0,sticky=W)
 		self.lickAThr_TV=StringVar(self.taskBar)
 		self.lickAThr_TV.set(varDict['lickAThr'])
 		self.lickAThr_entry=Entry(self.taskBar, width=10, textvariable=self.lickAThr_TV)
-		self.lickAThr_entry.grid(row=cpRw,column=0,padx=0,sticky=E)
+		self.lickAThr_entry.grid(row=startRow,column=0,padx=0,sticky=E)
 
-		cpRw=cpRw+1
+		startRow=startRow+1
 		self.minvisualStimTime_label=Label(self.taskBar, text="Min Stim Time:", justify=LEFT)
-		self.minvisualStimTime_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.minvisualStimTime_label.grid(row=startRow,column=0,padx=0,sticky=W)
 		self.minvisualStimTime_TV=StringVar(self.taskBar)
 		self.minvisualStimTime_TV.set(varDict['minvisualStimTime'])
 		self.minvisualStimTime_entry=Entry(self.taskBar, width=10, textvariable=self.minvisualStimTime_TV)
-		self.minvisualStimTime_entry.grid(row=cpRw,column=0,padx=0,sticky=E)
+		self.minvisualStimTime_entry.grid(row=startRow,column=0,padx=0,sticky=E)
 	def makeTrialOptoOptions(self,varDict,timingDict,visualDict,opticalDict):
 
-		cpRw=cpRw+1
+		startRow=startRow+1
 		self.pulsefrequency_label=Label(self.taskBar, text="Pulse Frequency:", justify=LEFT)
-		self.pulsefrequency_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.pulsefrequency_label.grid(row=startRow,column=0,padx=0,sticky=W)
 		self.pulsefrequency_TV=StringVar(self.taskBar)
 		self.pulsefrequency_TV.set(varDict['pulsefrequency'])
 		self.pulsefrequency_entry=Entry(self.taskBar, width=10, textvariable=self.pulsefrequency_TV)
-		self.pulsefrequency_entry.grid(row=cpRw,column=0,padx=0,sticky=E) 
+		self.pulsefrequency_entry.grid(row=startRow,column=0,padx=0,sticky=E) 
 
-		cpRw=cpRw+1
+		startRow=startRow+1
 		self.pulsedutycycle_label=Label(self.taskBar, text="Pulse Duty Cycle:", justify=LEFT)
-		self.pulsedutycycle_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.pulsedutycycle_label.grid(row=startRow,column=0,padx=0,sticky=W)
 		self.pulsedutycycle_TV=StringVar(self.taskBar)
 		self.pulsedutycycle_TV.set(varDict['pulsedutycycle'])
 		self.pulsedutycycle_entry=Entry(self.taskBar, width=10, textvariable=self.pulsedutycycle_TV)
-		self.pulsedutycycle_entry.grid(row=cpRw,column=0,padx=0,sticky=E) 
+		self.pulsedutycycle_entry.grid(row=startRow,column=0,padx=0,sticky=E) 
 
-		cpRw=cpRw+1
+		startRow=startRow+1
 		self.firstTrialWait_label=Label(self.taskBar, text="First Trial Wait:", justify=LEFT)
-		self.firstTrialWait_label.grid(row=cpRw,column=0,padx=0,sticky=W)
+		self.firstTrialWait_label.grid(row=startRow,column=0,padx=0,sticky=W)
 		self.firstTrialWait_TV=StringVar(self.taskBar)
 		self.firstTrialWait_TV.set(varDict['firstTrialWait'])
 		self.firstTrialWait_entry=Entry(self.taskBar, width=10, textvariable=self.firstTrialWait_TV)
-		self.firstTrialWait_entry.grid(row=cpRw,column=0,padx=0,sticky=E) 
+		self.firstTrialWait_entry.grid(row=startRow,column=0,padx=0,sticky=E) 
 
 	# c) Methods
 	def checkForDevicesUnix(self,startString):
@@ -779,7 +765,7 @@ class csGUI(object):
 			except:
 				os._exit(1)
 	def commandTeensy(self,varDict,commandStr):
-		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
+		varDict['comPath_teensy']=self.comPath_TV.get()
 		try:
 			teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
 			teensy.write("{}".format(commandStr).encode('utf-8'))
@@ -812,7 +798,7 @@ class csGUI(object):
 		self.bytesAvail = bytesAvail
 		return self.sR,self.newData
 	def deltaTeensy(self,varDict,commandHeader,delta):
-		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
+		varDict['comPath_teensy']=self.comPath_TV.get()
 		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
 		[cVal,sChecked]=csSer.checkVariable(teensy,"{}".format(commandHeader),0.01)
 		cVal=cVal+delta
@@ -825,7 +811,7 @@ class csGUI(object):
 		interRamp,rampCount,chanNum,stimType):
 		varDelay = 0.01
 		totalvisualStimTime=(rampDur*rampCount)+(interRamp*rampCount)
-		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
+		varDict['comPath_teensy']=self.comPath_TV.get()
 		teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
 		time.sleep(varDelay)
 		time.sleep(varDelay)
@@ -850,7 +836,7 @@ class csGUI(object):
 		teensy.close()
 	def markOffset(self,varDict):
 		# todo: add timeout
-		varDict['comPath_teensy']=self.comPath_teensy_TV.get()
+		varDict['comPath_teensy']=self.comPath_TV.get()
 		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
 		wVals=[]
 		lIt=0
@@ -1427,10 +1413,10 @@ class csPlot(object):
 		self.outcomeAxis.yaxis.tick_left()
 
 		self.stimOutcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",\
-			markerfacecolor="cornflowerblue",markersize=12,lw=0,alpha=0.5,markeredgewidth=2)
+			markerfacecolor="cornflowerblue",markersize=12,lw=0,alpha=0.5,markeredgentryWidth=2)
 		
 		self.noStimOutcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",\
-			markerfacecolor="red",markersize=12,lw=0,alpha=0.5,markeredgewidth=2)
+			markerfacecolor="red",markersize=12,lw=0,alpha=0.5,markeredgentryWidth=2)
 		self.outcomeAxis.set_title('dprime: ',fontsize=10)
 		self.binDPOutcomeLine,=self.outcomeAxis.plot([],[],color="black",lw=1)
 		plt.show(block=False)
@@ -1472,7 +1458,7 @@ class csPlot(object):
 		# self.stMrkSz=28
 		# self.txtOff=-0.02
 		# self.stPLine,=self.stAxes.plot(self.pltX,self.pltY,marker='o',\
-		# 	markersize=self.stMrkSz,markeredgewidth=2,\
+		# 	markersize=self.stMrkSz,markeredgentryWidth=2,\
 		# 	markerfacecolor="white",markeredgecolor="black",lw=0)
 		# k=0
 		# for stAnTxt in list(self.stPlotX.keys()):
@@ -1482,7 +1468,7 @@ class csPlot(object):
 		# 	k=k+1
 
 		# self.curStLine,=self.stAxes.plot(self.pltX[1],self.pltY[1],marker='o',markersize=self.stMrkSz+1,\
-		# 	markeredgewidth=2,markerfacecolor=self.pClrs['cBlue'],markeredgecolor='black',lw=0,alpha=0.5)
+		# 	markeredgentryWidth=2,markerfacecolor=self.pClrs['cBlue'],markeredgecolor='black',lw=0,alpha=0.5)
 		# plt.show(block=False)
 		
 		# self.trialFig.canvas.flush_events()
@@ -1496,10 +1482,10 @@ class csPlot(object):
 		self.outcomeAxis.yaxis.tick_left()
 
 		self.stimOutcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",\
-			markerfacecolor="cornflowerblue",markersize=12,lw=0,alpha=0.5,markeredgewidth=2)
+			markerfacecolor="cornflowerblue",markersize=12,lw=0,alpha=0.5,markeredgentryWidth=2)
 		
 		self.noStimOutcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",\
-			markerfacecolor="red",markersize=12,lw=0,alpha=0.5,markeredgewidth=2)
+			markerfacecolor="red",markersize=12,lw=0,alpha=0.5,markeredgentryWidth=2)
 		self.outcomeAxis.set_title('dprime: ',fontsize=10)
 		self.binDPOutcomeLine,=self.outcomeAxis.plot([],[],color="black",lw=1)
 		plt.show(block=False)
