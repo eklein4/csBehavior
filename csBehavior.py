@@ -156,7 +156,7 @@ class csGUI(object):
 		self.minStim_label=Label(self.taskBar, text="Min Stim:", justify=LEFT)
 		self.minStim_label.grid(row=startRow+12,column=0,padx=0,sticky=W)
 		self.minStim_TV=StringVar(self.taskBar)
-		self.minStim_TV.set(varDict['minStimTime'])
+		self.minStim_TV.set(varDict['minStim'])
 		self.minStim_entry=Entry(self.taskBar, width=10, textvariable=self.minStim_TV)
 		self.minStim_entry.grid(row=startRow+12,column=0,padx=0,sticky=E)
 
@@ -488,12 +488,12 @@ class csGUI(object):
 		self.lickAThr_entry.grid(row=startRow,column=0,padx=0,sticky=E)
 
 		startRow=startRow+1
-		self.minStimTime_label=Label(self.taskBar, text="Min Stim Time:", justify=LEFT)
-		self.minStimTime_label.grid(row=startRow,column=0,padx=0,sticky=W)
-		self.minStimTime_TV=StringVar(self.taskBar)
-		self.minStimTime_TV.set(varDict['minStimTime'])
-		self.minStimTime_entry=Entry(self.taskBar, width=10, textvariable=self.minStimTime_TV)
-		self.minStimTime_entry.grid(row=startRow,column=0,padx=0,sticky=E)
+		self.minStim_label=Label(self.taskBar, text="Min Stim Time:", justify=LEFT)
+		self.minStim_label.grid(row=startRow,column=0,padx=0,sticky=W)
+		self.minStim_TV=StringVar(self.taskBar)
+		self.minStim_TV.set(varDict['minStim'])
+		self.minStim_entry=Entry(self.taskBar, width=10, textvariable=self.minStim_TV)
+		self.minStim_entry.grid(row=startRow,column=0,padx=0,sticky=E)
 	def makeTrialOptoOptions(self,varDict,timingDict,visualDict,opticalDict):
 
 		startRow=startRow+1
@@ -883,7 +883,7 @@ class csVariables(object):
 		'hashPath':'/Users/cad','trialNum':0,'sessionOn':1,'canQuit':1,\
 		'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':15,\
 		'rewardDur':500,'lickAThr':3900,'lickLatchA':0,'minNoLickTime':1000,\
-		'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStimTime':1500,\
+		'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStim':1500,\
 		'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':0,'loadScale':1,\
 		'serBufSize':4096,'ramp1Dur':2000,'ramp1Amp':4095,'ramp2Dur':2000,'ramp2Amp':4095,\
 		'detectPlotNum':100,'updateCount':500,'plotSamps':200,'taskType':'detection',\
@@ -1790,7 +1790,7 @@ def runDetectionTask():
 				shapingTrial_TV.set('0')
 			csVar.sesVarDict['lickAThr']=int(csGui.lickAThr_TV.get())
 			csVar.sesVarDict['chanPlot']=csGui.chanPlotIV.get()
-			csVar.sesVarDict['minStimTime']=int(csGui.minStimTime_TV.get())
+			csVar.sesVarDict['minStim']=int(csGui.minStim_TV.get())
 
 			# if we are not using the GUI, then we already checeked the config text for these variables. 
 			# we can poll for changes, but I am not certain checking every loop is wise. 
@@ -2035,7 +2035,7 @@ def runDetectionTask():
 					if lastLick>0.02:
 						reported=1
 
-					if curStateTime>csVar.sesVarDict['minStimTime']:
+					if curStateTime>csVar.sesVarDict['minStim']:
 						if reported==1 or csVar.sesVarDict['shapingTrial']:
 							stimTrials.append(csVar.sesVarDict['trialNum'])
 							stimResponses.append(1)
@@ -2071,7 +2071,7 @@ def runDetectionTask():
 					if lastLick>0.005:
 						reported=1
 
-					if curStateTime>csVar.sesVarDict['minStimTime']:
+					if curStateTime>csVar.sesVarDict['minStim']:
 						if reported==1:
 							noStimTrials.append(csVar.sesVarDict['trialNum'])
 							noStimResponses.append(1)
@@ -2135,7 +2135,6 @@ def runDetectionTask():
 		except:
 			sesData.flush()
 			np.save('sesData.npy',sesData)
-			print(x)
 			print(loopCnt)
 			print(tString)
 			sesData[intNum,x]=int(tString[x+1])
