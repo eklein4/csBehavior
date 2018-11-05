@@ -153,12 +153,6 @@ class csGUI(object):
 		self.lickAThr_entry=Entry(self.taskBar, width=10, textvariable=self.lickAThr_TV)
 		self.lickAThr_entry.grid(row=startRow+11,column=0,padx=0,sticky=E)
 
-		self.minStim_label=Label(self.taskBar, text="Min Stim:", justify=LEFT)
-		self.minStim_label.grid(row=startRow+12,column=0,padx=0,sticky=W)
-		self.minStim_TV=StringVar(self.taskBar)
-		self.minStim_TV.set(varDict['minStim'])
-		self.minStim_entry=Entry(self.taskBar, width=10, textvariable=self.minStim_TV)
-		self.minStim_entry.grid(row=startRow+12,column=0,padx=0,sticky=E)
 
 
 		self.shapingTrial_TV=IntVar()
@@ -487,13 +481,7 @@ class csGUI(object):
 		self.lickAThr_entry=Entry(self.taskBar, width=10, textvariable=self.lickAThr_TV)
 		self.lickAThr_entry.grid(row=startRow,column=0,padx=0,sticky=E)
 
-		startRow=startRow+1
-		self.minStim_label=Label(self.taskBar, text="Min Stim Time:", justify=LEFT)
-		self.minStim_label.grid(row=startRow,column=0,padx=0,sticky=W)
-		self.minStim_TV=StringVar(self.taskBar)
-		self.minStim_TV.set(varDict['minStim'])
-		self.minStim_entry=Entry(self.taskBar, width=10, textvariable=self.minStim_TV)
-		self.minStim_entry.grid(row=startRow,column=0,padx=0,sticky=E)
+
 	def makeTrialOptoOptions(self,varDict,timingDict,visualDict,opticalDict):
 
 		startRow=startRow+1
@@ -1790,7 +1778,6 @@ def runDetectionTask():
 				shapingTrial_TV.set('0')
 			csVar.sesVarDict['lickAThr']=int(csGui.lickAThr_TV.get())
 			csVar.sesVarDict['chanPlot']=csGui.chanPlotIV.get()
-			csVar.sesVarDict['minStim']=int(csGui.minStim_TV.get())
 
 			# if we are not using the GUI, then we already checeked the config text for these variables. 
 			# we can poll for changes, but I am not certain checking every loop is wise. 
@@ -1943,8 +1930,10 @@ def runDetectionTask():
 								.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
 
 
+						csVar.sesVarDict['minStim']=csVar.visualStimTime[tTrial]
+						waitTime = csVar.trialTime[tTrial]
+						lickWaitTime = csVar.noLickTime[tTrial]
 
-						csVar.sesVarDict['minNoLickTime']=csVar.noLickTime[tTrial]
 						serialVarTracker = [0,0,0,0,0,0]
 
 						# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
@@ -1961,8 +1950,6 @@ def runDetectionTask():
 						
 						# 3) incrment the trial count and 
 						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
-						waitTime = csVar.trialTime[tTrial]
-						lickWaitTime = csVar.noLickTime[tTrial]
 
 						# 4) inform the user via the terminal what's going on.
 						print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],\
