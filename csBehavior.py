@@ -1413,10 +1413,10 @@ class csPlot(object):
 		self.outcomeAxis.yaxis.tick_left()
 
 		self.stimOutcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",\
-			markerfacecolor="cornflowerblue",markersize=12,lw=0,alpha=0.5,markeredgentryWidth=2)
+			markerfacecolor="cornflowerblue",markersize=12,lw=0,alpha=0.5,markeredgewidth=2)
 		
 		self.noStimOutcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",\
-			markerfacecolor="red",markersize=12,lw=0,alpha=0.5,markeredgentryWidth=2)
+			markerfacecolor="red",markersize=12,lw=0,alpha=0.5,markeredgewidth=2)
 		self.outcomeAxis.set_title('dprime: ',fontsize=10)
 		self.binDPOutcomeLine,=self.outcomeAxis.plot([],[],color="black",lw=1)
 		plt.show(block=False)
@@ -1458,7 +1458,7 @@ class csPlot(object):
 		# self.stMrkSz=28
 		# self.txtOff=-0.02
 		# self.stPLine,=self.stAxes.plot(self.pltX,self.pltY,marker='o',\
-		# 	markersize=self.stMrkSz,markeredgentryWidth=2,\
+		# 	markersize=self.stMrkSz,markeredgewidth=2,\
 		# 	markerfacecolor="white",markeredgecolor="black",lw=0)
 		# k=0
 		# for stAnTxt in list(self.stPlotX.keys()):
@@ -1468,7 +1468,7 @@ class csPlot(object):
 		# 	k=k+1
 
 		# self.curStLine,=self.stAxes.plot(self.pltX[1],self.pltY[1],marker='o',markersize=self.stMrkSz+1,\
-		# 	markeredgentryWidth=2,markerfacecolor=self.pClrs['cBlue'],markeredgecolor='black',lw=0,alpha=0.5)
+		# 	markeredgewidth=2,markerfacecolor=self.pClrs['cBlue'],markeredgecolor='black',lw=0,alpha=0.5)
 		# plt.show(block=False)
 		
 		# self.trialFig.canvas.flush_events()
@@ -1482,10 +1482,10 @@ class csPlot(object):
 		self.outcomeAxis.yaxis.tick_left()
 
 		self.stimOutcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",\
-			markerfacecolor="cornflowerblue",markersize=12,lw=0,alpha=0.5,markeredgentryWidth=2)
+			markerfacecolor="cornflowerblue",markersize=12,lw=0,alpha=0.5,markeredgewidth=2)
 		
 		self.noStimOutcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",\
-			markerfacecolor="red",markersize=12,lw=0,alpha=0.5,markeredgentryWidth=2)
+			markerfacecolor="red",markersize=12,lw=0,alpha=0.5,markeredgewidth=2)
 		self.outcomeAxis.set_title('dprime: ',fontsize=10)
 		self.binDPOutcomeLine,=self.outcomeAxis.plot([],[],color="black",lw=1)
 		plt.show(block=False)
