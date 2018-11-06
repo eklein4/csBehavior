@@ -41,6 +41,7 @@ import configparser
 
 
 class csGUI(object):
+	
 	def __init__(self,varDict,timingDict,visualDict,opticalDict):
 		
 		aaa=1
@@ -533,7 +534,9 @@ class csGUI(object):
 		# if there is ...
 	def loadPandaSeries(self,selectPath,varDict,timingDict,visualDict,opticalDict):
 		# if there is a csVar.sesVarDict.csv load it. 
+		print("about to load")
 		try:
+			print("about to load")
 			tempMeta=pd.read_csv(selectPath +'/' + 'sesVars.csv',index_col=0,header=None)
 			for x in range(0,len(tempMeta)):
 				varKey=tempMeta.iloc[x].name
@@ -556,10 +559,12 @@ class csGUI(object):
 						exec('self.' + varKey + '_TV.set("{}")'.format(tType))
 					except:
 						g=1
+				print(tType)
 				varDict[varKey]=tType
 		except:
 			pass
 		try:
+			print("now sens")
 			tempMeta=pd.read_csv(selectPath +'/' + 'sensVars.csv',index_col=0,header=None)
 			for x in range(0,len(tempMeta)):
 				varKey=tempMeta.iloc[x].name
@@ -600,6 +605,48 @@ class csGUI(object):
 		except:
 			pass
 		try:
+			print("now timing")
+			tempMeta=pd.read_csv(selectPath +'/' + 'timing.csv',index_col=0,header=None)
+			for x in range(0,len(tempMeta)):
+				varKey=tempMeta.iloc[x].name
+				varVal=tempMeta.iloc[x][1]
+				# now we need to divine curVar's data type.
+				# we first try to see if it is numeric.
+				if ',' in varVal:
+					varVal=varVal[1:-1].split(',')
+					tempList = []
+					for n in varVal:
+						try: 
+							n = float(n)
+							if n.is_integer():
+								n = int(n)
+							tempList.append(n)
+						except:
+							tempList.append(n)
+					tType = tempList
+
+				elif '[' not in varVal:
+					try:
+						tType=float(varVal)
+						if int(tType)==tType:
+							tType=int(tType)
+						# update any text variables that may exist.
+						try:
+							exec('self.' + varKey + '_TV.set({})'.format(tType))
+						except:
+							g=1
+					except:
+						tType=varVal
+				# update any text variables that may exist.
+				try:
+					exec('self.' + varKey + '_TV.set("{}")'.format(tType))
+				except:
+					g=1
+				timingDict[varKey]=tType
+		except:
+			pass
+		try:
+			print("now optical")
 			tempMeta=pd.read_csv(selectPath +'/' + 'opticalVars.csv',index_col=0,header=None)
 			for x in range(0,len(tempMeta)):
 				varKey=tempMeta.iloc[x].name
@@ -718,30 +765,33 @@ class csGUI(object):
 		for key in list(varDict.keys()):
 			if key not in excludeKeys:
 				print("Debug Cur Key = {}".format(key))
+				print("Debug Cur Key = {}".format(type(key)))
+				print("Debug Cur Key = {}".format(varDict[key]))
 				curKey.append(key)
 				curVal.append(varDict[key])
 				self.pdReturn=pd.Series(curVal,index=curKey)
 		return self.pdReturn
 	def refreshPandas(self,varDict,visualDict,timingDict,opticalDict):
 		try:
-			print("debug ref")
+			print("debug starting GUI updates")
 			self.updateDictFromGUI(varDict)
 			self.updateDictFromGUI(visualDict)
 			self.updateDictFromGUI(timingDict)
 			self.updateDictFromGUI(opticalDict)
-			print("debug ref 2")
+			print("complete GUI updates")
 		except:
 			pass
 
 		try:
 			print("debug: can i make bindings on linuz?")
 			tbd=self.dictToPandas(varDict)
-			print("made a binding")
-			print(tbd)
+			print("made var binding")
 			tbd.to_csv(varDict['dirPath'] + '/' +'sesVars.csv')
-			print("made the csv")
+			print("saved the csv")
 			tbd=self.dictToPandas(visualDict)
+			print("made sens binding")
 			tbd.to_csv(varDict['dirPath'] + '/' +'sensVars.csv')
+			print("saved the csv")
 			tbd=self.dictToPandas(opticalDict)
 			tbd.to_csv(varDict['dirPath'] + '/' +'opticalVars.csv')
 			tbd=self.dictToPandas(timingDict)
