@@ -97,10 +97,10 @@ class csGUI(object):
 		self.comPath_label.grid(row=startRow+2,column=leftCol,padx=0,sticky=W)
 		self.comPath_TV=StringVar(self.taskBar)
 		
-		self.comPath_TV.set(varDict['comPath_teensy'])
+		self.comPath_TV.set(varDict['comPath'])
 		tempPath = self.guessComPort()
 		if len(tempPath)>1:
-			varDict['comPath_teensy'] = tempPath
+			varDict['comPath'] = tempPath
 			self.comPath_TV.set(tempPath)
 
 		self.comPath_entry=Entry(self.taskBar, width=22, textvariable=self.comPath_TV)
@@ -236,7 +236,8 @@ class csGUI(object):
 		self.devControlButton.grid(row=startRow+19,column=1,padx=10,sticky=W)
 
 		# options:
-		self.quitButton = Button(self.taskBar,text="Quit",width=col1_width,command=lambda: self.closeup(varDict,visualDict,timingDict,opticalDict))
+		self.quitButton = Button(self.taskBar,text="Quit",width=col1_width,\
+			command=lambda: self.closeup(varDict,visualDict,timingDict,opticalDict))
 		self.quitButton.grid(row=startRow+19,column=leftCol,padx=10,pady=5,sticky=W)
 		
 		self.tBtn_timeWin = Button(self.taskBar,text="Options: Timing",justify=LEFT,width=col1_width,\
@@ -256,7 +257,7 @@ class csGUI(object):
 		self.taskBar.pack(side=TOP, fill=X)
 
 		# open the dev control window by default
-		self.makeDevControl(varDict)
+		# self.makeDevControl(varDict)
 	def populateVarFrameFromDict(self,dictName,stCol,varPerCol,headerString,frameName,excludeKeys=[],entryWidth=5):
 		
 		rowOffset = 2
@@ -307,7 +308,7 @@ class csGUI(object):
 		self.populateVarFrameFromDict(timingDict,0,0,'Current Values','timingControl_frame',['varsToUse','trialCount'],entryWidth=12)
 		self.tBtn_updateTimingDict = Button(self.timingControl_frame,text="Update Timing Vars",justify=LEFT,width=15,\
 			command=lambda: self.updateDictFromGUI(timingDict))
-		self.tBtn_updateTimingDict.grid(row=12,column=0,padx=2,pady=2)
+		self.tBtn_updateTimingDict.grid(row=999,column=0,padx=2,pady=2)
 	def makeVisualWindow(self,master,visualDict):
 		
 		self.visualControl_frame = Toplevel(self.master)
@@ -529,166 +530,38 @@ class csGUI(object):
 		varDict['dirPath']=selectPath
 		varDict['subjID']=os.path.basename(selectPath)
 		self.toggleTaskButtons(1)
-		self.loadPandaSeries(selectPath,varDict,timingDict,visualDict,opticalDict)
-		
-		# if there is ...
-	def loadPandaSeries(self,selectPath,varDict,timingDict,visualDict,opticalDict):
-		# if there is a csVar.sesVarDict.csv load it. 
-		print("about to load")
+
 		try:
-			print("about to load")
+			print(varDict)
 			tempMeta=pd.read_csv(selectPath +'/' + 'sesVars.csv',index_col=0,header=None)
-			for x in range(0,len(tempMeta)):
-				varKey=tempMeta.iloc[x].name
-				varVal=tempMeta.iloc[x][1]
-				# now we need to divine curVar's data type.
-				# we first try to see if it is numeric.
-				try:
-					tType=float(varVal)
-					if int(tType)==tType:
-						tType=int(tType)
-					# update any text variables that may exist.
-					try:
-						exec('self.' + varKey + '_TV.set({})'.format(tType))
-					except:
-						g=1
-				except:
-					tType=varVal
-					# update any text variables that may exist.
-					try:
-						exec('self.' + varKey + '_TV.set("{}")'.format(tType))
-					except:
-						g=1
-				print(tType)
-				varDict[varKey]=tType
+			print("var pandas")
+			print(tempMeta)
+			varDict = self.updateDictFromPandas(tempMeta,varDict)
+			print(varDict)
+			# self.updateDictFromGUI(varDict)
 		except:
 			pass
+
 		try:
-			print("now sens")
+			tempMeta=pd.read_csv(selectPath +'/' + 'timingVars.csv',index_col=0,header=None)
+			timingDict = self.updateDictFromPandas(tempMeta,timingDict)
+			self.updateDictFromGUI(timingDict)
+		except:
+			pass
+
+		try:
 			tempMeta=pd.read_csv(selectPath +'/' + 'sensVars.csv',index_col=0,header=None)
-			for x in range(0,len(tempMeta)):
-				varKey=tempMeta.iloc[x].name
-				varVal=tempMeta.iloc[x][1]
-				# now we need to divine curVar's data type.
-				# we first try to see if it is numeric.
-				if ',' in varVal:
-					varVal=varVal[1:-1].split(',')
-					tempList = []
-					for n in varVal:
-						try: 
-							n = float(n)
-							if n.is_integer():
-								n = int(n)
-							tempList.append(n)
-						except:
-							tempList.append(n)
-					tType = tempList
-
-				elif '[' not in varVal:
-					try:
-						tType=float(varVal)
-						if int(tType)==tType:
-							tType=int(tType)
-						# update any text variables that may exist.
-						try:
-							exec('self.' + varKey + '_TV.set({})'.format(tType))
-						except:
-							g=1
-					except:
-						tType=varVal
-				# update any text variables that may exist.
-				try:
-					exec('self.' + varKey + '_TV.set("{}")'.format(tType))
-				except:
-					g=1
-				visualDict[varKey]=tType
+			visualDict = self.updateDictFromPandas(tempMeta,visualDict)
+			self.updateDictFromGUI(visualDict)
 		except:
 			pass
-		try:
-			print("now timing")
-			tempMeta=pd.read_csv(selectPath +'/' + 'timing.csv',index_col=0,header=None)
-			for x in range(0,len(tempMeta)):
-				varKey=tempMeta.iloc[x].name
-				varVal=tempMeta.iloc[x][1]
-				# now we need to divine curVar's data type.
-				# we first try to see if it is numeric.
-				if ',' in varVal:
-					varVal=varVal[1:-1].split(',')
-					tempList = []
-					for n in varVal:
-						try: 
-							n = float(n)
-							if n.is_integer():
-								n = int(n)
-							tempList.append(n)
-						except:
-							tempList.append(n)
-					tType = tempList
 
-				elif '[' not in varVal:
-					try:
-						tType=float(varVal)
-						if int(tType)==tType:
-							tType=int(tType)
-						# update any text variables that may exist.
-						try:
-							exec('self.' + varKey + '_TV.set({})'.format(tType))
-						except:
-							g=1
-					except:
-						tType=varVal
-				# update any text variables that may exist.
-				try:
-					exec('self.' + varKey + '_TV.set("{}")'.format(tType))
-				except:
-					g=1
-				timingDict[varKey]=tType
-		except:
-			pass
 		try:
-			print("now optical")
 			tempMeta=pd.read_csv(selectPath +'/' + 'opticalVars.csv',index_col=0,header=None)
-			for x in range(0,len(tempMeta)):
-				varKey=tempMeta.iloc[x].name
-				varVal=tempMeta.iloc[x][1]
-				# now we need to divine curVar's data type.
-				# we first try to see if it is numeric.
-				if ',' in varVal:
-					
-					varVal=varVal[1:-1].split(',')
-
-					tempList = []
-					for n in varVal:
-						try: 
-							n = float(n)
-							if n.is_integer():
-								n = int(n)
-							tempList.append(n)
-						except:
-							tempList.append(n)
-					tType = tempList
-
-				elif '[' not in varVal:
-					try:
-						tType=float(varVal)
-						if int(tType)==tType:
-							tType=int(tType)
-						# update any text variables that may exist.
-						try:
-							exec('self.' + varKey + '_TV.set({})'.format(tType))
-						except:
-							g=1
-					except:
-						tType=varVal
-				# update any text variables that may exist.
-				try:
-					exec('self.' + varKey + '_TV.set("{}")'.format(tType))
-				except:
-					g=1
-				opticalDict[varKey]=tType
+			opticalDict = self.updateDictFromPandas(tempMeta,opticalDict)
+			self.updateDictFromGUI(opticalDict)
 		except:
 			pass
-		return varDict,visualDict,opticalDict,timingDict
 	def toggleTaskButtons(self,boolState=1):
 		if boolState == 1:
 			self.tBtn_trialOpto['state'] = 'normal'
@@ -707,19 +580,34 @@ class csGUI(object):
 			# keep it as is, because it is empty or a char/string
 			pass
 		return singleCharNum
-	def updateDictFromGUI(self,varDict,excludeKeys=['varsToUse']):
+	def updateDictFromPandas(self,pandasSeries,targetDict):
 
-		for key in list(varDict.keys()):
+		for x in range(0,len(pandasSeries)):
+			varKey=pandasSeries.iloc[x].name
+			a=pandasSeries.iloc[x][1]
+			try:
+				exec("targetDict['{}']=".format(varKey) + a)
+			except:
+				try:
+					targetDict[varKey]=a
+				except:
+					print("failed pandas update on {}".format(varKey))
+		return targetDict
+	def updateDictFromGUI(self,targetDict,excludeKeys=['varsToUse']):
+		for key in list(targetDict.keys()):
 			if key not in excludeKeys:
 				try:
 					a=eval('self.{}_TV.get()'.format(key))
+					print("hey og a is {}",format(type(a)))
+
 					a = a.split(',')
 					# if '/' or ',' is in the variable; 
 					# it's one of the step formats
 					if ':' in a or '/' in a:
+						print("updated a series")
 						a[1] = self.inferType(a[1])
 						tempList = [a[0],a[1]]
-						varDict[key]=tempList
+						targetDict[key]=tempList
 
 					else:
 						tempList = []
@@ -727,14 +615,17 @@ class csGUI(object):
 							for n in a:
 								n= self.inferType(n)
 								tempList.append(n)
-								varDict[key]=tempList
+								targetDict[key]=tempList
 						else:
 							a[0]= self.inferType(a[0])
-							varDict[key]=a[0]
-
+							targetDict[key]=a[0]
 				except:
-					pass
-		return varDict
+					try:
+						a=eval('self.{}_TV.get()'.format(key))
+					except:
+						pass
+					
+		return targetDict
 	def updateDictFromTXT(self,varDict,configF):
 		for key in list(varDict.keys()):
 			try:
@@ -764,9 +655,6 @@ class csGUI(object):
 		curVal=[]
 		for key in list(varDict.keys()):
 			if key not in excludeKeys:
-				print("Debug Cur Key = {}".format(key))
-				print("Debug Cur Key = {}".format(type(key)))
-				print("Debug Cur Key = {}".format(varDict[key]))
 				curKey.append(key)
 				curVal.append(varDict[key])
 				self.pdReturn=pd.Series(curVal,index=curKey)
@@ -774,7 +662,10 @@ class csGUI(object):
 	def refreshPandas(self,varDict,visualDict,timingDict,opticalDict):
 		try:
 			print("debug starting GUI updates")
+			print(varDict)
 			self.updateDictFromGUI(varDict)
+			print("after")
+			print(varDict)
 			self.updateDictFromGUI(visualDict)
 			self.updateDictFromGUI(timingDict)
 			self.updateDictFromGUI(opticalDict)
@@ -783,15 +674,10 @@ class csGUI(object):
 			pass
 
 		try:
-			print("debug: can i make bindings on linuz?")
 			tbd=self.dictToPandas(varDict)
-			print("made var binding")
 			tbd.to_csv(varDict['dirPath'] + '/' +'sesVars.csv')
-			print("saved the csv")
 			tbd=self.dictToPandas(visualDict)
-			print("made sens binding")
 			tbd.to_csv(varDict['dirPath'] + '/' +'sensVars.csv')
-			print("saved the csv")
 			tbd=self.dictToPandas(opticalDict)
 			tbd.to_csv(varDict['dirPath'] + '/' +'opticalVars.csv')
 			tbd=self.dictToPandas(timingDict)
@@ -821,9 +707,9 @@ class csGUI(object):
 			except:
 				os._exit(1)
 	def commandTeensy(self,varDict,commandStr):
-		varDict['comPath_teensy']=self.comPath_TV.get()
+		varDict['comPath']=self.comPath_TV.get()
 		try:
-			teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
+			teensy=csSer.connectComObj(varDict['comPath'],varDict['baudRate_teensy'])
 			teensy.write("{}".format(commandStr).encode('utf-8'))
 		except:
 			print("couldn't connect check serial path")
@@ -854,8 +740,8 @@ class csGUI(object):
 		self.bytesAvail = bytesAvail
 		return self.sR,self.newData
 	def deltaTeensy(self,varDict,commandHeader,delta):
-		varDict['comPath_teensy']=self.comPath_TV.get()
-		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
+		varDict['comPath']=self.comPath_TV.get()
+		teensy=csSer.connectComObj(varDict['comPath'],varDict['baudRate_teensy'])
 		[cVal,sChecked]=csSer.checkVariable(teensy,"{}".format(commandHeader),0.01)
 		cVal=cVal+delta
 		if cVal<=0:
@@ -867,8 +753,8 @@ class csGUI(object):
 		interRamp,rampCount,chanNum,stimType):
 		varDelay = 0.01
 		totalvisualStimTime=(rampDur*rampCount)+(interRamp*rampCount)
-		varDict['comPath_teensy']=self.comPath_TV.get()
-		teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy'],csVar.sesVarDict['baudRate_teensy'])
+		varDict['comPath']=self.comPath_TV.get()
+		teensy=csSer.connectComObj(csVar.sesVarDict['comPath'],csVar.sesVarDict['baudRate_teensy'])
 		time.sleep(varDelay)
 		time.sleep(varDelay)
 		teensy.write("t{}{}>".format(stimType,chanNum).encode('utf-8'))
@@ -892,8 +778,8 @@ class csGUI(object):
 		teensy.close()
 	def markOffset(self,varDict):
 		# todo: add timeout
-		varDict['comPath_teensy']=self.comPath_TV.get()
-		teensy=csSer.connectComObj(varDict['comPath_teensy'],varDict['baudRate_teensy'])
+		varDict['comPath']=self.comPath_TV.get()
+		teensy=csSer.connectComObj(varDict['comPath'],varDict['baudRate_teensy'])
 		wVals=[]
 		lIt=0
 		while lIt<=20:
@@ -917,7 +803,7 @@ class csGUI(object):
 class csVariables(object):
 	def __init__(self,sesVarDict={},sensory={},timing={},optical={}):
 
-		self.sesVarDict={'curSession':1,'comPath_teensy':'/dev/cu.usbmodem4589151',\
+		self.sesVarDict={'curSession':1,'comPath':'/dev/cu.usbmodem4589151',\
 		'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':100,\
 		'logMQTT':1,'mqttUpDel':0.05,'curWeight':20,'rigGMTZoneDif':5,'volPerRwd':0.0023,\
 		'waterConsumed':0,'consumpTarg':1.5,'dirPath':'/Users/Deister/BData',\
@@ -1636,8 +1522,8 @@ try:
 	try:
 		csVar.sesVarDict['taskType'] = config['sesVars']['taskType']
 		print(csVar.sesVarDict['taskType'])
-		csVar.sesVarDict['comPath_teensy'] = config['sesVars']['comPath_teensy']
-		print(csVar.sesVarDict['comPath_teensy'])
+		csVar.sesVarDict['comPath'] = config['sesVars']['comPath']
+		print(csVar.sesVarDict['comPath'])
 		csVar.sesVarDict['dirPath'] = config['sesVars']['savePath']
 		print(csVar.sesVarDict['dirPath'])
 		csVar.sesVarDict['hashPath'] = config['sesVars']['hashPath']
@@ -1680,7 +1566,7 @@ def makeTrialVariables():
 	# Second, generate the first set of variables
 	csVar.generateTrialVariables()
 def initializeTeensy():
-	teensy=csSer.connectComObj(csVar.sesVarDict['comPath_teensy']\
+	teensy=csSer.connectComObj(csVar.sesVarDict['comPath']\
 		,csVar.sesVarDict['baudRate_teensy'])
 	# D) Flush the teensy serial buffer. Send it to the init state (#0).
 	csSer.flushBuffer(teensy)

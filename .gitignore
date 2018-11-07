@@ -16,3 +16,4 @@ draftAnalysis/.ipynb_checkpoints/h264OpenCVHDF5-checkpoint.ipynb
 csBehaviorSReview.py
 cur.npy
 sesData.npy
+.DS_Store
