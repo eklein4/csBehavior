@@ -13,3 +13,7 @@ draftAnalysis/.ipynb_checkpoints/h264OpenCVHDF5-checkpoint.ipynb
 .DS_Store
 .DS_Store
 .DS_Store
+csBehaviorSReview.py
+cur.npy
+sesData.npy
+.DS_Store
