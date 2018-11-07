@@ -532,12 +532,8 @@ class csGUI(object):
 		self.toggleTaskButtons(1)
 
 		try:
-			print(varDict)
 			tempMeta=pd.read_csv(selectPath +'/' + 'sesVars.csv',index_col=0,header=None)
-			print("var pandas")
-			print(tempMeta)
 			varDict = self.updateDictFromPandas(tempMeta,varDict)
-			print(varDict)
 			self.refreshGuiFromDict(varDict)
 		except:
 			pass
@@ -596,20 +592,17 @@ class csGUI(object):
 				try:
 					targetDict[varKey]=a
 				except:
-					print("failed pandas update on {}".format(varKey))
+					pass
 		return targetDict
 	def updateDictFromGUI(self,targetDict,excludeKeys=['varsToUse']):
 		for key in list(targetDict.keys()):
 			if key not in excludeKeys:
 				try:
 					a=eval('self.{}_TV.get()'.format(key))
-					print("hey og a is {}",format(type(a)))
-
 					a = a.split(',')
 					# if '/' or ',' is in the variable; 
 					# it's one of the step formats
 					if ':' in a or '/' in a:
-						print("updated a series")
 						a[1] = self.inferType(a[1])
 						tempList = [a[0],a[1]]
 						targetDict[key]=tempList
@@ -655,7 +648,6 @@ class csGUI(object):
 		timingDict['noLickTime_steps']=np.arange(timingDict['noLickTime_min'],timingDict['noLickTime_max'])
 		return timingDict
 	def dictToPandas(self,varDict,excludeKeys=['varsToUse']):
-		print("debug running dict to pandas")
 		curKey=[]
 		curVal=[]
 		for key in list(varDict.keys()):
@@ -666,15 +658,10 @@ class csGUI(object):
 		return self.pdReturn
 	def refreshPandas(self,varDict,visualDict,timingDict,opticalDict):
 		try:
-			print("debug starting GUI updates")
-			print(varDict)
 			self.updateDictFromGUI(varDict)
-			print("after")
-			print(varDict)
 			self.updateDictFromGUI(visualDict)
 			self.updateDictFromGUI(timingDict)
-			self.updateDictFromGUI(opticalDict)
-			print("complete GUI updates")
+			self.updateDictFromGUI(opticalDict) 
 		except:
 			pass
 
@@ -974,7 +961,6 @@ class csVariables(object):
 		self.hostMachine=mchString.split('.')[0]
 		return self.hostMachine
 	def dictToPandas(self,dictName):
-		print("trying to run pandas functions")
 		curKey=[]
 		curVal=[]
 		for key in list(dictName.keys()):
@@ -1531,22 +1517,15 @@ try:
 	config = configparser.ConfigParser()
 	config.read(sys.argv[1])
 	useGUI = int(config['settings']['useGUI'])
-	print("gui?={}".format(useGUI))
-	
 
 	#todo: show sinda this pattern
 	#todo: loop through what could be in the config obj, or is
 	try:
 		csVar.sesVarDict['taskType'] = config['sesVars']['taskType']
-		print(csVar.sesVarDict['taskType'])
 		csVar.sesVarDict['comPath'] = config['sesVars']['comPath']
-		print(csVar.sesVarDict['comPath'])
 		csVar.sesVarDict['dirPath'] = config['sesVars']['savePath']
-		print(csVar.sesVarDict['dirPath'])
 		csVar.sesVarDict['hashPath'] = config['sesVars']['hashPath']
-		print(csVar.sesVarDict['hashPath'])
 		csVar.sesVarDict['subjID']=config['sesVars']['subjID']
-		print(csVar.sesVarDict['subjID'])
 	except:
 		print("issue with config vars")
 		
