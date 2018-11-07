@@ -87,7 +87,7 @@ class csGUI(object):
 		self.comPath_entry=Entry(self.taskBar, width=22, textvariable=self.comPath_TV)
 		self.comPath_entry.grid(row=startRow+3,column=leftCol,padx=0,sticky=W)
 		
-		self.blank=Label(self.taskBar, text=" ",justify=LEFT)
+		self.blank=Label(self.taskBar, text=" ——————————————–––",justify=LEFT)
 		self.blank.grid(row=startRow+4,column=leftCol,padx=0,sticky=W)
 
 		self.subjID_label=Label(self.taskBar, text="Subject ID:", justify=LEFT)
@@ -111,7 +111,7 @@ class csGUI(object):
 		self.te = Entry(self.taskBar,width=entryWidth,textvariable=self.curSession_TV)
 		self.te.grid(row=startRow+7,column=leftCol,padx=0,sticky=E)
 
-		self.blL=Label(self.taskBar, text=" —————————————— ",justify=LEFT)
+		self.blL=Label(self.taskBar, text=" ——————————————–––",justify=LEFT)
 		self.blL.grid(row=startRow+8,column=leftCol,padx=0,sticky=W)
 
 		self.plotSamps_label=Label(self.taskBar, text="Samps per Plot:", justify=LEFT)
@@ -154,21 +154,21 @@ class csGUI(object):
 
   
 		self.chanPlot_label=Label(self.taskBar, text="Scope:", justify=LEFT)
-		self.chanPlot_label.grid(row=startRow+4,column=rightCol,padx=10,sticky=W)
+		self.chanPlot_label.grid(row=startRow+5,column=rightCol,padx=10,sticky=W)
 		self.chanPlotIV=IntVar()
 		self.chanPlotIV.set(varDict['chanPlot'])
 		Radiobutton(self.taskBar, text="Load Cell", \
-			variable=self.chanPlotIV, value=4).grid(row=startRow+5,column=rightCol,padx=10,pady=3,sticky=W)
+			variable=self.chanPlotIV, value=4).grid(row=startRow+6,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="Lick Sensor", \
-			variable=self.chanPlotIV, value=5).grid(row=startRow+6,column=rightCol,padx=10,pady=3,sticky=W)
+			variable=self.chanPlotIV, value=5).grid(row=startRow+7,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="Motion", \
-			variable=self.chanPlotIV, value=6).grid(row=startRow+7,column=rightCol,padx=10,pady=3,sticky=W)
+			variable=self.chanPlotIV, value=6).grid(row=startRow+8,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="DAC1", \
-			variable=self.chanPlotIV, value=8).grid(row=startRow+8,column=rightCol,padx=10,pady=3,sticky=W)
+			variable=self.chanPlotIV, value=8).grid(row=startRow+9,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="Thr Licks", \
-			variable=self.chanPlotIV, value=11).grid(row=startRow+9,column=rightCol,padx=10,pady=3,sticky=W)
+			variable=self.chanPlotIV, value=11).grid(row=startRow+10,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="Nothing", \
-			variable=self.chanPlotIV, value=0).grid(row=startRow+10,column=rightCol,padx=10,pady=3,sticky=W)
+			variable=self.chanPlotIV, value=0).grid(row=startRow+11,column=rightCol,padx=10,pady=3,sticky=W)
 
 
 		# MQTT Stuff
@@ -185,12 +185,12 @@ class csGUI(object):
 
 		self.tBtn_detection = Button(self.taskBar,text="Task:Detection",justify=LEFT,\
 			width=col1_width,command=self.do_detection)
-		self.tBtn_detection.grid(row=startRow+15,column=rightCol,padx=10,sticky=W)
+		self.tBtn_detection.grid(row=startRow+20,column=leftCol,padx=10,sticky=W)
 		self.tBtn_detection['state'] = 'disabled'
 
 		self.tBtn_trialOpto = Button(self.taskBar,text="Task:Trial Opto",justify=LEFT,width=col1_width,\
 			command=self.do_trialOpto)
-		self.tBtn_trialOpto.grid(row=startRow+16,column=rightCol,padx=10,sticky=W)
+		self.tBtn_trialOpto.grid(row=startRow+21,column=leftCol,padx=10,sticky=W)
 		self.tBtn_trialOpto['state'] = 'disabled'
 
 		self.hpL=Label(self.taskBar, text="Hash Path:",justify=LEFT)
@@ -208,30 +208,32 @@ class csGUI(object):
 		self.te = Entry(self.taskBar,width=11,textvariable=self.volPerRwd_TV)
 		self.te.grid(row=startRow+18,column=0,padx=0,sticky=E)
 
-		self.stimButton = Button(self.taskBar,text="Dev:Stim",justify=LEFT,width=col1_width,\
-			command= lambda: self.makePulseControl(varDict))
-		self.stimButton.grid(row=startRow+18,column=rightCol,padx=10,sticky=W)
+		# self.stimButton = Button(self.taskBar,text="Dev:Stim",justify=LEFT,width=col1_width,\
+		# 	command= lambda: self.makePulseControl(varDict))
+		# self.stimButton.grid(row=startRow+18,column=rightCol,padx=10,sticky=W)
 
-		self.devControlButton = Button(self.taskBar,text="Dev:Gen",justify=LEFT,width=col1_width,\
-			command= lambda: self.makeDevControl(varDict))
-		self.devControlButton.grid(row=startRow+19,column=1,padx=10,sticky=W)
+		
 
 		# options:
 		self.quitButton = Button(self.taskBar,text="Quit",width=col1_width,\
 			command=lambda: self.closeup(varDict,visualDict,timingDict,opticalDict))
-		self.quitButton.grid(row=startRow+19,column=leftCol,padx=10,pady=5,sticky=W)
+		self.quitButton.grid(row=startRow+21,column=rightCol,padx=10,pady=5,sticky=W)
+
+		self.devControlButton = Button(self.taskBar,text="Dev:Gen",justify=LEFT,width=col1_width,\
+			command= lambda: self.makeDevControl(varDict))
+		self.devControlButton.grid(row=startRow+14,column=1,padx=10,sticky=W)
 		
-		self.tBtn_timeWin = Button(self.taskBar,text="Options: Timing",justify=LEFT,width=col1_width,\
+		self.tBtn_timeWin = Button(self.taskBar,text="Vars: Timing",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeTimingWindow(self,timingDict))
-		self.tBtn_timeWin.grid(row=startRow+20,column=rightCol,padx=10,pady=5,sticky=W)
+		self.tBtn_timeWin.grid(row=startRow+16,column=rightCol,padx=10,pady=5,sticky=W)
 
-		self.tBtn_visualWin = Button(self.taskBar,text="Options: Visual",justify=LEFT,width=col1_width,\
+		self.tBtn_visualWin = Button(self.taskBar,text="Vars: Sensory",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeVisualWindow(self,visualDict))
-		self.tBtn_visualWin.grid(row=startRow+21,column=rightCol,padx=10,pady=2,sticky=W)
+		self.tBtn_visualWin.grid(row=startRow+17,column=rightCol,padx=10,pady=2,sticky=W)
 
-		self.tBtn_opticalWin = Button(self.taskBar,text="Options: Optical",justify=LEFT,width=col1_width,\
+		self.tBtn_opticalWin = Button(self.taskBar,text="Vars: Optical",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeOpticalWindow(self,opticalDict))
-		self.tBtn_opticalWin.grid(row=startRow+22,column=rightCol,padx=10,pady=2,sticky=W)
+		self.tBtn_opticalWin.grid(row=startRow+18,column=rightCol,padx=10,pady=2,sticky=W)
 		
 
 		# Finish the window
