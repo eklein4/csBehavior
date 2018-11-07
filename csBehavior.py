@@ -45,26 +45,7 @@ class csGUI(object):
 	def __init__(self,varDict,timingDict,visualDict,opticalDict):
 		
 		aaa=1
-	def guessComPort(self):
-			cp = platform.system()
-			# if mac then teensy devices will be a cu.usbmodemXXXXX in /dev/ where XXXXX is the serial
-			# if arm linux, then the teensy is most likely /dev/ttyACM0
-			# if windows it will be some random COM.
-			self.comPath=''
-			if cp == 'Darwin':
-				try: 
-					devNames = self.checkForDevicesUnix('cu.u')
-					self.comPath='/dev/' + devNames[0]
-				except:
-					pass
-			elif cp == 'Windows':
-				self.comPath='COM3'
-
-			elif cp == 'Linux':
-				self.comPath='/dev/ttyACM0'
-
-			return self.comPath
-
+	
 	# b) window generation
 	def makeParentWindow(self,master,varDict,timingDict,visualDict,opticalDict):
 		# make the window object
@@ -482,8 +463,6 @@ class csGUI(object):
 		self.lickAThr_TV.set(varDict['lickAThr'])
 		self.lickAThr_entry=Entry(self.taskBar, width=10, textvariable=self.lickAThr_TV)
 		self.lickAThr_entry.grid(row=startRow,column=0,padx=0,sticky=E)
-
-
 	def makeTrialOptoOptions(self,varDict,timingDict,visualDict,opticalDict):
 
 		startRow=startRow+1
@@ -511,6 +490,25 @@ class csGUI(object):
 		self.firstTrialWait_entry.grid(row=startRow,column=0,padx=0,sticky=E) 
 
 	# c) Methods
+	def guessComPort(self):
+		cp = platform.system()
+		# if mac then teensy devices will be a cu.usbmodemXXXXX in /dev/ where XXXXX is the serial
+		# if arm linux, then the teensy is most likely /dev/ttyACM0
+		# if windows it will be some random COM.
+		self.comPath=''
+		if cp == 'Darwin':
+			try: 
+				devNames = self.checkForDevicesUnix('cu.u')
+				self.comPath='/dev/' + devNames[0]
+			except:
+				pass
+		elif cp == 'Windows':
+			self.comPath='COM3'
+
+		elif cp == 'Linux':
+			self.comPath='/dev/ttyACM0'
+
+		return self.comPath
 	def checkForDevicesUnix(self,startString):
 		dpth=Path('/dev')
 		devPathStrings = []
@@ -538,7 +536,7 @@ class csGUI(object):
 			print(tempMeta)
 			varDict = self.updateDictFromPandas(tempMeta,varDict)
 			print(varDict)
-			# self.updateDictFromGUI(varDict)
+			self.refreshGuiFromDict(varDict)
 		except:
 			pass
 
@@ -546,6 +544,7 @@ class csGUI(object):
 			tempMeta=pd.read_csv(selectPath +'/' + 'timingVars.csv',index_col=0,header=None)
 			timingDict = self.updateDictFromPandas(tempMeta,timingDict)
 			self.updateDictFromGUI(timingDict)
+			self.refreshGuiFromDict(timingDict)
 		except:
 			pass
 
@@ -553,6 +552,8 @@ class csGUI(object):
 			tempMeta=pd.read_csv(selectPath +'/' + 'sensVars.csv',index_col=0,header=None)
 			visualDict = self.updateDictFromPandas(tempMeta,visualDict)
 			self.updateDictFromGUI(visualDict)
+			self.refreshGuiFromDict(visualDict)
+
 		except:
 			pass
 
@@ -560,6 +561,8 @@ class csGUI(object):
 			tempMeta=pd.read_csv(selectPath +'/' + 'opticalVars.csv',index_col=0,header=None)
 			opticalDict = self.updateDictFromPandas(tempMeta,opticalDict)
 			self.updateDictFromGUI(opticalDict)
+			self.refreshGuiFromDict(opticalDict)
+
 		except:
 			pass
 	def toggleTaskButtons(self,boolState=1):
@@ -676,16 +679,29 @@ class csGUI(object):
 		try:
 			tbd=self.dictToPandas(varDict)
 			tbd.to_csv(varDict['dirPath'] + '/' +'sesVars.csv')
+			self.refreshGuiFromDict(varDict)
+			
 			tbd=self.dictToPandas(visualDict)
 			tbd.to_csv(varDict['dirPath'] + '/' +'sensVars.csv')
+			self.refreshGuiFromDict(visualDict)
+			
 			tbd=self.dictToPandas(opticalDict)
 			tbd.to_csv(varDict['dirPath'] + '/' +'opticalVars.csv')
+			self.refreshGuiFromDict(opticalDict)
+			
 			tbd=self.dictToPandas(timingDict)
 			tbd.to_csv(varDict['dirPath'] + '/' +'timingVars.csv')
+			self.refreshGuiFromDict(timingDict)
 	
 		except:
 			pass
 		return varDict,visualDict,timingDict,opticalDict	
+	def refreshGuiFromDict(self,targetDict):
+		for key in list(targetDict.keys()):
+			try:
+				eval('self.{}_TV.set(targetDict["{}"])'.format(key,key))
+			except:
+				pass
 	def closeup(self,varDict,visualDict,timingDict,opticalDict,guiBool=1):
 		self.toggleTaskButtons(1)
 		self.tBtn_detection
@@ -799,7 +815,6 @@ class csGUI(object):
 	def do_trialOpto(self):
 		
 		runTrialOptoTask()
-
 class csVariables(object):
 	def __init__(self,sesVarDict={},sensory={},timing={},optical={}):
 
