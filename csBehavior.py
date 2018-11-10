@@ -862,12 +862,20 @@ class csVariables(object):
 		labelList = probDict['varsToUse']
 		trLen = probDict['trialCount']
 		
+		# we make an array that is the length of 
+		# the total number of trials we want numbers for.
 		tempArray = np.zeros((trLen,len(labelList)))
+
+		# we make a temporary array that is (min,max,steps) by total variables
 		tempCountArray = np.zeros((3,len(labelList)))
+
+		# we make a list of vairable names that have been iterated through. 
+		# We return this list too, because it is often necessary to reconcile the item 
+		varIndex = []
 		
 		for x in range(len(labelList)):
 			curStr = labelList[x]
-	
+			varIndex.append(curStr)
 			availIndicies = np.arange(trLen)
 			curAvail=len(availIndicies)
 
@@ -934,7 +942,7 @@ class csVariables(object):
 				except:
 					pass
 
-		return tempArray,tempCountArray
+		return tempArray,varIndex,tempCountArray
 	def updateDictFromTXT(self,varDict,configF):
 		for key in list(varDict.keys()):
 			try:
@@ -950,11 +958,12 @@ class csVariables(object):
 				pass
 		return varDict
 	def generateTrialVariables(self):
-		[self.trialVars_sesnory,_]=csVar.getFeatureProb(self.sensory)
-		[self.trialVars_timing,_]=csVar.getFeatureProb(self.timing)
-		[self.trialVars_optical,_]=csVar.getFeatureProb(self.optical)
+		[self.trialVars_sensory,self.trialVars_sensory_labels,_]=csVar.getFeatureProb(self.sensory)
+		[self.trialVars_timing,self.trialVars_timing_labels,_]=csVar.getFeatureProb(self.timing)
+		[self.trialVars_optical,self.trialVars_optical_labels,_]=csVar.getFeatureProb(self.optical)
 
-		return self.trialVars_sesnory,self.trialVars_timing,self.trialVars_optical
+		return self.trialVars_sensory,self.trialVars_timing,self.trialVars_optical,self.trialVars_sensory_labels,\
+		self.trialVars_timing_labels,self.trialVars_optical_labels
 	def getRig(self):
 		# returns a string that is the hostname
 		mchString=socket.gethostname()
@@ -1561,6 +1570,7 @@ def makeTrialVariables():
 		exec("csVar.{}=[]".format(x))
 	# Second, generate the first set of variables
 	csVar.generateTrialVariables()
+	print("debug: showing visual labels ={}".format(csVar.trialVars_optical_labels))
 def initializeTeensy():
 	teensy=csSer.connectComObj(csVar.sesVarDict['comPath']\
 		,csVar.sesVarDict['baudRate_teensy'])
@@ -1838,13 +1848,15 @@ def runDetectionTask():
 						tTrial = csVar.sesVarDict['trialNum']
 						
 						tCount = 0
+						print(csVar.trialVars_timing_labels.index)
 						for x in csVar.timing['varsToUse']:
+							tIndex = csVar.trialVars_timing_labels.index(x)
+							print("debug: {}'s tIndex = {}".format(x,tIndex))
 							eval("csVar.{}.append(csVar.trialVars_timing[tTrial,tCount])".format(x))
-							tCount = tCount+1
 
 						tCount = 0
 						for x in csVar.sensory['varsToUse']:
-							eval("csVar.{}.append(csVar.trialVars_sesnory[tTrial,tCount])".format(x))
+							eval("csVar.{}.append(csVar.trialVars_sensory[tTrial,tCount])".format(x))
 							tCount = tCount+1
 
 						tCount = 0
@@ -2425,7 +2437,7 @@ def runTrialOptoTask():
 
 						tCount = 0
 						for x in csVar.sensory['varsToUse']:
-							eval("csVar.{}.append(csVar.trialVars_sesnory[tTrial,tCount])".format(x))
+							eval("csVar.{}.append(csVar.trialVars_sensory[tTrial,tCount])".format(x))
 							tCount = tCount+1
 
 						tCount = 0
