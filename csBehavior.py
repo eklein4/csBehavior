@@ -146,7 +146,7 @@ class csGUI(object):
 
 
 		self.useFlybackOpto_TV=IntVar()
-		self.useFlybackOpto_TV.set(varDict['chanPlot'])
+		self.useFlybackOpto_TV.set(varDict['useFlybackOpto'])
 		self.useFlybackOpto_Toggle=Checkbutton(self.taskBar,text="Use Flyback Opto?",\
 			variable=self.useFlybackOpto_TV,onvalue=1,offvalue=0)
 		self.useFlybackOpto_Toggle.grid(row=startRow+14,column=0,sticky=W)
@@ -807,7 +807,7 @@ class csGUI(object):
 class csVariables(object):
 	def __init__(self,sesVarDict={},sensory={},timing={},optical={}):
 
-		self.sesVarDict={'curSession':1,'comPath':'/dev/cu.usbmodem4589151',\
+		self.sesVarDict={'curSession':1,'comPath':'/dev/ttyACM0',\
 		'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':100,\
 		'logMQTT':1,'mqttUpDel':0.05,'curWeight':20,'rigGMTZoneDif':5,'volPerRwd':0.0023,\
 		'waterConsumed':0,'consumpTarg':1.5,'dirPath':'/Users/Deister/BData',\
@@ -849,14 +849,14 @@ class csVariables(object):
 		self.optical={'trialCount':1000,\
 		'varsToUse':['c1_amp','c1_pulseDur','c1_interPulseDur','c1_pulseCount',\
 		'c2_amp','c2_pulseDur','c2_interPulseDur','c2_pulseCount','c1_mask'],\
-		'c1_amp_min':0,'c1_amp_max':4095,'c1_amp_steps':[1000],'c1_amp_probs':[0.2,0.8],\
+		'c1_amp_min':0,'c1_amp_max':4095,'c1_amp_steps':[1000],'c1_amp_probs':[0.0,1.0],\
 		'c1_pulseDur_min':10,'c1_pulseDur_max':10,'c1_pulseDur_steps':[],'c1_pulseDur_probs':[1.0,0.0],\
-		'c1_interPulseDur_min':40,'c1_interPulseDur_max':90,'c1_interPulseDur_steps':[90],'c1_interPulseDur_probs':[1.0,0.0],\
-		'c1_pulseCount_min':20,'c1_pulseCount_max':40,'c1_pulseCount_steps':[30],'c1_pulseCount_probs':[0.0,1.0],\
-		'c2_amp_min':0,'c2_amp_max':4095,'c2_amp_steps':[1000],'c2_amp_probs':[0.2,0.8],\
+		'c1_interPulseDur_min':90,'c1_interPulseDur_max':90,'c1_interPulseDur_steps':[90],'c1_interPulseDur_probs':[1.0,0.0],\
+		'c1_pulseCount_min':20,'c1_pulseCount_max':20,'c1_pulseCount_steps':[20],'c1_pulseCount_probs':[0.0,1.0],\
+		'c2_amp_min':0,'c2_amp_max':4095,'c2_amp_steps':[1000],'c2_amp_probs':[0.0,1.0],\
 		'c2_pulseDur_min':10,'c2_pulseDur_max':10,'c2_pulseDur_steps':[],'c2_pulseDur_probs':[1.0,0.0],\
-		'c2_interPulseDur_min':40,'c2_interPulseDur_max':90,'c2_interPulseDur_steps':[90],'c2_interPulseDur_probs':[1.0,0.0],\
-		'c2_pulseCount_min':20,'c2_pulseCount_max':40,'c2_pulseCount_steps':[30],'c2_pulseCount_probs':[0.0,1.0],\
+		'c2_interPulseDur_min':90,'c2_interPulseDur_max':90,'c2_interPulseDur_steps':[90],'c2_interPulseDur_probs':[1.0,0.0],\
+		'c2_pulseCount_min':20,'c2_pulseCount_max':20,'c2_pulseCount_steps':[20],'c2_pulseCount_probs':[0.0,1.0],\
 		'c1_mask_min':2,'c1_mask_max':1,'c1_mask_steps':[],'c1_mask_probs':[0.3,0.7]}
 	def getFeatureProb(self,probDict):
 		labelList = probDict['varsToUse']
@@ -2441,7 +2441,7 @@ def runTrialOptoTask():
 							print("optical --> mask trial; LED_C1: {}V; C2 {}V"\
 								.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
 
-						elif csVar.c1_mask[tTrial]==1:
+						elif csVar.c1_mask[tTrial]!=2:
 							csVar.c1_amp[tTrial]=csVar.c1_amp[tTrial]
 							csVar.c2_amp[tTrial]=0
 							stimTrials.append(0)
@@ -2478,32 +2478,32 @@ def runTrialOptoTask():
 						sHeaders[pyState]=1
 						sHeaders[np.setdiff1d(sList,pyState)]=0
 
-					elif serialVarTracker[2] == 0 and curStateTime>=10:
+					elif serialVarTracker[2] == 0 and curStateTime>=100:
 						optoVoltages = [int(csVar.c1_amp[tTrial]),int(csVar.c2_amp[tTrial])]
 						csSer.sendAnalogOutValues(teensy,'v',optoVoltages)
 						serialVarTracker[2] = 1
 
-					elif serialVarTracker[3] == 0 and curStateTime>=210:
+					elif serialVarTracker[3] == 0 and curStateTime>=510:
 						optoPulseDurs = [int(csVar.c1_pulseDur[tTrial]),int(csVar.c2_pulseDur[tTrial])]
 						csSer.sendAnalogOutValues(teensy,'p',optoPulseDurs)
 						serialVarTracker[3] = 1
 
-					elif serialVarTracker[4] == 0 and curStateTime>=410:
+					elif serialVarTracker[4] == 0 and curStateTime>=910:
 						optoIPIs = [int(csVar.c1_interPulseDur[tTrial]),int(csVar.c2_interPulseDur[tTrial])]
 						csSer.sendAnalogOutValues(teensy,'d',optoIPIs)
 						serialVarTracker[4] = 1
 
-					elif serialVarTracker[5] == 0 and curStateTime>=610:
-						optoPulseNum = [int(csVar.c1_pulseCount[tTrial]),int(csVar.c2_pulseCount[tTrial])]
-						csSer.sendAnalogOutValues(teensy,'m',optoPulseNum)
-						serialVarTracker[5] = 1
+					#elif serialVarTracker[5] == 0 and curStateTime>=610:
+					#	optoPulseNum = [int(csVar.c1_pulseCount[tTrial]),int(csVar.c2_pulseCount[tTrial])]
+					#	csSer.sendAnalogOutValues(teensy,'m',optoPulseNum)
+					#	serialVarTracker[5] = 1
 
 					if curStateTime>waitTime:
 						stateSync=0
-						if csVar.useFlybackOpto == 1:
+						if csVar.sesVarDict['useFlybackOpto'] == 1:
 							pyState=8
 							teensy.write('a8>'.encode('utf-8'))
-						elif csVar.useFlybackOpto == 0:
+						elif csVar.sesVarDict['useFlybackOpto'] == 0:
 							pyState=7
 							teensy.write('a7>'.encode('utf-8'))
 
