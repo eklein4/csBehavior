@@ -1,0 +1,37 @@
+trialCount,1000
+c1_amp_min,0
+c1_amp_max,4095
+c1_amp_steps,[1000]
+c1_amp_probs,"[0.2, 0.8]"
+c1_pulseDur_min,10
+c1_pulseDur_max,10
+c1_pulseDur_steps,[]
+c1_pulseDur_probs,"[1.0, 0.0]"
+c1_interPulseDur_min,40
+c1_interPulseDur_max,90
+c1_interPulseDur_steps,[90]
+c1_interPulseDur_probs,"[1.0, 0.0]"
+c1_pulseCount_min,20
+c1_pulseCount_max,40
+c1_pulseCount_steps,[30]
+c1_pulseCount_probs,"[0.0, 1.0]"
+c2_amp_min,0
+c2_amp_max,4095
+c2_amp_steps,[1000]
+c2_amp_probs,"[0.2, 0.8]"
+c2_pulseDur_min,10
+c2_pulseDur_max,10
+c2_pulseDur_steps,[]
+c2_pulseDur_probs,"[1.0, 0.0]"
+c2_interPulseDur_min,40
+c2_interPulseDur_max,90
+c2_interPulseDur_steps,[90]
+c2_interPulseDur_probs,"[1.0, 0.0]"
+c2_pulseCount_min,20
+c2_pulseCount_max,40
+c2_pulseCount_steps,[30]
+c2_pulseCount_probs,"[0.0, 1.0]"
+c1_mask_min,2
+c1_mask_max,1
+c1_mask_steps,[]
+c1_mask_probs,"[0.3, 0.7]"
