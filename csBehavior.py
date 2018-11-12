@@ -1,4 +1,7 @@
-# csBehavior v1.0
+####################################################################
+#
+# csBehavior v1.05
+#
 # A Python program that allows you to run 
 # behavioral/stimulus experiments 
 # with a Teensy (and related) microcontrollers.
@@ -8,7 +11,8 @@
 # contributors: Chris Deister, Sinda Fekir
 # Anything that is licenseable is 
 # governed by a MIT License found in the github directory. 
-
+#
+####################################################################
 
 from tkinter import *
 import tkinter.filedialog as fd
@@ -23,7 +27,6 @@ import platform
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 import socket
 import sys
 import pandas as pd
@@ -44,7 +47,8 @@ class csGUI(object):
 	
 	def __init__(self,varDict,timingDict,visualDict,opticalDict):
 		
-		aaa=1
+		self.curFeeds=[]
+		self.totalMQTTDataCount = 0
 	
 	# b) window generation
 	def makeParentWindow(self,master,varDict,timingDict,visualDict,opticalDict):
@@ -234,6 +238,10 @@ class csGUI(object):
 		self.tBtn_opticalWin = Button(self.taskBar,text="Vars: Optical",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeOpticalWindow(self,opticalDict))
 		self.tBtn_opticalWin.grid(row=startRow+18,column=rightCol,padx=10,pady=2,sticky=W)
+
+		self.tBtn_mqttWin = Button(self.taskBar,text="MQTT Opts",justify=LEFT,width=col1_width,\
+			command=lambda: self.makeMQTTWindow(varDict))
+		self.tBtn_mqttWin.grid(row=startRow+19,column=rightCol,padx=10,pady=2,sticky=W)
 		
 
 		# Finish the window
@@ -490,8 +498,135 @@ class csGUI(object):
 		self.firstTrialWait_TV.set(varDict['firstTrialWait'])
 		self.firstTrialWait_entry=Entry(self.taskBar, width=10, textvariable=self.firstTrialWait_TV)
 		self.firstTrialWait_entry.grid(row=startRow,column=0,padx=0,sticky=E) 
+	def makeMQTTWindow(self,varDict):
+		dCBWd = 12
+		hashPath = varDict['hashPath'] + '/simpHashes/csIO.txt'
+		self.mqttControl_frame = Toplevel(self.master)
+		self.mqttControl_frame.title('MQTT Feeds')
+
+		self.getFeedsBtn = Button(self.mqttControl_frame,text="Get Feeds",width=dCBWd,\
+			command=lambda:self.getFeeds(hashPath))
+		self.getFeedsBtn.grid(row=0,column=0,sticky=W,pady=5,padx=5)
+		self.getFeedsBtn['state'] = 'normal'
+
+		self.feed_listbox = Listbox(self.mqttControl_frame,height=5)
+		self.feed_listbox.grid(row=1,column=0,padx=5,rowspan=5)
+
+		self.mqttDataPoint_TV = StringVar(self.mqttControl_frame)
+		self.feedData_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataPoint_TV,width=14)
+		self.feedData_entry.grid(row=0,column=1)
+
+		self.mqttDateStamp_TV = StringVar(self.mqttControl_frame)
+		self.mqttDateStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDateStamp_TV,width=14)
+		self.mqttDateStamp_entry.grid(row=1,column=1)
+
+		self.mqttTimeStamp_TV = StringVar(self.mqttControl_frame)
+		self.mqttTimeStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttTimeStamp_TV,width=14)
+		self.mqttTimeStamp_entry.grid(row=2,column=1)
+
+		self.mqttDataCount_TV = StringVar(self.mqttControl_frame)
+		self.mqttDataCount_TV.set(self.totalMQTTDataCount)
+		self.mqttDataCount_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataCount_TV,width=14)
+		self.mqttDataCount_entry.grid(row=3,column=1)
+
+		self.inspectFeedsBtn = Button(self.mqttControl_frame,text="Inspect",width=dCBWd,\
+			command=lambda:self.inspectFeed())
+		self.inspectFeedsBtn.grid(row=6,column=0,sticky=W,pady=5,padx=5)
+		self.inspectFeedsBtn['state'] = 'disabled'
+
+		self.getAllDataBtn = Button(self.mqttControl_frame,text="Poll All",width=dCBWd,\
+			command=lambda:self.getAllFeedData())
+		self.getAllDataBtn.grid(row=7,column=0,sticky=W,pady=5,padx=5)
+		self.getAllDataBtn['state'] = 'disabled'
+
+		self.buAllDataBtn = Button(self.mqttControl_frame,text="Save Feed",width=dCBWd,\
+			command=lambda:self.allMQTTDataToPandas(varDict['dirPath']))
+		self.buAllDataBtn.grid(row=7,column=1,sticky=W,pady=5,padx=5)
+		self.buAllDataBtn['state'] = 'disabled'
 
 	# c) Methods
+	def getFeeds(self,hashPath):
+		try:
+			self.curFeeds = csMQTT.getMQTTFeeds(self,hashPath)
+			for thing in self.curFeeds:
+				self.feed_listbox.insert(END, thing)
+			self.buAllDataBtn['state'] = 'normal'
+			self.getAllDataBtn['state'] = 'normal'
+			self.inspectFeedsBtn['state'] = 'normal'
+		except:
+			print("mqtt: couldn't load feeds")
+			self.curFeeds = []
+		return self.curFeeds
+	def inspectFeed(self):
+		bb=[]
+		curSelFeed = self.feed_listbox.curselection()
+		aa= self.feed_listbox.get(curSelFeed)
+		bb=csMQTT.getMQTTLast(self,aa.lower())
+		try:
+			self.mqttDataPoint_TV.set(bb.value)
+			tsSp=bb.created_at.split('T')
+			self.mqttDateStamp_TV.set(tsSp[0])
+			self.mqttTimeStamp_TV.set(tsSp[1])
+		except:
+			self.mqttDataPoint_TV.set(bb)
+			self.mqttDateStamp_TV.set([])
+			self.mqttTimeStamp_TV.set([])
+	def getAllFeedData(self):
+		try:
+			curSelFeed = self.feed_listbox.curselection()
+			aa= self.feed_listbox.get(curSelFeed)
+			bb=csMQTT.getMQTTDataAll(self,aa.lower())
+			bbValues = []
+			for x in bb:
+				tVal = self.inferType(x.value)
+				bbValues.append(tVal)
+			self.totalMQTTDataCount = len(bbValues)
+		except:
+			self.totalMQTTDataCount=0
+		self.mqttDataCount_TV.set(self.totalMQTTDataCount)
+		
+		return self.totalMQTTDataCount,bbValues
+	def allMQTTDataToPandas(self,savePath):
+		
+		curSelFeed = self.feed_listbox.curselection()
+		aa= self.feed_listbox.get(curSelFeed)
+		allData=csMQTT.getMQTTDataAll(self,aa.lower())
+		tdStamp=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+
+		
+		tCreated_ats=[]
+		tDates=[]
+		tTimes=[]
+		tIDs = []
+		tValues=[]
+		tFeedNames = []
+		
+		for x in allData:
+			tCreated_ats.append(x.created_at)
+			tS=x.created_at.split('T')
+			tDates.append(tS[0])
+			tTimes.append(tS[1])
+			tIDs.append(x.id)
+			tValues.append(self.inferType(x.value))
+			tFeedNames.append(aa)
+
+		self.mqttDataCount_TV.set(len(tIDs))
+		tempArray = [tFeedNames,tCreated_ats,tDates,tTimes,tIDs,tValues]
+		varIndex = ['feed_name','created_at','date','time','id','value']
+		tempArray=list(list(zip(*tempArray)))
+		newDF = pd.DataFrame(tempArray,columns = varIndex)
+		csvPath = savePath + '/' +'{}_{}.csv'.format(aa,tdStamp)
+		newDF.to_csv(csvPath)
+		
+
+		tCreated_ats=[]
+		tDates=[]
+		tTimes=[]
+		tIDs = []
+		tValues=[]
+		tFeedNames = []
+
+
 	def guessComPort(self):
 		cp = platform.system()
 		# if mac then teensy devices will be a cu.usbmodemXXXXX in /dev/ where XXXXX is the serial
@@ -1034,17 +1169,16 @@ class csHDF(object):
 		return self.sesHDF
 class csMQTT(object):
 	def __init__(self,dStamp):
-		self.dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
 
+		self.dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
 	def connect_REST(self,hashPath):
 		simpHash=open(hashPath)
 		a=list(simpHash)
 		userName = a[0].strip()
 		apiKey = a[1]
 		self.aio = Client(userName,apiKey)
-		return self.aio
 		print("mqtt: connected to aio as {}".format(self.aio.username))
-
+		return self.aio
 	def connect_MQTT(self,hashPath):
 		simpHash=open(hashPath)
 		a=list(simpHash)
@@ -1052,7 +1186,28 @@ class csMQTT(object):
 		apiKey = a[1]
 		self.mqtt = MQTTClient(userName,apiKey)
 		return self.mqtt
+	def getMQTTLast(self,feedName):
+		lastFeedVal='NA'
+		try:
+			lastFeedVal = self.aio.receive_previous(feedName)
+		except:
+			pass
+		return lastFeedVal
+	def getMQTTDataAll(self,feedName):
+		lastFeedVal='NA'
+		try:
+			allFeedValues = self.aio.data(feedName)
+		except:
+			pass
+		return allFeedValues
 
+	def getMQTTFeeds(self,hashPath):
+		feedList = []
+		csMQTT.connect_REST(self,hashPath)
+		allFeeds = self.aio.feeds()
+		for things in allFeeds:
+			feedList.append(things.name)
+		return feedList
 	def getDailyConsumption(self,mqObj,sID,rigGMTDif,hourThresh):
 		# Get last reward count logged.
 		# assume nothing
@@ -1105,7 +1260,6 @@ class csMQTT(object):
 		self.hourDif=hourDif
 		
 		return self.waterConsumed,self.hourDif
-
 	def rigOnLog(self,mqObj,sID,sWeight,hostName,mqDel):
 		
 		# a) log on to the rig's on-off feed.
@@ -1166,7 +1320,6 @@ class csMQTT(object):
 				print("mqtt: logged weight of {}".format(sWeight))
 			except:
 				print("mqtt: failed to create {}'s weight feed".format(sID))
-
 	def rigOffLog(self,mqObj,sID,sWeight,hostName,mqDel):
 		
 		# a) log off to the rig's on-off feed.
@@ -1179,12 +1332,10 @@ class csMQTT(object):
 
 		# c) log the weight to subject's weight tracking feed.
 		mqObj.send('{}-weight'.format(sID),sWeight)
-
 	def openGoogleSheet(self,gAPIHashPath):
 		#gAPIHashPath='/Users/cad/simpHashes/client_secret.json'
 		self.gc = pygsheets.authorize(gAPIHashPath)
 		return self.gc
-	
 	def updateGoogleSheet(self,sheetCon,subID,cellID,valUp):
 		sh = sheetCon.open('WR Log')
 		wsTup=sh.worksheets()
