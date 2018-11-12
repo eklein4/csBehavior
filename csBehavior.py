@@ -49,7 +49,7 @@ class csGUI(object):
 		
 		self.curFeeds=[]
 		self.totalMQTTDataCount = 0
-	
+
 	# b) window generation
 	def makeParentWindow(self,master,varDict,timingDict,visualDict,opticalDict):
 		# make the window object
@@ -57,6 +57,12 @@ class csGUI(object):
 		self.taskBar = Frame(self.master)
 		self.master.title("csBehavior")
 		# self.taskBar.configure(background='gray')
+
+		# log the hostname
+		mchString=socket.gethostname()
+		varDict['hostName']=mchString.split('.')[0]
+		print("host name = {}".format(varDict['hostName']))
+
 		
 		# set the initial geometry variables
 		col1_width=14
@@ -510,39 +516,44 @@ class csGUI(object):
 		self.getFeedsBtn['state'] = 'normal'
 
 		self.feed_listbox = Listbox(self.mqttControl_frame,height=5)
-		self.feed_listbox.grid(row=1,column=0,padx=5,rowspan=5)
+		self.feed_listbox.grid(row=1,column=0,pady=5,rowspan=5,columnspan=2)
 
 		self.mqttDataPoint_TV = StringVar(self.mqttControl_frame)
 		self.feedData_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataPoint_TV,width=14)
-		self.feedData_entry.grid(row=0,column=1)
+		self.feedData_entry.grid(row=0,column=2)
 
 		self.mqttDateStamp_TV = StringVar(self.mqttControl_frame)
 		self.mqttDateStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDateStamp_TV,width=14)
-		self.mqttDateStamp_entry.grid(row=1,column=1)
+		self.mqttDateStamp_entry.grid(row=1,column=2)
 
 		self.mqttTimeStamp_TV = StringVar(self.mqttControl_frame)
 		self.mqttTimeStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttTimeStamp_TV,width=14)
-		self.mqttTimeStamp_entry.grid(row=2,column=1)
+		self.mqttTimeStamp_entry.grid(row=2,column=2)
 
 		self.mqttDataCount_TV = StringVar(self.mqttControl_frame)
 		self.mqttDataCount_TV.set(self.totalMQTTDataCount)
 		self.mqttDataCount_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataCount_TV,width=14)
-		self.mqttDataCount_entry.grid(row=3,column=1)
+		self.mqttDataCount_entry.grid(row=3,column=2)
 
 		self.inspectFeedsBtn = Button(self.mqttControl_frame,text="Inspect",width=dCBWd,\
 			command=lambda:self.inspectFeed())
-		self.inspectFeedsBtn.grid(row=6,column=0,sticky=W,pady=5,padx=5)
+		self.inspectFeedsBtn.grid(row=6,column=0,sticky=W,pady=2,padx=2)
 		self.inspectFeedsBtn['state'] = 'disabled'
 
 		self.getAllDataBtn = Button(self.mqttControl_frame,text="Poll All",width=dCBWd,\
 			command=lambda:self.getAllFeedData())
-		self.getAllDataBtn.grid(row=7,column=0,sticky=W,pady=5,padx=5)
+		self.getAllDataBtn.grid(row=7,column=0,sticky=W,pady=2,padx=2)
 		self.getAllDataBtn['state'] = 'disabled'
 
-		self.buAllDataBtn = Button(self.mqttControl_frame,text="Save Feed",width=dCBWd,\
+		self.buAllDataBtn = Button(self.mqttControl_frame,text="Save Data",width=dCBWd,\
 			command=lambda:self.allMQTTDataToPandas(varDict['dirPath']))
-		self.buAllDataBtn.grid(row=7,column=1,sticky=W,pady=5,padx=5)
+		self.buAllDataBtn.grid(row=7,column=1,sticky=W,pady=2,padx=2)
 		self.buAllDataBtn['state'] = 'disabled'
+
+		self.makeRigFeedBtn = Button(self.mqttControl_frame,text="+ Rig Feed",width=dCBWd,\
+			command=lambda:self.makeRigFeed('rig-' + varDict['hostName']))
+		self.makeRigFeedBtn.grid(row=8,column=1,sticky=W,pady=2,padx=2)
+		self.makeRigFeedBtn['state'] = 'disabled'
 
 	# c) Methods
 	def getFeeds(self,hashPath):
@@ -553,6 +564,7 @@ class csGUI(object):
 			self.buAllDataBtn['state'] = 'normal'
 			self.getAllDataBtn['state'] = 'normal'
 			self.inspectFeedsBtn['state'] = 'normal'
+			self.makeRigFeedBtn['state'] = 'normal'
 		except:
 			print("mqtt: couldn't load feeds")
 			self.curFeeds = []
@@ -571,6 +583,11 @@ class csGUI(object):
 			self.mqttDataPoint_TV.set(bb)
 			self.mqttDateStamp_TV.set([])
 			self.mqttTimeStamp_TV.set([])
+	def makeRigFeed(self,hostNameStr):
+		print('debug ms={}'.format(hostNameStr))
+		csMQTT.makeMQTTFeed(self,hostNameStr)
+
+
 	def getAllFeedData(self):
 		try:
 			curSelFeed = self.feed_listbox.curselection()
@@ -584,7 +601,9 @@ class csGUI(object):
 		except:
 			self.totalMQTTDataCount=0
 		self.mqttDataCount_TV.set(self.totalMQTTDataCount)
-		
+		bbFig = plt.figure(976)
+		plt.plot(bbValues)
+		plt.show(block=False)
 		return self.totalMQTTDataCount,bbValues
 	def allMQTTDataToPandas(self,savePath):
 		
@@ -932,6 +951,7 @@ class csGUI(object):
 		print(float(np.mean(wVals)))
 		teensy.close()
 		return varDict	
+	
 	# d) Call outside task functions via a function.
 	def do_detection(self):
 		
@@ -955,7 +975,7 @@ class csVariables(object):
 		'detectPlotNum':100,'updateCount':500,'plotSamps':200,'taskType':'detection',\
 		'useFlybackOpto':1,'flybackScale':100,'pulsefrequency':20,'pulsedutycycle':10,\
 		'firstTrialWait':10000,'pulseTrainLength':5000,\
-		'startState':1}
+		'startState':1,'hostName':'Compy386'}
 
 		# All steps go in list, even if there aren't any.
 		# So: 0 steps = []; 
@@ -1200,6 +1220,13 @@ class csMQTT(object):
 		except:
 			pass
 		return allFeedValues
+	def makeMQTTFeed(self,feedName):
+		try:
+			feed = Feed(name=feedName)
+			result = self.aio.create_feed(feed)
+			print('mqtt: made a new feed called "{}"'.format(feedName))
+		except:
+			print('mqtt: didn"t make feed')
 
 	def getMQTTFeeds(self,hashPath):
 		feedList = []
