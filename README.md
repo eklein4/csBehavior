@@ -10,7 +10,7 @@ Multi-color optical stimulus control.
 Event-driven clocking of analog outputs (tying optical stimulus to galvo turnarounds).
 Electronic record keeping via mqtt and google sheets.
 
-v0.98 (highly functional and precise, but not totally polished) 
+v1.05 (highly functional and precise, but not totally polished) 
 <br>
 questions: cdeister@brown.edu
 </br>
