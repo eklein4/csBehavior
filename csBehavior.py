@@ -248,6 +248,10 @@ class csGUI(object):
 		self.tBtn_mqttWin = Button(self.taskBar,text="MQTT Opts",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeMQTTWindow(varDict))
 		self.tBtn_mqttWin.grid(row=startRow+19,column=rightCol,padx=10,pady=2,sticky=W)
+
+		self.tBtn_notesWin = Button(self.taskBar,text="Notes",justify=LEFT,width=col1_width,\
+			command=lambda: self.makeNotesWindow(varDict))
+		self.tBtn_notesWin.grid(row=startRow+20,column=rightCol,padx=10,pady=2,sticky=W)
 		
 
 		# Finish the window
@@ -518,22 +522,30 @@ class csGUI(object):
 		self.feed_listbox = Listbox(self.mqttControl_frame,height=5)
 		self.feed_listbox.grid(row=1,column=0,pady=5,rowspan=5,columnspan=2)
 
+		self.mqttDataPointLab = Label(self.mqttControl_frame, text="Last Val:", justify=LEFT)
+		self.mqttDataPointLab.grid(row=0,column=2,sticky=W)
 		self.mqttDataPoint_TV = StringVar(self.mqttControl_frame)
-		self.feedData_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataPoint_TV,width=14)
-		self.feedData_entry.grid(row=0,column=2)
+		self.feedData_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataPoint_TV,width=10)
+		self.feedData_entry.grid(row=0,column=3,padx=3)
 
+		self.mqttDateStampLab = Label(self.mqttControl_frame, text="Date:", justify=LEFT)
+		self.mqttDateStampLab.grid(row=1,column=2,sticky=W)
 		self.mqttDateStamp_TV = StringVar(self.mqttControl_frame)
-		self.mqttDateStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDateStamp_TV,width=14)
-		self.mqttDateStamp_entry.grid(row=1,column=2)
+		self.mqttDateStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDateStamp_TV,width=10)
+		self.mqttDateStamp_entry.grid(row=1,column=3,padx=3)
 
+		self.mqttTimeStampLab = Label(self.mqttControl_frame, text="Time:", justify=LEFT)
+		self.mqttTimeStampLab.grid(row=2,column=2,sticky=W)
 		self.mqttTimeStamp_TV = StringVar(self.mqttControl_frame)
-		self.mqttTimeStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttTimeStamp_TV,width=14)
-		self.mqttTimeStamp_entry.grid(row=2,column=2)
+		self.mqttTimeStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttTimeStamp_TV,width=10)
+		self.mqttTimeStamp_entry.grid(row=2,column=3,padx=3)
 
+		self.mqttDataCountLab = Label(self.mqttControl_frame, text="Count:", justify=LEFT)
+		self.mqttDataCountLab.grid(row=3,column=2,sticky=W)
 		self.mqttDataCount_TV = StringVar(self.mqttControl_frame)
 		self.mqttDataCount_TV.set(self.totalMQTTDataCount)
-		self.mqttDataCount_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataCount_TV,width=14)
-		self.mqttDataCount_entry.grid(row=3,column=2)
+		self.mqttDataCount_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataCount_TV,width=10)
+		self.mqttDataCount_entry.grid(row=3,column=3,padx=3)
 
 		self.inspectFeedsBtn = Button(self.mqttControl_frame,text="Inspect",width=dCBWd,\
 			command=lambda:self.inspectFeed())
@@ -555,7 +567,31 @@ class csGUI(object):
 		self.makeRigFeedBtn.grid(row=8,column=1,sticky=W,pady=2,padx=2)
 		self.makeRigFeedBtn['state'] = 'disabled'
 
+		self.makeSubjFeedBtn = Button(self.mqttControl_frame,text="+ Subj Feeds",width=dCBWd,\
+			command=lambda:csMQTT.makeSubjectFeeds(self,self.subjID_TV.get()))
+		self.makeSubjFeedBtn.grid(row=8,column=0,sticky=W,pady=2,padx=2)
+		self.makeSubjFeedBtn['state'] = 'disabled'
+	def makeNotesWindow(self,varDict):
+		self.notes_frame = Toplevel(self.master)
+		self.notes_frame.title('MQTT Feeds')
+		
+		self.noteEntry_TV = StringVar(self.notes_frame)
+		self.noteEntry_TV.set('')
+		self.noteEntry_entry = Entry(self.notes_frame,textvariable=self.noteEntry_TV,width=30)
+		self.noteEntry_entry.grid(row=0,column=0,padx=3,rowspan=10,columnspan=4)
+
+		self.sendNoteBtn = Button(self.notes_frame,text="log note",width=12,\
+			command=lambda:csMQTT.sendData(self,varDict['subjID'] + '-notes',self.noteEntry_TV.get()))
+		self.sendNoteBtn.grid(row=11,column=0,sticky=W,pady=2,padx=2)
+		self.sendNoteBtn['state'] = 'normal'
+				
+
+		# csMQTT.sendData()
+
+
+
 	# c) Methods
+
 	def getFeeds(self,hashPath):
 		try:
 			self.curFeeds = csMQTT.getMQTTFeeds(self,hashPath)
@@ -565,6 +601,7 @@ class csGUI(object):
 			self.getAllDataBtn['state'] = 'normal'
 			self.inspectFeedsBtn['state'] = 'normal'
 			self.makeRigFeedBtn['state'] = 'normal'
+			self.makeSubjFeedBtn['state'] = 'normal'
 		except:
 			print("mqtt: couldn't load feeds")
 			self.curFeeds = []
@@ -1195,7 +1232,7 @@ class csMQTT(object):
 		simpHash=open(hashPath)
 		a=list(simpHash)
 		userName = a[0].strip()
-		apiKey = a[1]
+		apiKey = a[1].strip()
 		self.aio = Client(userName,apiKey)
 		print("mqtt: connected to aio as {}".format(self.aio.username))
 		return self.aio
@@ -1203,7 +1240,7 @@ class csMQTT(object):
 		simpHash=open(hashPath)
 		a=list(simpHash)
 		userName = a[0].strip()
-		apiKey = a[1]
+		apiKey = a[1].strip()
 		self.mqtt = MQTTClient(userName,apiKey)
 		return self.mqtt
 	def getMQTTLast(self,feedName):
@@ -1222,12 +1259,11 @@ class csMQTT(object):
 		return allFeedValues
 	def makeMQTTFeed(self,feedName):
 		try:
-			feed = Feed(name=feedName)
+			feed = Feed(name=feedName.lower())
 			result = self.aio.create_feed(feed)
 			print('mqtt: made a new feed called "{}"'.format(feedName))
 		except:
 			print('mqtt: didn"t make feed')
-
 	def getMQTTFeeds(self,hashPath):
 		feedList = []
 		csMQTT.connect_REST(self,hashPath)
@@ -1235,6 +1271,21 @@ class csMQTT(object):
 		for things in allFeeds:
 			feedList.append(things.name)
 		return feedList
+	def sendData(self,feedName,dataToSend):
+		data = Data(value=dataToSend)
+		self.aio.create_data(feedName, data)
+	def makeSubjectFeeds(self,subjectID):
+		subFeedLabels = ['rig','task','waterconsumed','targetconsumption','weight','performance','notes']
+		subjectID = subjectID.lower()
+		for x in subFeedLabels:
+			feedStr = subjectID + '-' + x
+			feed = Feed(name = feedStr)
+			print(feed)
+			try:
+				self.aio.create_feed(feed)
+				print("did make feed:{}".format(feedStr))
+			except:
+				print("did not make feed: {}".format(feedStr))
 	def getDailyConsumption(self,mqObj,sID,rigGMTDif,hourThresh):
 		# Get last reward count logged.
 		# assume nothing
@@ -1507,7 +1558,6 @@ class csPlot(object):
 		self.binDP=[]
 		# Make feedback figure.
 		self.trialFig = plt.figure(fNum)
-		self.trialFig.suptitle('trial # 0 of  ; State # ',fontsize=10)
 		self.trialFramePosition='+250+0' # can be specified elsewhere
 		mng = plt.get_current_fig_manager()
 		eval('mng.window.wm_geometry("{}")'.format(self.trialFramePosition))
@@ -1628,11 +1678,9 @@ class csPlot(object):
 		self.outcomeAxis.draw_artist(self.binDPOutcomeLine)
 		self.outcomeAxis.draw_artist(self.outcomeAxis.patch)
 	def quickUpdateTrialFig(self,trialNum,totalTrials,curState):
-		self.trialFig.suptitle('trial # {} of {}; State # {}'.format(trialNum,totalTrials,curState),fontsize=10)
 		self.trialFig.canvas.flush_events()
 	def updateTrialFig(self,xData,yData,trialNum,totalTrials,curState,yLims):
 		try:
-			# self.trialFig.suptitle('trial # {} of {}; State # {}'.format(trialNum,totalTrials,curState),fontsize=10)
 			self.stText.set_text('trial # {} of {}; State # {}'.format(trialNum,totalTrials,curState))
 			self.lA_Line.set_xdata(xData)
 			self.lA_Line.set_ydata(yData)
@@ -1646,7 +1694,7 @@ class csPlot(object):
 			self.trialFig.canvas.flush_events()
 
 		except:
-			 a=1
+			 pass
 	def updateStateFig(self,curState):
 		try:
 			self.stAxes.draw_artist(self.stText)
@@ -1665,11 +1713,8 @@ class csPlot(object):
 			sM=np.mean(stimResponses)
 		if len(noStimResponses)>0:
 			nsM=np.mean(noStimResponses)
-		
-
 
 		dpEst=norm.ppf(max(sM,0.0001))-norm.ppf(max(nsM,0.0001))
-		# self.outcomeAxis.set_title('CR: {} , FR: {}'.format(sM,nsM),fontsize=10)
 		self.outcomeAxis.set_title('dprime: {:0.3f}'.format(dpEst),fontsize=10)
 		self.stimOutcomeLine.set_xdata(stimTrials)
 		self.stimOutcomeLine.set_ydata(stimResponses)
@@ -1789,7 +1834,6 @@ def initializeLoadCell():
 		csVar.sesVarDict['curWeight']=20
 def mqttStart():
 
-	# Optional: Update MQTT Feeds
 	if csVar.sesVarDict['logMQTT']:
 		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
 		aio=csAIO.connect_REST(aioHashPath)
@@ -1800,8 +1844,7 @@ def mqttStart():
 		elif len(aio.username) > 0:
 			print('logged into aio (mqtt broker)')
 			try:
-				csAIO.rigOnLog(aio,csVar.sesVarDict['subjID'],\
-					csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
+				csAIO.rigOnLog(aio,csVar.sesVarDict['subjID'],csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
 			except:
 				print('no mqtt logging: feed issue')
 
@@ -1815,6 +1858,64 @@ def mqttStart():
 		except:
 			print('did not log to google sheet')
 	return aio
+def mqttStop(mqttObj):
+	if csVar.sesVarDict['logMQTT']:
+		try:
+			csVar.sesVarDict['curWeight']=(np.mean(sesData[loopCnt-plotSamps:loopCnt,4])-\
+				csVar.sesVarDict['loadBaseline'])*0.1
+			csVar.sesVarDict['waterConsumed']=int(csVar.sesVarDict['waterConsumed']*10000)/10000
+			topAmount=csVar.sesVarDict['consumpTarg']-csVar.sesVarDict['waterConsumed']
+			topAmount=int(topAmount*10000)/10000
+			if topAmount<0:
+				topAmount=0
+			print('give {:0.3f} ml later by 12 hrs from now'.format(topAmount))
+
+			try:
+				csAIO.rigOffLog(mqttObj,csVar.sesVarDict['subjID'],\
+					csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
+				mqttObj.send('{}-waterconsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
+				mqttObj.send('{}-topvol'.format(csVar.sesVarDict['subjID']),topAmount)
+			except:
+				print('failed to log mqtt info')
+	   
+			# update animal's water consumed feed.
+
+			try:
+				gDStamp=datetime.datetime.now().strftime("%m/%d/%Y")
+				gTStamp=datetime.datetime.now().strftime("%H:%M:%S")
+			except:
+				print('did not log to google sheet')
+		
+			try:
+				print('attempting to log to sheet')
+				gSheet=csAIO.openGoogleSheet(gHashPath)
+				canLog=1
+			except:
+				print('failed to open google sheet')
+				canLog=0
+		
+			if canLog==1:
+				try:
+					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
+						'Weight Post',csVar.sesVarDict['curWeight'])
+					print('gsheet: logged weight')
+					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
+						'Delivered',csVar.sesVarDict['waterConsumed'])
+					print('gsheet: logged consumption')
+					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
+						'Place',curMachine)
+					print('gsheet: logged rig')
+					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
+						'Date Stamp',gDStamp)
+					print('gsheet: logged date')
+					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
+						'Time Stamp',gTStamp)
+					print('gsheet: logged time')
+				except:
+					print('did not log some things')
+		except:
+			print("failed to log")
+
 def getThisTrialsVariables(trialNumber):
 	for x in csVar.timing['varsToUse']:
 		tVal = csVar.trialVars_timing[x][trialNumber]
@@ -1874,7 +1975,7 @@ def runDetectionTask():
 	
 	[teensy,tTeensyState] = initializeTeensy()
 	initializeLoadCell()
-	mqttStart()
+	mAIO = mqttStart()
 	
 	# Set some session flow variables before the task begins
 	# Turn the session on. 
@@ -2343,63 +2444,7 @@ def runDetectionTask():
 	csVar.sesVarDict['trialNum']=0
 
 	# Update MQTT Feeds
-	if csVar.sesVarDict['logMQTT']:
-		try:
-			csVar.sesVarDict['curWeight']=(np.mean(sesData[loopCnt-plotSamps:loopCnt,4])-\
-				csVar.sesVarDict['loadBaseline'])*0.1
-			csVar.sesVarDict['waterConsumed']=int(csVar.sesVarDict['waterConsumed']*10000)/10000
-			topAmount=csVar.sesVarDict['consumpTarg']-csVar.sesVarDict['waterConsumed']
-			topAmount=int(topAmount*10000)/10000
-			if topAmount<0:
-				topAmount=0
-			print('give {:0.3f} ml later by 12 hrs from now'.format(topAmount))
-
-			try:
-				csAIO.rigOffLog(aio,csVar.sesVarDict['subjID'],\
-					csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
-				aio.send('{}-waterconsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
-				aio.send('{}-topvol'.format(csVar.sesVarDict['subjID']),topAmount)
-			except:
-				print('failed to log mqtt info')
-	   
-			# update animal's water consumed feed.
-
-			try:
-				gDStamp=datetime.datetime.now().strftime("%m/%d/%Y")
-				gTStamp=datetime.datetime.now().strftime("%H:%M:%S")
-			except:
-				print('did not log to google sheet')
-		
-			try:
-				print('attempting to log to sheet')
-				gSheet=csAIO.openGoogleSheet(gHashPath)
-				canLog=1
-			except:
-				print('failed to open google sheet')
-				canLog=0
-		
-			if canLog==1:
-				try:
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Weight Post',csVar.sesVarDict['curWeight'])
-					print('gsheet: logged weight')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Delivered',csVar.sesVarDict['waterConsumed'])
-					print('gsheet: logged consumption')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Place',curMachine)
-					print('gsheet: logged rig')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Date Stamp',gDStamp)
-					print('gsheet: logged date')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Time Stamp',gTStamp)
-					print('gsheet: logged time')
-				except:
-					print('did not log some things')
-		except:
-			print("failed to log")
-
+	mqttStop(mAIO)
 	print('finished your session')
 	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,useGUI)
 	csVar.sesVarDict['canQuit']=1
