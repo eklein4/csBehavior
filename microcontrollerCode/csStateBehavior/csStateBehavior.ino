@@ -567,9 +567,9 @@ void dataReport() {
   Serial.print(',');
   Serial.print(genAnalogInput1);
   Serial.print(',');
-  Serial.print(pulseTrainVars[0][1]);
+  Serial.print(genAnalogInput2);
   Serial.print(',');
-  Serial.println(pulseTrainVars[1][1]);
+  Serial.println(genAnalogInput3);
 }
 
 int flagReceive(char varAr[], int32_t valAr[]) {
@@ -820,7 +820,7 @@ void frameCount() {
 
 void flybackStim_On() {
 
-
+  pulseCount = pulseCount+1;
   if (knownValues[0] == 8) {
 
     elapsedMicros pfTime;

@@ -53,12 +53,12 @@ class csGUI(object):
 		
 		self.curFeeds=[]
 		self.totalMQTTDataCount = 1
+		self.curNotes = []
 
 
 	# b) window generation
 	def makeParentWindow(self,master,varDict,timingDict,visualDict,opticalDict):
 		# make the window object
-
 		self.master = master
 		self.taskBar = Frame(self.master)
 		self.master.title("csBehavior")
@@ -95,13 +95,18 @@ class csGUI(object):
 		self.comPath_TV=StringVar(self.taskBar)
 		
 		self.comPath_TV.set(varDict['comPath'])
-		tempPath = self.guessComPort()
-		if len(tempPath)>1:
-			varDict['comPath'] = tempPath
-			self.comPath_TV.set(tempPath)
+		self.checkCOMPort(varDict)
 
 		self.comPath_entry=Entry(self.taskBar, width=22, textvariable=self.comPath_TV)
 		self.comPath_entry.grid(row=startRow+3,column=leftCol,padx=0,sticky=W)
+
+
+
+		self.refreshCom_btn = Button(self.taskBar,text="guess com",justify=LEFT,\
+			width=col1_width,command=lambda: self.checkCOMPort(varDict))
+		self.refreshCom_btn.grid(row=startRow+startRow+3,column=rightCol,padx=10,sticky=W)
+		self.refreshCom_btn['state'] = 'normal'
+
 		
 		self.blank=Label(self.taskBar, text=" ——————————————–––",justify=LEFT)
 		self.blank.grid(row=startRow+4,column=leftCol,padx=0,sticky=W)
@@ -180,7 +185,7 @@ class csGUI(object):
 		Radiobutton(self.taskBar, text="Motion", \
 			variable=self.chanPlotIV, value=6).grid(row=startRow+8,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="DAC1", \
-			variable=self.chanPlotIV, value=8).grid(row=startRow+9,column=rightCol,padx=10,pady=3,sticky=W)
+			variable=self.chanPlotIV, value=9).grid(row=startRow+9,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="Thr Licks", \
 			variable=self.chanPlotIV, value=11).grid(row=startRow+10,column=rightCol,padx=10,pady=3,sticky=W)
 		Radiobutton(self.taskBar, text="Nothing", \
@@ -588,7 +593,7 @@ class csGUI(object):
 		self.noteEntry_entry.grid(row=0,column=0,padx=3,rowspan=10,columnspan=4)
 
 		self.sendNoteBtn = Button(self.notes_frame,text="log note",width=12,\
-			command=lambda:csMQTT.logNote(self,self.subjID_TV.get() + '-notes',self.noteEntry_TV.get()))
+			command=lambda:self.makeNotes(self.subjID_TV.get().lower() + '-notes',self.noteEntry_TV.get()))
 		self.sendNoteBtn.grid(row=11,column=0,sticky=W,pady=2,padx=2)
 		self.sendNoteBtn['state'] = 'normal'
 				
@@ -596,6 +601,21 @@ class csGUI(object):
 		# csMQTT.sendData()
 
 	# c) Methods
+	def makeNotes(self,feedName,newNote):
+		#todo check log mqtt flag
+		self.curNotes.append(newNote)
+		print(self.curNotes)
+		csMQTT.sendData(self,feedName,newNote)
+		return self.curNotes
+		
+
+	def checkCOMPort(self,varDict):
+		tempPath = self.guessComPort()
+		print(tempPath)
+		if len(tempPath)>1:
+			varDict['comPath'] = tempPath
+			self.comPath_TV.set(tempPath)
+		return varDict
 
 	def getFeeds(self,hashPath):
 		try:
@@ -1232,36 +1252,22 @@ class csHDF(object):
 class csMQTT(object):
 	def __init__(self):
 		pass
-		# self.dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
-		# print(self.dStamp)
-
-
 	def connect_REST(self,hashPath):
-		print("yo")
-		self.curNotes=[]
-		print(self.curNotes)
 		simpHash=open(hashPath)
 		a=list(simpHash)
 		userName = a[0].strip()
 		apiKey = a[1].strip()
 		self.aio = Client(userName,apiKey)
 		print("mqtt: connected to aio as {}".format(self.aio.username))
-		return self.aio,self.curNotes
+		return self.aio
 	def connect_MQTT(self,hashPath):
+
 		simpHash=open(hashPath)
 		a=list(simpHash)
 		userName = a[0].strip()
 		apiKey = a[1].strip()
 		self.mqtt = MQTTClient(userName,apiKey)
 		return self.mqtt
-	def logNote(self,feedName,noteText):
-		print(self.curNotes)
-		self.curNotes.append(noteText)
-		try:
-			self.sendData(self,feedName,noteText)
-		except:
-			pass
-		return self.curNotes
 	def getMQTTLast(self,feedName):
 		lastFeedVal='NA'
 		try:
@@ -1853,7 +1859,6 @@ def initializeLoadCell():
 	except:
 		csVar.sesVarDict['curWeight']=20
 def mqttStart():
-	aio=[]
 	if csVar.sesVarDict['logMQTT']:
 		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
 		aio=csAIO.connect_REST(aioHashPath)
@@ -1953,7 +1958,9 @@ def writeData(hdfObj,sessionNumber,sessionData,attributeLabels,attributeData):
 		atCount = atCount+1
 	# also add notes
 	try:
-		hdfObj["session_{}".format(sessionNumber)].attrs['notes']=csAIO.curNotes
+		print("notes?")
+		print(csGui.curNotes)
+		hdfObj["session_{}".format(sessionNumber)].attrs['notes']=csGui.curNotes
 	except:
 		pass
 	hdfObj.close()
@@ -2017,7 +2024,7 @@ def runDetectionTask():
 	[teensy,tTeensyState] = initializeTeensy()
 	
 	initializeLoadCell()
-	csMQTT.mAIO = mqttStart()
+	csAIO.mAIO = mqttStart()
 	
 	csVar.sesVarDict['sessionOn']=1
 	csVar.sesVarDict['canQuit']=0
@@ -2244,12 +2251,11 @@ def runDetectionTask():
 
 					if curStateTime>csVar.sesVarDict['minStim']:
 						if reported==1 or csVar.sesVarDict['shapingTrial']:
-							print("a")
+							print("hit")
 							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 							csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
 							csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(csVar.sesVarDict['trialNum'])
 							csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(1)
-							print("b")
 
 
 							stateSync=0
@@ -2260,14 +2266,13 @@ def runDetectionTask():
 						elif reported==0:
 							stateSync=0
 							pyState=1
-							print("c")
+							print("miss")
 							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 							csVar.attributeData[csVar.attributeLabels.index('responses')].append(0)
 							csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(csVar.sesVarDict['trialNum'])
 							csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(1)
 							trialSamps[1]=loopCnt
 							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(trialSamps)[0])
-							print("d")
 
 							teensy.write('a1>'.encode('utf-8'))
 							# if useGUI==1:
@@ -2289,6 +2294,7 @@ def runDetectionTask():
 
 					if curStateTime>csVar.sesVarDict['minStim']:
 						if reported==1:
+							print("false alarm")
 							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 							csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
 							csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
@@ -2303,6 +2309,7 @@ def runDetectionTask():
 						
 						elif reported==0:
 							# correct rejections
+							print("correct rejection")
 							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 							csVar.attributeData[csVar.attributeLabels.index('responses')].append(0)
 							csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
@@ -2313,7 +2320,6 @@ def runDetectionTask():
 
 							stateSync=0
 							pyState=1
-							
 							
 							teensy.write('a1>'.encode('utf-8'))
 							# if useGUI==1:
@@ -2390,25 +2396,7 @@ def runDetectionTask():
 			
 
 			# Update MQTT Feeds
-			if csVar.sesVarDict['logMQTT']:
-				try:
-					csVar.sesVarDict['curWeight']=(np.mean(sesData[-1000:-1,4])-csVar.sesVarDict['loadBaseline'])*0.1
-					csAIO.rigOffLog(aio,csVar.sesVarDict['subjID'],\
-						csVar.sesVarDict['curWeight'],\
-						curMachine,csVar.sesVarDict['mqttUpDel'])
-
-					# update animal's water consumed feed.
-					csVar.sesVarDict['waterConsumed']=int(csVar.sesVarDict['waterConsumed']*10000)/10000
-					aio.send('{}-waterconsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
-					topAmount=csVar.sesVarDict['consumpTarg']-csVar.sesVarDict['waterConsumed']
-					topAmount=int(topAmount*10000)/10000
-					if topAmount<0:
-						topAmount=0
-				 
-					print('give {:0.3f} ml later by 12 hrs from now'.format(topAmount))
-					aio.send('{}-topvol'.format(csVar.sesVarDict['subjID']),topAmount)
-				except:
-					pass
+			mqttStop(csAIO.mAIO)
 			if useGUI==1:
 				csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
 			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
@@ -2419,7 +2407,7 @@ def runDetectionTask():
 			csVar.sesVarDict['canQuit']=1
 			if useGUI==1:
 				csGui.quitButton['text']="Quit"
-						 
+	# normal exit				 
 	writeData(f,csVar.sesVarDict['curSession'],sesData[0:loopCnt,:],csVar.attributeLabels,csVar.attributeData)
 	
 	
@@ -2438,7 +2426,7 @@ def runDetectionTask():
 	csVar.sesVarDict['trialNum']=0
 
 	# Update MQTT Feeds
-	mqttStop(csMQTT.mAIO)
+	mqttStop(csAIO.mAIO)
 	print('finished your session')
 	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,useGUI)
 	csVar.sesVarDict['canQuit']=1
