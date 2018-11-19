@@ -909,6 +909,10 @@ class csGUI(object):
 			varDict['canQuit']=1
 			quitButton['text']="Quit"
 
+		try:
+			os.remove(varDict['dirPath'] + '/' + 'sesDataMemMap.npy')
+		except:
+			pass
 		if varDict['canQuit']==1:
 			# try to close a plot and exit    
 			try:
@@ -1844,11 +1848,17 @@ def initializeLoadCell():
 		csVar.sesVarDict['curWeight']=(np.mean(wVals)-csVar.sesVarDict['loadBaseline'])*0.1;
 		preWeight=csVar.sesVarDict['curWeight']
 		print("pre weight={}".format(preWeight))
-		csGui.curNotes.append('{}'.format(preWeight))
+		csGui.curNotes.append('pre-session weight = {}'.format(preWeight))
 	except:
 		csVar.sesVarDict['curWeight']=0
 		csGui.curNotes.append('{}'.format(0))
 def mqttStart():
+	csVar.sesVarDict['logMQTT'] = csGui.logMQTT_TV.get()
+	csGui.curNotes.append("subject:{}".format(csVar.sesVarDict['subjID']))
+	csGui.curNotes.append("mqtt logging:{}".format(csVar.sesVarDict['logMQTT']))
+	print("mqtt state is {}".format(csVar.sesVarDict['logMQTT']))
+
+
 	if csVar.sesVarDict['logMQTT']:
 		curMachine=csVar.getRig()
 		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
@@ -1969,6 +1979,7 @@ def updateDetectionTaskVars():
 	if csGui.useGUI==1:
 		# if we are using the GUI, we need to check to see if the user has changed text variables. 
 		csVar.sesVarDict['totalTrials']=int(csGui.totalTrials_TV.get())
+
 		try:
 			csVar.sesVarDict['shapingTrial']=int(csGui.shapingTrial_TV.get())
 		except:
@@ -1976,14 +1987,11 @@ def updateDetectionTaskVars():
 			shapingTrial_TV.set('0')
 		csVar.sesVarDict['lickAThr']=int(csGui.lickAThr_TV.get())
 		csVar.sesVarDict['chanPlot']=csGui.chanPlotIV.get()
-
-		# if we are not using the GUI, then we already checeked the config text for these variables. 
-		# we can poll for changes, but I am not certain checking every loop is wise. 
-
-		# b) We check to make sure that we haven't gone over in the number of trials. If we did, we quit.
 		if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
 			csVar.sesVarDict['sessionOn']=0
-def startTask():
+def initializeDetectionTask():
+	csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
+	csVar.attributeData=[[],[],[],[],[]]
 	csVar.curTime = 0
 	csVar.curStateTime = 0
 	csVar.curInt = 0
@@ -2001,28 +2009,24 @@ def startTask():
 # ~~~~~~~~~~~~~~~~~~~~
 
 def runDetectionTask():
-	csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
-	csVar.attributeData=[[],[],[],[],[]]
-
-	startTask()
+	initializeDetectionTask()
 	makeTrialVariables()
-	
-
-	
+	# connect to the teensy
 	[teensy,tTeensyState] = initializeTeensy()
 	initializeLoadCell()
+	
 	csAIO.mAIO = mqttStart()
 	csVar.sesVarDict['sessionOn']=1
 	csVar.sesVarDict['canQuit']=0
 
 	if csGui.useGUI==1:
 		csGui.quitButton['text']="End Ses"
-	
+
 	csVar.sesVarDict['sampRate']=1000
 	csVar.sesVarDict['maxDur']=3600*2*csVar.sesVarDict['sampRate']
 	npSamps=csVar.sesVarDict['maxDur']
-	sesData = np.memmap('cur.npy', mode='w+',dtype=np.int32,shape=(npSamps,csVar.sesVarDict['dStreams']))
-	np.save('sesData.npy',sesData)
+	sesData = np.memmap(csVar.sesVarDict['dirPath'] + '/' + 'sesDataMemMap.npy',\
+		mode='w+',dtype=np.int32,shape=(npSamps,csVar.sesVarDict['dStreams']))
 
 	# Make HDF
 	f=csSesHDF.makeHDF(csVar.sesVarDict['dirPath'] +'/',csVar.sesVarDict['subjID'] + '_ses{}'\
@@ -2052,8 +2056,8 @@ def runDetectionTask():
 	sessionStarted = 0
 	# Send to 1, wait state.
 	teensy.write('a1>'.encode('utf-8')) 	
-	
 	# now we can start a session.
+	stateSync=0
 	while csVar.sesVarDict['sessionOn']:
 		# try to execute the task.
 		try:
@@ -2068,7 +2072,8 @@ def runDetectionTask():
 				intNum = int(tString[1])
 				tTime = int(tString[2])
 				tStateTime=int(tString[3])
-				# if time did not go backward (out of order packet) then increment python time, int, and state time.
+				# if time did not go backward (out of order packet) 
+				# then increment python time, int, and state time.
 				if (tTime >= csVar.curTime):
 					csVar.curTime  = tTime
 					csVar.cutInt = intNum
@@ -2104,19 +2109,17 @@ def runDetectionTask():
 							csVar.sesVarDict['chanPlot']],csVar.sesVarDict['trialNum'],\
 								csVar.sesVarDict['totalTrials'],tTeensyState,[lyMin,lyMax])
 
-
 				# e) Lick detection. This can be done in hardware, but I like software because thresholds can be dynamic.
 				latchTime=50
-				if sesData[cutInt,5]>=csVar.sesVarDict['lickAThr'] and csVar.sesVarDict['lickLatchA']==0:
-					sesData[cutInt,csVar.sesVarDict['dStreams']-1]=1
+				if sesData[csVar.cutInt,5]>=csVar.sesVarDict['lickAThr'] and csVar.sesVarDict['lickLatchA']==0:
+					sesData[csVar.cutInt,csVar.sesVarDict['dStreams']-1]=1
 					csVar.sesVarDict['lickLatchA']=latchTime
 					# these are used in states
 					lickCounter=lickCounter+1
-					lastLick=curStateTime
+					lastLick=csVar.curStateTime
 
 				elif csVar.sesVarDict['lickLatchA']>0:
 					csVar.sesVarDict['lickLatchA']=csVar.sesVarDict['lickLatchA']-1
-
 				# f) Resolve state.
 				# if the python side's desired state differs from the actual Teensy state
 				# then note in python we are out of sync, and try again next loop.
@@ -2136,7 +2139,6 @@ def runDetectionTask():
 				if pyState == 1 and stateSync==1:
 					
 					if sHeaders[pyState]==0:
-						
 						trialSamps[0]=loopCnt-1
 
 						# reset counters that track state stuff.
@@ -2146,27 +2148,18 @@ def runDetectionTask():
 						outSyncCount=0
 
 						# g) Trial resolution.
-						# Some things we want to do once per trial. csBehavior has a soft concept of trial.
-						# This is because it is a state machine and is an ongoing dynmaic process. But, 
-						# we can define a trial any way we like. We define an elapsed trial as:
-						# any tranistion from state 1, to any other state or states, and back to state 1. 
-						# Thus, when you start the session, you have not finished a trial, you just started it. 
-						# We can do things we want to do once when we start new trials, here is state 1's header. 
-	
-						# 1) determine the current trial's visual and state timing variables.
-						# 	note we have not incremented the trialNum, which should start at 0, 
-						# 	thus we are indexing the array correctly without using a -1. 
 						tTrial = csVar.sesVarDict['trialNum']
-						getThisTrialsVariables(tTrial)						
-						
+						getThisTrialsVariables(tTrial)
 						if csVar.c1_mask[tTrial]==2:
 							csVar.c1_amp[tTrial]=0
 							csVar.c2_amp[tTrial]=csVar.c2_amp[tTrial]
-							print("optical --> mask trial; LED_C1: {}V; C2 {}V".format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
+							print("optical --> mask trial; LED_C1: {}V; C2 {}V"\
+								.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
 						elif csVar.c1_mask[tTrial]==1:
 							csVar.c1_amp[tTrial]=csVar.c1_amp[tTrial]
 							csVar.c2_amp[tTrial]=0
-							print("optical --> stim trial; LED_C1: {}V; C2 {}V".format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
+							print("optical --> stim trial; LED_C1: {}V; C2 {}V"\
+								.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
 						csVar.sesVarDict['minStim']=csVar.visualStimTime[tTrial]
 						waitTime = csVar.trialTime[tTrial]
 						lickWaitTime = csVar.noLickTime[tTrial]
@@ -2199,23 +2192,24 @@ def runDetectionTask():
 						sHeaders[np.setdiff1d(sList,pyState)]=0
 
 					# update visual stim params on the Teensy
-					if serialVarTracker[0] == 0 and curStateTime>=10:
+					if serialVarTracker[0] == 0 and csVar.curStateTime>=10:
 						csSer.sendVisualValues(teensy,tTrial)
 						serialVarTracker[0]=1
 
-					elif serialVarTracker[1] == 0 and curStateTime>=110:
+					elif serialVarTracker[1] == 0 and csVar.curStateTime>=110:
 						csSer.sendVisualPlaceValues(teensy,tTrial)
 						serialVarTracker[1] = 1
 					
 
 					if lickCounter>lastLickCount:
 						lastLickCount=lickCounter
-						# if the lick happens such that the minimum lick time will go over the pre time, 
+						# if the lick happens such that the minimum 
+						# lick time will go over the pre time, 
 						# then we advance waitTime by the minumum
-						if curStateTime>(waitTime-lickWaitTime):
+						if csVar.curStateTime>(waitTime-lickWaitTime):
 							waitTime = waitTime + lickWaitTime
 
-					if curStateTime>waitTime:
+					if csVar.curStateTime>waitTime:
 						stateSync=0
 						if csVar.contrast[tTrial]>0:
 							pyState=2
@@ -2236,20 +2230,16 @@ def runDetectionTask():
 					if lastLick>0.02:
 						reported=1
 
-					if curStateTime>csVar.sesVarDict['minStim']:
+					if csVar.curStateTime>csVar.sesVarDict['minStim']:
 						if reported==1 or csVar.sesVarDict['shapingTrial']:
 							print("hit")
 							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 							csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
 							csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(csVar.sesVarDict['trialNum'])
 							csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(1)
-
-
 							stateSync=0
 							pyState=4
 							teensy.write('a4>'.encode('utf-8'))
-							# if useGUI==1:
-							# 	csPlt.updateOutcome(csVar.attributeData[0],csVar.attributeData[1],noStimTrials,noStimResponses,csVar.sesVarDict['totalTrials'])
 						elif reported==0:
 							stateSync=0
 							pyState=1
@@ -2262,9 +2252,8 @@ def runDetectionTask():
 							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(trialSamps)[0])
 
 							teensy.write('a1>'.encode('utf-8'))
-							# if useGUI==1:
-							# 	csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,csVar.sesVarDict['totalTrials'])
-							print('miss: last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+							print('miss: last trial took: {} seconds'\
+								.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
 
 				
 				if pyState == 3 and stateSync==1:
@@ -2279,7 +2268,7 @@ def runDetectionTask():
 					if lastLick>0.005:
 						reported=1
 
-					if curStateTime>csVar.sesVarDict['minStim']:
+					if csVar.curStateTime>csVar.sesVarDict['minStim']:
 						if reported==1:
 							print("false alarm")
 							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
@@ -2325,7 +2314,7 @@ def runDetectionTask():
 						sHeaders[np.setdiff1d(sList,pyState)]=0
 					
 					# exit
-					if curStateTime>csVar.sesVarDict['rewardDur']:
+					if csVar.curStateTime>csVar.sesVarDict['rewardDur']:
 						trialSamps[1]=loopCnt
 						# update sample log
 						csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(trialSamps)[0])
@@ -2347,7 +2336,7 @@ def runDetectionTask():
 						sHeaders[np.setdiff1d(sList,pyState)]=0
 					
 					# exit
-					if curStateTime>csVar.sesVarDict['toTime']:
+					if csVar.curStateTime>csVar.sesVarDict['toTime']:
 						trialSamps[1]=loopCnt
 						csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(trialSamps)[0])
 						stateSync=0
@@ -2505,7 +2494,7 @@ def runTrialOptoTask():
 				if tTime >= curTime:
 					curTime = tTime
 					cutInt = intNum
-					curStateTime = tStateTime
+					csVar.curStateTime = tStateTime
 				
 				# check the teensy state
 				tTeensyState=int(tString[4])
