@@ -1794,7 +1794,6 @@ if csGui.useGUI == 0:
 	csGui.loadPandaSeries(csVar.sesVarDict['dirPath'] ,csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
 
 
-	
 csSesHDF=csHDF(1)
 csAIO=csMQTT()
 csSer=csSerial(1)
@@ -1882,6 +1881,8 @@ def mqttStart():
 			print('logged to sheet')
 		except:
 			print('did not log to google sheet')
+	elif csVar.sesVarDict['logMQTT']==0:
+		aio =[]
 	return aio
 def mqttStop(mqttObj):
 	if csVar.sesVarDict['logMQTT']:
@@ -2045,19 +2046,17 @@ def runDetectionTask():
 	sampLog=[]
 	if csGui.useGUI==1:
 		csGui.toggleTaskButtons(0)
-	
 
 	loopCnt=0
 	csVar.sesVarDict['trialNum']=0
 	csVar.sesVarDict['lickLatchA']=0
 	outSyncCount=0
 	serialVarTracker = [0,0,0,0,0,0]
-	
-	sessionStarted = 0
-	# Send to 1, wait state.
-	teensy.write('a1>'.encode('utf-8')) 	
-	# now we can start a session.
 	stateSync=0
+	sessionStarted = 0
+	
+
+	teensy.write('a1>'.encode('utf-8')) 	
 	while csVar.sesVarDict['sessionOn']:
 		# try to execute the task.
 		try:
@@ -2383,7 +2382,6 @@ def runDetectionTask():
 			csVar.sesVarDict['canQuit']=1
 			if csGui.useGUI==1:
 				csGui.quitButton['text']="Quit"
-	# normal exit				 
 	writeData(f,csVar.sesVarDict['curSession'],sesData[0:loopCnt,:],csVar.attributeLabels,csVar.attributeData)
 	
 	
