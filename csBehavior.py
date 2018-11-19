@@ -48,14 +48,12 @@ import configparser
 
 
 class csGUI(object):
-	
 	def __init__(self,varDict,timingDict,visualDict,opticalDict):
 		
 		self.curFeeds=[]
 		self.totalMQTTDataCount = 1
 		self.curNotes = []
-
-
+		self.useGUI=1
 	# b) window generation
 	def makeParentWindow(self,master,varDict,timingDict,visualDict,opticalDict):
 		# make the window object
@@ -599,7 +597,6 @@ class csGUI(object):
 				
 
 		# csMQTT.sendData()
-
 	# c) Methods
 	def makeNotes(self,feedName,newNote):
 		#todo check log mqtt flag
@@ -607,8 +604,6 @@ class csGUI(object):
 		print(self.curNotes)
 		csMQTT.sendData(self,feedName,newNote)
 		return self.curNotes
-		
-
 	def checkCOMPort(self,varDict):
 		tempPath = self.guessComPort()
 		print(tempPath)
@@ -616,7 +611,6 @@ class csGUI(object):
 			varDict['comPath'] = tempPath
 			self.comPath_TV.set(tempPath)
 		return varDict
-
 	def getFeeds(self,hashPath):
 		try:
 			self.curFeeds = csMQTT.getMQTTFeeds(self,hashPath)
@@ -648,8 +642,6 @@ class csGUI(object):
 	def makeRigFeed(self,hostNameStr):
 		print('debug ms={}'.format(hostNameStr))
 		csMQTT.makeMQTTFeed(self,hostNameStr)
-
-
 	def getAllFeedData(self):
 		try:
 			curSelFeed = self.feed_listbox.curselection()
@@ -706,8 +698,6 @@ class csGUI(object):
 		tIDs = []
 		tValues=[]
 		tFeedNames = []
-
-
 	def guessComPort(self):
 		cp = platform.system()
 		# if mac then teensy devices will be a cu.usbmodemXXXXX in /dev/ where XXXXX is the serial
@@ -1004,16 +994,15 @@ class csGUI(object):
 		wVals=[]
 		lIt=0
 		while lIt<=20:
-			[rV,vN]=csSer.checkVariable(teensy,'l',0.01)
+			[rV,vN]=csSer.checkVariable(teensy,'l',0.25)
 			if vN:
 				wVals.append(rV)
 				lIt=lIt+1
-		varDict['loadBaseline']=np.mean(wVals)
-		self.offsetTV.set(float(np.mean(wVals)))
-		print(float(np.mean(wVals)))
+		varDict['loadBaseline']=np.mean(wVals)-15.2
+		self.offsetTV.set(float(np.mean(wVals)-15.2))
+		print(float(np.mean(wVals)-15.2))
 		teensy.close()
 		return varDict	
-	
 	# d) Call outside task functions via a function.
 	def do_detection(self):
 		
@@ -1776,7 +1765,7 @@ csVar=csVariables(1)
 try:
 	config = configparser.ConfigParser()
 	config.read(sys.argv[1])
-	useGUI = int(config['settings']['useGUI'])
+	csGui.useGUI = int(config['settings']['useGUI'])
 
 	#todo: show sinda this pattern
 	#todo: loop through what could be in the config obj, or is
@@ -1795,7 +1784,7 @@ except:
 	csGui = csGUI(csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
 	csGui.makeParentWindow(root,csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
 
-if useGUI == 0:
+if csGui.useGUI == 0:
 	print("not using gui")
 	csGui = csGUI(csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
 	csGui.loadPandaSeries(csVar.sesVarDict['dirPath'] ,csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
@@ -1810,7 +1799,6 @@ csPlt=csPlot(1)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # >>> Common Tasks Functions <<<
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-csAIO.curNotes =[]
 def makeTrialVariables():
 	for x in csVar.sensory['varsToUse']:
 		exec("csVar.{}=[]".format(x))
@@ -1848,18 +1836,21 @@ def initializeLoadCell():
 	try:
 		wVals=[]
 		lIt=0
-		while lIt<=50:
-			[rV,vN]=csSer.checkVariable(teensy,'l',0.002)
+		while lIt<=10:
+			[rV,vN]=csSer.checkVariable(teensy,'l',0.2)
 			if vN:
 				wVals.append(rV)
 				lIt=lIt+1
 		csVar.sesVarDict['curWeight']=(np.mean(wVals)-csVar.sesVarDict['loadBaseline'])*0.1;
 		preWeight=csVar.sesVarDict['curWeight']
 		print("pre weight={}".format(preWeight))
+		csGui.curNotes.append('{}'.format(preWeight))
 	except:
-		csVar.sesVarDict['curWeight']=20
+		csVar.sesVarDict['curWeight']=0
+		csGui.curNotes.append('{}'.format(0))
 def mqttStart():
 	if csVar.sesVarDict['logMQTT']:
+		curMachine=csVar.getRig()
 		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
 		aio=csAIO.connect_REST(aioHashPath)
 		if len(aio.username) == 0:
@@ -1877,17 +1868,16 @@ def mqttStart():
 			print('logging to sheet')
 			gHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/client_secret.json'
 			gSheet=csAIO.openGoogleSheet(gHashPath)
-			csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-				'Weight Pre',csVar.sesVarDict['curWeight'])
+			csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],'Weight Pre',csVar.sesVarDict['curWeight'])
 			print('logged to sheet')
 		except:
 			print('did not log to google sheet')
 	return aio
 def mqttStop(mqttObj):
 	if csVar.sesVarDict['logMQTT']:
+		curMachine=csVar.getRig()
 		try:
-			csVar.sesVarDict['curWeight']=(np.mean(sesData[loopCnt-plotSamps:loopCnt,4])-\
-				csVar.sesVarDict['loadBaseline'])*0.1
+			csVar.sesVarDict['curWeight']=(np.mean(sesData[loopCnt-plotSamps:loopCnt,4])-csVar.sesVarDict['loadBaseline'])*0.1
 			csVar.sesVarDict['waterConsumed']=int(csVar.sesVarDict['waterConsumed']*10000)/10000
 			topAmount=csVar.sesVarDict['consumpTarg']-csVar.sesVarDict['waterConsumed']
 			topAmount=int(topAmount*10000)/10000
@@ -1939,9 +1929,7 @@ def mqttStop(mqttObj):
 				except:
 					print('did not log some things')
 		except:
-			print("failed to log")
-
-
+			pass
 def writeData(hdfObj,sessionNumber,sessionData,attributeLabels,attributeData):
 	
 	hdfObj["session_{}".format(sessionNumber)]=sessionData
@@ -1958,9 +1946,7 @@ def writeData(hdfObj,sessionNumber,sessionData,attributeLabels,attributeData):
 		atCount = atCount+1
 	# also add notes
 	try:
-		print("notes?")
-		print(csGui.curNotes)
-		hdfObj["session_{}".format(sessionNumber)].attrs['notes']=csGui.curNotes
+		hdfObj["session_{}".format(sessionNumber)].attrs['notes']=[v.encode('utf8') for v in csGui.curNotes]
 	except:
 		pass
 	hdfObj.close()
@@ -1980,7 +1966,7 @@ def getThisTrialsVariables(trialNumber):
 		eval("csVar.{}.append({})".format(x,tVal))
 def updateDetectionTaskVars():
 	# a) Check variables related to whether we keep running, or not. 
-	if useGUI==1:
+	if csGui.useGUI==1:
 		# if we are using the GUI, we need to check to see if the user has changed text variables. 
 		csVar.sesVarDict['totalTrials']=int(csGui.totalTrials_TV.get())
 		try:
@@ -1997,6 +1983,18 @@ def updateDetectionTaskVars():
 		# b) We check to make sure that we haven't gone over in the number of trials. If we did, we quit.
 		if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
 			csVar.sesVarDict['sessionOn']=0
+def startTask():
+	csVar.curTime = 0
+	csVar.curStateTime = 0
+	csVar.curInt = 0
+
+	if csGui.useGUI==1:
+		csPlt.makeTrialFig_detection(csVar.sesVarDict['detectPlotNum'])
+		csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
+	elif csGui.useGUI==0:
+		config.read(sys.argv[1])
+		csVar.sesVarDict=csVar.updateDictFromTXT(csVar.sesVarDict,config)
+
 
 # ~~~~~~~~~~~~~~~~~~~~
 # >>> Define Tasks <<<
@@ -2006,30 +2004,18 @@ def runDetectionTask():
 	csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 	csVar.attributeData=[[],[],[],[],[]]
 
-	dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
-	curMachine=csVar.getRig()
-	curTime = 0
-	curStateTime = 0
-	curInt = 0
-
+	startTask()
 	makeTrialVariables()
 	
-	if useGUI==1:
-		csPlt.makeTrialFig_detection(csVar.sesVarDict['detectPlotNum'])
-		csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-	elif useGUI==0:
-		config.read(sys.argv[1])
-		csVar.sesVarDict=csVar.updateDictFromTXT(csVar.sesVarDict,config)
+
 	
 	[teensy,tTeensyState] = initializeTeensy()
-	
 	initializeLoadCell()
 	csAIO.mAIO = mqttStart()
-	
 	csVar.sesVarDict['sessionOn']=1
 	csVar.sesVarDict['canQuit']=0
 
-	if useGUI==1:
+	if csGui.useGUI==1:
 		csGui.quitButton['text']="End Ses"
 	
 	csVar.sesVarDict['sampRate']=1000
@@ -2039,7 +2025,8 @@ def runDetectionTask():
 	np.save('sesData.npy',sesData)
 
 	# Make HDF
-	f=csSesHDF.makeHDF(csVar.sesVarDict['dirPath'] +'/',csVar.sesVarDict['subjID'] + '_ses{}'.format(csVar.sesVarDict['curSession']),dStamp)
+	f=csSesHDF.makeHDF(csVar.sesVarDict['dirPath'] +'/',csVar.sesVarDict['subjID'] + '_ses{}'\
+		.format(csVar.sesVarDict['curSession']),datetime.datetime.now().strftime("%m_%d_%Y"))
 	pyState=csVar.sesVarDict['startState']
 
 	# task-specific local variables
@@ -2052,7 +2039,7 @@ def runDetectionTask():
 	
 	serialBuf=bytearray()
 	sampLog=[]
-	if useGUI==1:
+	if csGui.useGUI==1:
 		csGui.toggleTaskButtons(0)
 	
 
@@ -2082,10 +2069,10 @@ def runDetectionTask():
 				tTime = int(tString[2])
 				tStateTime=int(tString[3])
 				# if time did not go backward (out of order packet) then increment python time, int, and state time.
-				if tTime >= curTime:
-					curTime = tTime
-					cutInt = intNum
-					curStateTime = tStateTime
+				if (tTime >= csVar.curTime):
+					csVar.curTime  = tTime
+					csVar.cutInt = intNum
+					csVar.curStateTime = tStateTime
 				
 				# check the teensy state
 				tTeensyState=int(tString[4])
@@ -2099,7 +2086,7 @@ def runDetectionTask():
 				loopCnt=loopCnt+1
 				
 				# d) If we are using the GUI plot updates ever so often.
-				if useGUI==1:
+				if csGui.useGUI==1:
 					plotSamps=csVar.sesVarDict['plotSamps']
 					updateCount=csVar.sesVarDict['updateCount']
 					lyMin=-1
@@ -2189,7 +2176,7 @@ def runDetectionTask():
 						# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
 						# in the text file. However, we shouldn't poll all the time because we have to reopen the file each time. 
 						# We do so here. 
-						if useGUI==0:
+						if csGui.useGUI==0:
 							config.read(sys.argv[1])
 							csVar.sesVarDict['totalTrials'] = int(config['sesVars']['totalTrials'])
 							csVar.sesVarDict['lickAThr'] = int(config['sesVars']['lickAThr'])
@@ -2304,7 +2291,7 @@ def runDetectionTask():
 							pyState=5
 							teensy.write('a5>'.encode('utf-8'))
 							
-							if useGUI==1:
+							if csGui.useGUI==1:
 								csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,csVar.sesVarDict['totalTrials'])
 						
 						elif reported==0:
@@ -2373,11 +2360,11 @@ def runDetectionTask():
 			print(loopCnt)
 			print(tString)
 			sesData[intNum,x]=int(tString[x+1])
-			if useGUI==1:
+			if csGui.useGUI==1:
 				csGui.toggleTaskButtons(1)
 			
 			csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-			if useGUI:
+			if csGui.useGUI:
 				csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
 
 			teensy.write('a0>'.encode('utf-8'))
@@ -2386,7 +2373,7 @@ def runDetectionTask():
 
 			print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
 			csVar.sesVarDict['trialNum']=0
-			if useGUI==1:
+			if csGui.useGUI==1:
 				csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
 			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
 			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
@@ -2397,7 +2384,7 @@ def runDetectionTask():
 
 			# Update MQTT Feeds
 			mqttStop(csAIO.mAIO)
-			if useGUI==1:
+			if csGui.useGUI==1:
 				csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
 			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
 			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
@@ -2405,17 +2392,17 @@ def runDetectionTask():
 			csSer.flushBuffer(teensy) 
 			teensy.close()
 			csVar.sesVarDict['canQuit']=1
-			if useGUI==1:
+			if csGui.useGUI==1:
 				csGui.quitButton['text']="Quit"
 	# normal exit				 
 	writeData(f,csVar.sesVarDict['curSession'],sesData[0:loopCnt,:],csVar.attributeLabels,csVar.attributeData)
 	
 	
-	if useGUI==1:
+	if csGui.useGUI==1:
 		csGui.toggleTaskButtons(1)
 	
 	csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-	if useGUI==1:
+	if csGui.useGUI==1:
 		csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
 	
 	teensy.write('a0>'.encode('utf-8'))
@@ -2428,23 +2415,20 @@ def runDetectionTask():
 	# Update MQTT Feeds
 	mqttStop(csAIO.mAIO)
 	print('finished your session')
-	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,useGUI)
+	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,csGui.useGUI)
 	csVar.sesVarDict['canQuit']=1
 	csSer.flushBuffer(teensy)
 	teensy.close()
 	if useGUI==1:
 		csGui.quitButton['text']="Quit"
-
-
-
 def runTrialOptoTask():
 	
 	cTime = datetime.datetime.now()
 	dStamp=cTime.strftime("%m_%d_%Y")
 	curMachine=csVar.getRig()
-	curTime = 0
-	curStateTime = 0
-	curInt = 0
+	csVar.curTime = 0
+	csVar.curStateTime = 0
+	csVar.curInt = 0
 
 
 	makeTrialVariables()
