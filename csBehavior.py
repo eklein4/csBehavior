@@ -800,7 +800,6 @@ class csGUI(object):
 			self.mqttDateStamp_TV.set([])
 			self.mqttTimeStamp_TV.set([])
 	def makeRigFeed(self,hostNameStr):
-		print('debug ms={}'.format(hostNameStr))
 		csMQTT.makeMQTTFeed(self,hostNameStr,self.aio)
 	def getAllFeedData(self):
 		try:
@@ -2221,6 +2220,8 @@ def initializeTasks():
 	csVar.lickCounter=0
 	csVar.lastLickCount=0
 	csSer.teensy.write('a1>'.encode('utf-8')) 
+	# generic "report" variable
+	csVar.reported = 0
 def checkTeensyData():
 	newData=0
 	[csSer.serialBuf,eR,tString]=csSer.readSerialBuffer(csSer.teensy,csSer.serialBuf,csVar.sesVarDict['serBufSize'])
@@ -2248,7 +2249,155 @@ def checkTeensyData():
 		csVar.loopCnt=csVar.loopCnt+1
 	
 	return newData
+def updatePlots():
+	# d) If we are using the GUI plot updates ever so often.
+	if csGui.useGUI==1:
+		plotSamps=csVar.sesVarDict['plotSamps']
+		updateCount=csVar.sesVarDict['updateCount']
+		lyMin=-1
+		lyMax=4098
+		if csVar.sesVarDict['chanPlot']==11 or csVar.sesVarDict['chanPlot']==7:
+			lyMin=-0.1
+			lyMax=1.1
+		if csVar.loopCnt>plotSamps and np.mod(csVar.loopCnt,updateCount)==0:
+			if csVar.sesVarDict['chanPlot']==0:
+				csPlt.quickUpdateTrialFig(csVar.sesVarDict['trialNum'],\
+					csVar.sesVarDict['totalTrials'],csSer.tState)
+			elif csVar.sesVarDict['chanPlot'] != 0:
+				csPlt.updateTrialFig(np.arange(len(csVar.sesData[csVar.loopCnt-plotSamps:csVar.loopCnt,\
+					csVar.sesVarDict['chanPlot']])),csVar.sesData[csVar.loopCnt-plotSamps:csVar.loopCnt,\
+				csVar.sesVarDict['chanPlot']],csVar.sesVarDict['trialNum'],\
+					csVar.sesVarDict['totalTrials'],csSer.tState,[lyMin,lyMax])
+def lickDetection():
+	# e) Lick detection. This can be done in hardware, but I like software because thresholds can be dynamic.
+	latchTime=50
+	if csVar.sesData[csVar.cutInt,5]>=csVar.sesVarDict['lickAThr'] and csVar.sesVarDict['lickLatchA']==0:
+		csVar.sesData[csVar.cutInt,csVar.sesVarDict['dStreams']-1]=1
+		csVar.sesVarDict['lickLatchA']=latchTime
+		# these are used in states
+		csVar.lickCounter=csVar.lickCounter+1
+		csVar.lastLick=csVar.curStateTime
 
+	elif csVar.sesVarDict['lickLatchA']>0:
+		csVar.sesVarDict['lickLatchA']=csVar.sesVarDict['lickLatchA']-1
+def stateResolution():
+	# f) Resolve state.
+	# if the python side's desired state differs from the actual Teensy state
+	# then note in python we are out of sync, and try again next loop.
+	if csVar.pyState == csSer.tState:
+		csVar.stateSync=1
+	elif csVar.pyState != csSer.tState:
+		csVar.stateSync=0
+
+	# If we are out of sync for too long, then push another change over the serial line.
+	# ******* This is a failsafe, but it shouldn't really happen.
+	if csVar.stateSync==0:
+		csVar.outSyncCount=csVar.outSyncCount+1
+		if csVar.outSyncCount>=200:
+			csSer.teensy.write('a{}>'.format(csVar.pyState).encode('utf-8'))  
+def genericHeader():
+	csVar.trialSamps[0]=csVar.loopCnt-1
+	# reset counters that track state stuff.
+	csVar.lickCounter=0
+	csVar.lastLickCount = 0
+	csVar.lastLick=0  
+	csVar.reported =0                  
+	csVar.outSyncCount=0
+	csVar.serialVarTracker = [0,0,0,0,0,0]
+	csVar.sHeaders[csVar.pyState]=1
+	csVar.sHeaders[np.setdiff1d(csVar.sList,csVar.pyState)]=0
+
+def trialMaintenance():
+	# g) Trial resolution.
+	tTrial = csVar.sesVarDict['trialNum']
+	getThisTrialsVariables(tTrial)
+	if csVar.c1_mask[tTrial]==2:
+		csVar.c1_amp[tTrial]=0
+		csVar.c2_amp[tTrial]=csVar.c2_amp[tTrial]
+		print("optical --> mask trial; LED_C1: {}V; C2 {}V"\
+			.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
+	elif csVar.c1_mask[tTrial]==1:
+		csVar.c1_amp[tTrial]=csVar.c1_amp[tTrial]
+		csVar.c2_amp[tTrial]=0
+		print("optical --> stim trial; LED_C1: {}V; C2 {}V"\
+			.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
+	csVar.sesVarDict['minStim']=csVar.visualStimTime[tTrial]
+	csVar.waitTime = csVar.trialTime[tTrial]
+	csVar.lickWaitTime = csVar.noLickTime[tTrial]
+
+	csVar.serialVarTracker = [0,0,0,0,0,0]
+	csVar.tTrial = tTrial
+
+	# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
+	# in the text file. However, we shouldn't poll all the time because we have to reopen the file each time. 
+	# We do so here. 
+	if csGui.useGUI==0:
+		config.read(sys.argv[1])
+		csVar.sesVarDict['totalTrials'] = int(config['sesVars']['totalTrials'])
+		csVar.sesVarDict['lickAThr'] = int(config['sesVars']['lickAThr'])
+		csVar.sesVarDict['volPerRwd'] = float(config['sesVars']['volPerRwd'])
+
+		if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
+			csVar.sesVarDict['sessionOn']=0
+	
+	# 3) incrment the trial count and 
+	csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
+
+	# 4) inform the user via the terminal what's going on.
+	print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],csVar.sesVarDict['totalTrials']))
+	print('target contrast: {:0.2f} ; orientation: {}'.format(csVar.contrast[csVar.tTrial],csVar.orientation[csVar.tTrial]))
+	print('target xpos: {} ; size: {}'.format(csVar.xPos[csVar.tTrial],csVar.stimSize[csVar.tTrial]))
+	print('estimated trial time = {:0.3f} seconds'.format((csVar.noLickTime[csVar.tTrial] + csVar.trialTime[csVar.tTrial])*0.001))
+def setupVisualStim(featureSendTime,placementSendTime):
+	# update visual stim params on the Teensy
+	# first 
+	if csVar.serialVarTracker[0] == 0 and csVar.curStateTime>=featureSendTime:
+		csSer.sendVisualValues(csSer.teensy,csVar.tTrial)
+		csVar.serialVarTracker[0]=1
+
+	elif csVar.serialVarTracker[1] == 0 and csVar.curStateTime>=placementSendTime:
+		csSer.sendVisualPlaceValues(csSer.teensy,csVar.tTrial)
+		csVar.serialVarTracker[1] = 1
+def enforceNoLickRule():
+	if csVar.lickCounter>csVar.lastLickCount:
+		csVar.lastLickCount=csVar.lickCounter
+		# if the lick happens such that the minimum 
+		# lick time will go over the pre time, 
+		# then we advance waitTime by the minumum
+		if csVar.curStateTime>(csVar.waitTime-csVar.lickWaitTime):
+			csVar.waitTime = csVar.waitTime + csVar.lickWaitTime
+def sessionCleanup(exceptionBool):
+
+	if exceptionBool == 1:
+		csVar.sesData.flush()
+		print(csVar.loopCnt)
+		sesNum = csVar.sesVarDict['curSession']-1
+
+	if exceptionBool == 0:
+		sesNum = csVar.sesVarDict['curSession']
+	writeData(csVar.sesHDF,csVar.sesVarDict['curSession'],csVar.sesData[0:csVar.loopCnt,:],csVar.attributeLabels,csVar.attributeData)
+	if csGui.useGUI==1:
+		csGui.toggleTaskButtons(1)
+	csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
+	if csGui.useGUI==1:
+		csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
+
+	csSer.teensy.write('a0>'.encode('utf-8'))
+	time.sleep(0.05)
+	csSer.teensy.write('a0>'.encode('utf-8'))
+
+	print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
+	csVar.sesVarDict['trialNum']=0
+
+	# Update MQTT Feeds
+	mqttStop(csAIO.mAIO)
+	print('finished your session')
+	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,csGui.useGUI)
+	csVar.sesVarDict['canQuit']=1
+	csSer.flushBuffer(csSer.teensy)
+	csSer.teensy.close()
+	if useGUI==1:
+		csGui.quitButton['text']="Quit"
 
 # ~~~~~~~~~~~~~~~~~~~~
 # >>> Define Tasks <<<
@@ -2262,148 +2411,39 @@ def runDetectionTask():
 			updateTaskVars()
 			newData = checkTeensyData()
 			if newData:
-				# d) If we are using the GUI plot updates ever so often.
-				if csGui.useGUI==1:
-					plotSamps=csVar.sesVarDict['plotSamps']
-					updateCount=csVar.sesVarDict['updateCount']
-					lyMin=-1
-					lyMax=4098
-					if csVar.sesVarDict['chanPlot']==11 or csVar.sesVarDict['chanPlot']==7:
-						lyMin=-0.1
-						lyMax=1.1
-					if csVar.loopCnt>plotSamps and np.mod(csVar.loopCnt,updateCount)==0:
-						if csVar.sesVarDict['chanPlot']==0:
-							csPlt.quickUpdateTrialFig(csVar.sesVarDict['trialNum'],\
-								csVar.sesVarDict['totalTrials'],csSer.tState)
-						elif csVar.sesVarDict['chanPlot'] != 0:
-							csPlt.updateTrialFig(np.arange(len(csVar.sesData[csVar.loopCnt-plotSamps:csVar.loopCnt,\
-								csVar.sesVarDict['chanPlot']])),csVar.sesData[csVar.loopCnt-plotSamps:csVar.loopCnt,\
-							csVar.sesVarDict['chanPlot']],csVar.sesVarDict['trialNum'],\
-								csVar.sesVarDict['totalTrials'],csSer.tState,[lyMin,lyMax])
-
-				# e) Lick detection. This can be done in hardware, but I like software because thresholds can be dynamic.
-				latchTime=50
-				if csVar.sesData[csVar.cutInt,5]>=csVar.sesVarDict['lickAThr'] and csVar.sesVarDict['lickLatchA']==0:
-					csVar.sesData[csVar.cutInt,csVar.sesVarDict['dStreams']-1]=1
-					csVar.sesVarDict['lickLatchA']=latchTime
-					# these are used in states
-					csVar.lickCounter=csVar.lickCounter+1
-					csVar.lastLick=csVar.curStateTime
-
-				elif csVar.sesVarDict['lickLatchA']>0:
-					csVar.sesVarDict['lickLatchA']=csVar.sesVarDict['lickLatchA']-1
-				# f) Resolve state.
-				# if the python side's desired state differs from the actual Teensy state
-				# then note in python we are out of sync, and try again next loop.
-				if csVar.pyState == csSer.tState:
-					csVar.stateSync=1
-				elif csVar.pyState != csSer.tState:
-					csVar.stateSync=0
-
-				# If we are out of sync for too long, then push another change over the serial line.
-				# ******* This is a failsafe, but it shouldn't really happen.
-				if csVar.stateSync==0:
-					csVar.outSyncCount=csVar.outSyncCount+1
-					if csVar.outSyncCount>=200:
-						csSer.teensy.write('a{}>'.format(csVar.pyState).encode('utf-8'))  
+				updatePlots()
+				lickDetection()
+				stateResolution()
 
 				# 4) Now look at what state you are in and evaluate accordingly
 				if csVar.pyState == 1 and csVar.stateSync==1:
-					
 					if csVar.sHeaders[csVar.pyState]==0:
-						csVar.trialSamps[0]=csVar.loopCnt-1
+						genericHeader()
+						# we treat state 1 as the begining of a trial
+						# so anything we need to fix between trials ...
+						trialMaintenance()
+					setupVisualStim(10,110)
+					enforceNoLickRule()
 
-						# reset counters that track state stuff.
-						csVar.lickCounter=0
-						csVar.lastLickCount = 0
-						csVar.lastLick=0                    
-						csVar.outSyncCount=0
-
-						# g) Trial resolution.
-						tTrial = csVar.sesVarDict['trialNum']
-						getThisTrialsVariables(tTrial)
-						if csVar.c1_mask[tTrial]==2:
-							csVar.c1_amp[tTrial]=0
-							csVar.c2_amp[tTrial]=csVar.c2_amp[tTrial]
-							print("optical --> mask trial; LED_C1: {}V; C2 {}V"\
-								.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
-						elif csVar.c1_mask[tTrial]==1:
-							csVar.c1_amp[tTrial]=csVar.c1_amp[tTrial]
-							csVar.c2_amp[tTrial]=0
-							print("optical --> stim trial; LED_C1: {}V; C2 {}V"\
-								.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
-						csVar.sesVarDict['minStim']=csVar.visualStimTime[tTrial]
-						waitTime = csVar.trialTime[tTrial]
-						lickWaitTime = csVar.noLickTime[tTrial]
-
-						csVar.serialVarTracker = [0,0,0,0,0,0]
-
-						# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
-						# in the text file. However, we shouldn't poll all the time because we have to reopen the file each time. 
-						# We do so here. 
-						if csGui.useGUI==0:
-							config.read(sys.argv[1])
-							csVar.sesVarDict['totalTrials'] = int(config['sesVars']['totalTrials'])
-							csVar.sesVarDict['lickAThr'] = int(config['sesVars']['lickAThr'])
-							csVar.sesVarDict['volPerRwd'] = float(config['sesVars']['volPerRwd'])
-
-							if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
-								csVar.sesVarDict['sessionOn']=0
-						
-						# 3) incrment the trial count and 
-						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
-
-						# 4) inform the user via the terminal what's going on.
-						print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],csVar.sesVarDict['totalTrials']))
-						print('target contrast: {:0.2f} ; orientation: {}'.format(csVar.contrast[tTrial],csVar.orientation[tTrial]))
-						print('target xpos: {} ; size: {}'.format(csVar.xPos[tTrial],csVar.stimSize[tTrial]))
-						print('estimated trial time = {:0.3f} seconds'.format((csVar.noLickTime[tTrial] + csVar.trialTime[tTrial])*0.001))
-
-						# close the header and flip the others open.
-						csVar.sHeaders[csVar.pyState]=1
-						csVar.sHeaders[np.setdiff1d(csVar.sList,csVar.pyState)]=0
-
-					# update visual stim params on the Teensy
-					if csVar.serialVarTracker[0] == 0 and csVar.curStateTime>=10:
-						csSer.sendVisualValues(csSer.teensy,tTrial)
-						csVar.serialVarTracker[0]=1
-
-					elif csVar.serialVarTracker[1] == 0 and csVar.curStateTime>=110:
-						csSer.sendVisualPlaceValues(csSer.teensy,tTrial)
-						csVar.serialVarTracker[1] = 1
-					
-
-					if csVar.lickCounter>csVar.lastLickCount:
-						csVar.lastLickCount=csVar.lickCounter
-						# if the lick happens such that the minimum 
-						# lick time will go over the pre time, 
-						# then we advance waitTime by the minumum
-						if csVar.curStateTime>(waitTime-lickWaitTime):
-							waitTime = waitTime + lickWaitTime
-
-					if csVar.curStateTime>waitTime:
+					# state 1 exit:
+					if csVar.curStateTime>csVar.waitTime:
 						csVar.stateSync=0
-						if csVar.contrast[tTrial]>0:
+						if csVar.contrast[csVar.tTrial]>0:
 							csVar.pyState=2
 							csSer.teensy.write('a2>'.encode('utf-8'))
-						elif csVar.contrast[tTrial]==0:
+						elif csVar.contrast[csVar.tTrial]==0:
 							csVar.pyState=3
 							csSer.teensy.write('a3>'.encode('utf-8'))
 
 				if csVar.pyState == 2 and csVar.stateSync==1:
 					if csVar.sHeaders[csVar.pyState]==0:
-						reported=0
-						csVar.lickCounter=0
-						csVar.lastLick=0
-						csVar.outSyncCount=0
-						csVar.sHeaders[csVar.pyState]=1
-						csVar.sHeaders[np.setdiff1d(csVar.sList,csVar.pyState)]=0                        
+						genericHeader()                      
 	 
 					if csVar.lastLick>0.02:
-						reported=1
+						csVar.reported=1
 
 					if csVar.curStateTime>csVar.sesVarDict['minStim']:
-						if reported==1 or csVar.sesVarDict['shapingTrial']:
+						if csVar.reported==1 or csVar.sesVarDict['shapingTrial']:
 							print("hit")
 							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 							csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
@@ -2412,7 +2452,7 @@ def runDetectionTask():
 							csVar.stateSync=0
 							csVar.pyState=4
 							csSer.teensy.write('a4>'.encode('utf-8'))
-						elif reported==0:
+						elif csVar.reported==0:
 							csVar.stateSync=0
 							csVar.pyState=1
 							print("miss")
@@ -2422,26 +2462,19 @@ def runDetectionTask():
 							csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(1)
 							csVar.trialSamps[1]=csVar.loopCnt
 							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
-
 							csSer.teensy.write('a1>'.encode('utf-8'))
-							print('miss: last trial took: {} seconds'\
-								.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+							print('miss: last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
 
 				
 				if csVar.pyState == 3 and csVar.stateSync==1:
 					if csVar.sHeaders[csVar.pyState]==0:
-						reported=0
-						csVar.lickCounter=0
-						csVar.lastLick=0
-						csVar.outSyncCount=0
-						csVar.sHeaders[csVar.pyState]=1
-						csVar.sHeaders[np.setdiff1d(csVar.sList,csVar.pyState)]=0
+						genericHeader()
 	 
 					if csVar.lastLick>0.005:
-						reported=1
+						csVar.reported=1
 
 					if csVar.curStateTime>csVar.sesVarDict['minStim']:
-						if reported==1:
+						if csVar.reported==1:
 							print("false alarm")
 							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 							csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
@@ -2455,7 +2488,7 @@ def runDetectionTask():
 							if csGui.useGUI==1:
 								csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,csVar.sesVarDict['totalTrials'])
 						
-						elif reported==0:
+						elif csVar.reported==0:
 							# correct rejections
 							print("correct rejection")
 							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
@@ -2477,14 +2510,7 @@ def runDetectionTask():
 
 				if csVar.pyState == 4 and csVar.stateSync==1:
 					if csVar.sHeaders[csVar.pyState]==0:
-						
-						csVar.lickCounter=0
-						csVar.lastLick=0
-						csVar.outSyncCount=0
-						csVar.sesVarDict['waterConsumed']=csVar.sesVarDict['waterConsumed']+csVar.sesVarDict['volPerRwd']
-						csVar.sHeaders[csVar.pyState]=1
-						csVar.sHeaders[np.setdiff1d(csVar.sList,csVar.pyState)]=0
-					
+						genericHeader()
 					# exit
 					if csVar.curStateTime>csVar.sesVarDict['rewardDur']:
 						csVar.trialSamps[1]=csVar.loopCnt
@@ -2498,15 +2524,8 @@ def runDetectionTask():
 						print('last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
 
 				if csVar.pyState == 5 and csVar.stateSync==1:
-					
 					if csVar.sHeaders[csVar.pyState]==0:
-
-						csVar.lickCounter=0
-						csVar.lastLick=0
-						csVar.outSyncCount=0
-						csVar.sHeaders[csVar.pyState]=1
-						csVar.sHeaders[np.setdiff1d(csVar.sList,csVar.pyState)]=0
-					
+						genericHeader()
 					# exit
 					if csVar.curStateTime>csVar.sesVarDict['toTime']:
 						csVar.trialSamps[1]=csVar.loopCnt
@@ -2516,69 +2535,8 @@ def runDetectionTask():
 						csSer.teensy.write('a1>'.encode('utf-8'))
 						print('last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
 		except:
-			csVar.sesData.flush()
-			np.save('sesData.npy',csVar.sesData)
-			print(csVar.loopCnt)
-			csVar.sesData[csVar.cutInt,x]=int(tString[x+1])
-			if csGui.useGUI==1:
-				csGui.toggleTaskButtons(1)
-			
-			csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-			if csGui.useGUI:
-				csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
-
-			csSer.teensy.write('a0>'.encode('utf-8'))
-			time.sleep(0.05)
-			csSer.teensy.write('a0>'.encode('utf-8'))
-
-			print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
-			csVar.sesVarDict['trialNum']=0
-			if csGui.useGUI==1:
-				csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
-			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
-			
-			writeData(csVar.sesHDF,csVar.sesVarDict['curSession']-1,csVar.sesData[0:csVar.loopCnt,:],csVar.attributeLabels,csVar.attributeData)
-
-			
-
-			# Update MQTT Feeds
-			mqttStop(csAIO.mAIO)
-			if csGui.useGUI==1:
-				csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
-			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
-
-			csSer.flushBuffer(csSer.teensy) 
-			csSer.teensy.close()
-			csVar.sesVarDict['canQuit']=1
-			if csGui.useGUI==1:
-				csGui.quitButton['text']="Quit"
-	writeData(csVar.sesHDF,csVar.sesVarDict['curSession'],csVar.sesData[0:csVar.loopCnt,:],csVar.attributeLabels,csVar.attributeData)
-	
-	
-	if csGui.useGUI==1:
-		csGui.toggleTaskButtons(1)
-	csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-	if csGui.useGUI==1:
-		csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
-	
-	csSer.teensy.write('a0>'.encode('utf-8'))
-	time.sleep(0.05)
-	csSer.teensy.write('a0>'.encode('utf-8'))
-
-	print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
-	csVar.sesVarDict['trialNum']=0
-
-	# Update MQTT Feeds
-	mqttStop(csAIO.mAIO)
-	print('finished your session')
-	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,csGui.useGUI)
-	csVar.sesVarDict['canQuit']=1
-	csSer.flushBuffer(csSer.teensy)
-	csSer.teensy.close()
-	if useGUI==1:
-		csGui.quitButton['text']="Quit"
+			sessionCleanup(1)
+	sessionCleanup(0)
 
 def runTrialOptoTask():
 	initializeDetectionTask()
@@ -2752,7 +2710,7 @@ def runTrialOptoTask():
 
 
 						csVar.sesVarDict['minStim']=csVar.opticalStimTime[tTrial]
-						waitTime = csVar.trialTime[tTrial]
+						csVar.waitTime = csVar.trialTime[tTrial]
 						# lickWaitTime = csVar.noLickTime[tTrial]
 
 						csVar.serialVarTracker = [0,0,0,0,0,0]
@@ -2799,7 +2757,7 @@ def runTrialOptoTask():
 					#	csSer.sendAnalogOutValues(teensy,'m',optoPulseNum)
 					#	serialVarTracker[5] = 1
 
-					if curStateTime>waitTime:
+					if curStateTime>csVar.waitTime:
 						csVar.stateSync=0
 						if csVar.sesVarDict['useFlybackOpto'] == 1:
 							csVar.pyState=8
