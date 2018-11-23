@@ -94,8 +94,8 @@ elapsedMicros loopTime;
 #define DAC2 A22
 
 // ~~~ MCP DACs
-//Adafruit_MCP4725 dac3;
-//Adafruit_MCP4725 dac4;
+Adafruit_MCP4725 dac3;
+Adafruit_MCP4725 dac4;
 
 
 // **** Make neopixel object
@@ -242,8 +242,8 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 void setup() {
   // Start MCP DACs
-  //  dac3.begin(dac3Address); //adafruit A0 pulled high
-  //  dac4.begin(dac4Address); // sparkfun A0 pulled low
+  dac3.begin(dac3Address); //adafruit A0 pulled high
+  dac4.begin(dac4Address); // sparkfun A0 pulled low
 
   // todo: Setup Cyclops
   // Start the device
@@ -820,7 +820,7 @@ void frameCount() {
 
 void flybackStim_On() {
 
-  pulseCount = pulseCount+1;
+  pulseCount = pulseCount + 1;
   if (knownValues[0] == 8) {
 
     elapsedMicros pfTime;
@@ -850,8 +850,8 @@ void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][10]) {
 void writeAnalogOutValues(uint32_t dacVals[]) {
   analogWrite(DAC1, dacVals[0]);
   analogWrite(DAC2, dacVals[1]);
-  //  dac3.setVoltage(dacVals[2], false);
-  //  dac4.setVoltage(dacVals[3], false);
+  dac3.setVoltage(dacVals[2], false);
+  dac4.setVoltage(dacVals[3], false);
 }
 
 void stimGen(uint32_t pulseTracker[][10]) {
@@ -869,15 +869,18 @@ void stimGen(uint32_t pulseTracker[][10]) {
           pulseTracker[i][7] = pulseTracker[i][4];
           if (pulseTracker[i][8]  > 0) {
             pulseTracker[i][8] = pulseTracker[i][8] - 1;
-            pulseTracker[i][1] = 1;
+            if (pulseTracker[i][8]<=0){
+              pulseTracker[i][1] = 1;
+              pulseTracker[i][8] = 0;
+            }
           }
         }
         else {
           // if we still have pulse time, and we haven't flipped the stop bit, then pulse.
-          if (pulseTracker[i][1] == 0) {
+          if (pulseTracker[i][1]==0) {
             pulseTracker[i][7] = pulseTracker[i][5]; // 5 is the pulse amp; 7 is the current output.
           }
-          else if (pulseTracker[i][1] == 1) {
+          else if (pulseTracker[i][1]==1) {
             pulseTracker[i][7] = pulseTracker[i][4]; // baseline
           }
         }
@@ -916,15 +919,13 @@ void stimGen(uint32_t pulseTracker[][10]) {
             pulseTracker[i][10] = 1;
           }
 
-
-
           if (pulseTracker[i][10] == 0) {
             float curTimeSc = PI + ((PI * (trainTimer[i] - 1)) / 10);
-            pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5);; // 5 is the pulse amp; 7 is the current output.
+            pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
           }
           else if (pulseTracker[i][10] == 1) {
             float curTimeSc = 0 + ((PI * (trainTimer[i] - 1)) / 100);
-            pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5);; // 5 is the pulse amp; 7 is the current output.
+            pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
           }
 
           if (trainTimer[i] > 110) {
