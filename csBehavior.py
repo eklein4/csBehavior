@@ -311,6 +311,14 @@ class csGUI(object):
 			self.tBtn_trialOpto.configure(highlightbackground='black')
 			self.tBtn_trialOpto.configure(foreground='white')
 
+		self.tBtn_simpleRecord = Button(self.taskBar,text="Task:Just Record",justify=LEFT,width=col1_width,\
+			command=self.do_justRecord)
+		self.tBtn_simpleRecord.grid(row=startRow+22,column=leftCol,padx=10,sticky=W)
+		self.tBtn_simpleRecord['state'] = 'disabled'
+		if self.darkMode:
+			self.tBtn_simpleRecord.configure(highlightbackground='black')
+			self.tBtn_simpleRecord.configure(foreground='white')
+
 		self.hpL=Label(self.taskBar, text="Hash Path:",justify=LEFT)
 		self.hpL.grid(row=startRow+17,column=0,padx=0,sticky=W)
 		if self.darkMode:
@@ -932,9 +940,12 @@ class csGUI(object):
 		if boolState == 1:
 			self.tBtn_trialOpto['state'] = 'normal'
 			self.tBtn_detection['state'] = 'normal'
+			self.tBtn_simpleRecord['state'] = 'normal'
 		elif boolState == 0:
 			self.tBtn_trialOpto['state'] = 'disabled'
 			self.tBtn_detection['state'] = 'disabled'
+			self.tBtn_simpleRecord['state'] = 'disabled'
+
 	def inferType(self,singleCharNum):
 		try:
 			# if it is numeric, it can be a float
@@ -1174,6 +1185,8 @@ class csGUI(object):
 	def do_trialOpto(self):
 		
 		runTrialOptoTask()
+	def do_justRecord(self):
+		runSimpleRecord()
 class csVariables(object):
 	def __init__(self,sesVarDict={},sensory={},timing={},optical={}):
 
@@ -2404,6 +2417,7 @@ def sessionCleanup(exceptionBool):
 # ~~~~~~~~~~~~~~~~~~~~
 
 def runDetectionTask():
+	csVar.sesVarDict['taskType']='simple recording'
 	initializeTasks()
 	while csVar.sesVarDict['sessionOn']:
 		# try to execute the task.
@@ -2537,8 +2551,42 @@ def runDetectionTask():
 		except:
 			sessionCleanup(1)
 	sessionCleanup(0)
+def runSimpleRecord():
+	csVar.sesVarDict['taskType']='simple recording'
+	initializeTasks()
 
+	while csVar.sesVarDict['sessionOn']:
+		# try to execute the task.
+		try:
+			updateTaskVars()
+			newData = checkTeensyData()
+			if newData:
+				updatePlots()
+				lickDetection()
+				stateResolution()
+
+				# 4) Now look at what state you are in and evaluate accordingly
+				if csVar.pyState == 1 and csVar.stateSync==1:
+					if csVar.sHeaders[csVar.pyState]==0:
+						genericHeader()
+						# we treat state 1 as the begining of a trial
+						# so anything we need to fix between trials ...
+						trialMaintenance()
+
+
+					# state 1 exit:
+					if csVar.curStateTime>csVar.waitTime:
+						csVar.trialSamps[1]=csVar.loopCnt
+						# update sample log
+						csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
+						print('finished recording')
+						csVar.sesVarDict['sessionOn']=0
+
+		except:
+			sessionCleanup(1)
+	sessionCleanup(0)
 def runTrialOptoTask():
+	csVar.sesVarDict['taskType']='trial opto'
 	initializeDetectionTask()
 	makeTrialVariables()
 	# connect to the teensy
