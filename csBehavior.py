@@ -891,50 +891,35 @@ class csGUI(object):
 				devPathStrings.append(child.name)
 		self.devPathStrings = devPathStrings
 		return self.devPathStrings
-	def getPath(self,varDict,timingDict,visualDict,opticalDict):
+	def loadCSVDictionary(self,varDict,csvPath):
 		try:
-			selectPath = fd.askdirectory(title ="what what?")
-		except:
-			selectPath='/'
-
-		self.dirPath_TV.set(selectPath)
-		self.subjID_TV.set(os.path.basename(selectPath))
-		varDict['dirPath']=selectPath
-		varDict['subjID']=os.path.basename(selectPath)
-		self.toggleTaskButtons(1)
-
-		try:
-			tempMeta=pd.read_csv(selectPath +'/' + 'sesVars.csv',index_col=0,header=None)
+			tempMeta=pd.read_csv(dictionaryPath,index_col=0,header=None)
 			varDict = self.updateDictFromPandas(tempMeta,varDict)
 			self.refreshGuiFromDict(varDict)
+			print("debug: yup")
 		except:
 			pass
-
+		return varDict
+	def getPath(self,varDict,timingDict,visualDict,opticalDict):
 		try:
-			tempMeta=pd.read_csv(selectPath +'/' + 'timingVars.csv',index_col=0,header=None)
-			timingDict = self.updateDictFromPandas(tempMeta,timingDict)
-			self.updateDictFromGUI(timingDict)
-			self.refreshGuiFromDict(timingDict)
+			tPth = fd.askdirectory(title ="what what?")
+			print('debug path type = {}'.format(tPth))
+			basePath = Path(tPth)
 		except:
-			pass
+			# default to home directory
+			basePath=Path(str(Path.home()))
 
-		try:
-			tempMeta=pd.read_csv(selectPath +'/' + 'sensVars.csv',index_col=0,header=None)
-			visualDict = self.updateDictFromPandas(tempMeta,visualDict)
-			self.updateDictFromGUI(visualDict)
-			self.refreshGuiFromDict(visualDict)
+		self.dirPath_TV.set(basePath.as_posix())
+		self.subjID_TV.set(os.path.basename(basePath))
+		varDict['dirPath']=basePath
+		varDict['subjID']=basePath.name
+		self.toggleTaskButtons(1)
+		varDict = self.loadCSVDictionary(varDict,basePath.as_posix() +'/' + 'sesVars.csv')
+		timingDict = self.loadCSVDictionary(timingDict,basePath.as_posix() +'/' + 'timingVars.csv')
+		visualDict = self.loadCSVDictionary(visualDict,basePath.as_posix() +'/' + 'sensVars.csv')
+		opticalDict = self.loadCSVDictionary(opticalDict,basePath.as_posix() +'/' + 'opticalVars.csv')
 
-		except:
-			pass
 
-		try:
-			tempMeta=pd.read_csv(selectPath +'/' + 'opticalVars.csv',index_col=0,header=None)
-			opticalDict = self.updateDictFromPandas(tempMeta,opticalDict)
-			self.updateDictFromGUI(opticalDict)
-			self.refreshGuiFromDict(opticalDict)
-
-		except:
-			pass
 	def toggleTaskButtons(self,boolState=1):
 		if boolState == 1:
 			self.tBtn_trialOpto['state'] = 'normal'
@@ -1925,8 +1910,11 @@ def initializeLoadCell():
 		csGui.curNotes.append('pre-session weight = {}'.format(0))
 def mqttStart():
 	# subFeedLabels = ['rig','task','waterconsumed','waterneeded','weight','performance','notes']
+	tdStamp=datetime.datetime.now().strftime("%Y_%m_%d_%H:%M:%S")
+	csGui.curNotes.append('session start: ' + '{}'.format(tdStamp))
 	csVar.sesVarDict['logMQTT'] = csGui.logMQTT_TV.get()
 	tMqLog = csVar.sesVarDict['logMQTT']
+	csGui.curNotes.append(tMqLog)
 	hPath = csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
 	tDelay = csVar.sesVarDict['mqttUpDel']
 
@@ -2319,6 +2307,21 @@ def sessionCleanup(exceptionBool):
 
 	# Update MQTT Feeds
 	mqttStop(csAIO.mAIO)
+	tdStamp=datetime.datetime.now().strftime("%Y_%m_%d_%H:%M:%S")
+	tfStamp=datetime.datetime.now().strftime("_%Y%m%d%H%M%S")
+	csGui.curNotes.append('session end: ' + tdStamp)
+	if Path(csVar.sesVarDict['dirPath']).joinpath('notes').exists() == 0:
+		Path(csVar.sesVarDict['dirPath']).joinpath('notes').mkdir()
+	txtNotesPath = Path(csVar.sesVarDict['dirPath']).joinpath('notes').joinpath(csVar.sesVarDict['subjID'] + '_session' +\
+	 '{}'.format(csVar.sesVarDict['curSession']) + tfStamp + '_notes.txt')
+
+	tempNoteString = ''
+	for v in csGui.curNotes:
+		if type(v) is not 'string':
+			v = '{}'.format(v)
+		tempNoteString = tempNoteString + v + '\n'
+	txtNotesPath.write_text(tempNoteString)
+
 	print('finished your session')
 	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,csGui.useGUI)
 	csVar.sesVarDict['canQuit']=1
@@ -2327,42 +2330,47 @@ def sessionCleanup(exceptionBool):
 	if useGUI==1:
 		csGui.quitButton['text']="Quit"
 def resolveOutputMasks():
-	if csVar.c1_mask[tTrial]==2:
-		csVar.c1_amp[tTrial]=0
-		csVar.c2_amp[tTrial]=csVar.c2_amp[tTrial]
-		csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(1)
-		csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(0)
+	if csVar.c1_mask[csVar.tTrial]==2:
+		csVar.c1_amp[csVar.tTrial]=0
+		csVar.c2_amp[csVar.tTrial]=csVar.c2_amp[csVar.tTrial]
+		# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(1)
+		# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(0)
 		print("optical --> mask trial; LED_C1: {}V; C2 {}V"\
-			.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
+			.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
 
-	elif csVar.c1_mask[tTrial]!=2:
-		csVar.c1_amp[tTrial]=csVar.c1_amp[tTrial]
-		csVar.c2_amp[tTrial]=0
-		csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(0)
-		csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(1)
+	elif csVar.c1_mask[csVar.tTrial]!=2:
+		csVar.c1_amp[csVar.tTrial]=csVar.c1_amp[csVar.tTrial]
+		csVar.c2_amp[csVar.tTrial]=0
+		# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(0)
+		# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(1)
 		print("optical --> stim trial; LED_C1: {}V; C2 {}V"\
-			.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
+			.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
 def sendDACVariables(vTime,pTime,dTime,mTime):
-
-	if csVar.serialVarTracker[2] == 0 and curStateTime>=vTime:
+	print("klo")
+	print(csVar.serialVarTracker[1])
+	print("pol")
+	print(csVar.curStateTime)
+	if csVar.serialVarTracker[1] == 0 and csVar.curStateTime>=vTime:
 		optoVoltages = [int(csVar.c1_amp[csVar.tTrial]),int(csVar.c2_amp[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'v',optoVoltages)
-		csVar.serialVarTracker[2] = 1
-
-	elif csVar.serialVarTracker[3] == 0 and curStateTime>=pTime:
+		csVar.serialVarTracker[1] = 1
+		print("klo2")
+	elif csVar.serialVarTracker[2] == 0 and csVar.curStateTime>=pTime:
 		optoPulseDurs = [int(csVar.c1_pulseDur[csVar.tTrial]),int(csVar.c2_pulseDur[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'p',optoPulseDurs)
-		csVar.serialVarTracker[3] = 1
+		csVar.serialVarTracker[2] = 1
 
-	elif csVar.serialVarTracker[4] == 0 and curStateTime>=dTime:
+	elif csVar.serialVarTracker[3] == 0 and csVar.curStateTime>=dTime:
 		optoIPIs = [int(csVar.c1_interPulseDur[csVar.tTrial]),int(csVar.c2_interPulseDur[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'d',optoIPIs)
-		csVar.serialVarTracker[4] = 1
+		csVar.serialVarTracker[3] = 1
 
-	elif serialVarTracker[5] == 0 and curStateTime>=mTime:
+	elif serialVarTracker[4] == 0 and csVar.curStateTime>=mTime:
 		optoPulseNum = [int(csVar.c1_pulseCount[csVar.tTrial]),int(csVar.c2_pulseCount[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'m',optoPulseNum)
-		csVar.serialVarTracker[5] = 1
+		csVar.serialVarTracker[4] = 1
+	else:
+		pass
 
 # ~~~~~~~~~~~~~~~~~~~~
 # >>> Define Tasks <<<
@@ -2504,7 +2512,7 @@ def runDetectionTask():
 			sessionCleanup(1)
 	sessionCleanup(0)
 def runTrialOptoTask():
-	csVar.sesVarDict['taskType']='detection'
+	csVar.sesVarDict['taskType']='trial opto'
 	initializeTasks()
 	while csVar.sesVarDict['sessionOn']:
 		# try to execute the task.
@@ -2512,6 +2520,7 @@ def runTrialOptoTask():
 			updateTaskVars()
 			newData = checkTeensyData()
 			if newData:
+
 				updatePlots()
 				stateResolution()
 
@@ -2527,15 +2536,16 @@ def runTrialOptoTask():
 						# we treat state 1 as the begining of a trial
 						# so anything we need to fix between trials ...
 						trialMaintenance()
+						print("lko")
 						# resolve output logic (masks etc)
 						resolveOutputMasks()
+						print("lko2")
 						# send DAC variable updates
-						sendDACVariables(110,310,510,710):
+						sendDACVariables(110,310,510,710)
+						print("lko3")
 
 					# state 1 exit:
 					if csVar.curStateTime>csVar.waitTime:
-						csVar.stateSync=0
-						if curStateTime>csVar.waitTime:
 						csVar.stateSync=0
 						if csVar.sesVarDict['useFlybackOpto'] == 1:
 							csVar.pyState=8
@@ -2545,7 +2555,7 @@ def runTrialOptoTask():
 							teensy.write('a7>'.encode('utf-8'))
 
 
-				elif csVar.pyState == 7 and csVar.stateSync==1:
+				if csVar.pyState == 7 and csVar.stateSync==1:
 					if csVar.sHeaders[csVar.pyState]==0:
 						genericHeader()                      
 
@@ -2557,7 +2567,7 @@ def runTrialOptoTask():
 						csSer.teensy.write('a1>'.encode('utf-8'))
 						print('last trial took: {} seconds'.format(csVar.sampLog[-1]/1000))
 						
-				elif csVar.pyState == 8 and csVar.stateSync==1:
+				if csVar.pyState == 8 and csVar.stateSync==1:
 					if csVar.sHeaders[csVar.pyState]==0:
 						genericHeader()                     
 
