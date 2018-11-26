@@ -1,18 +1,28 @@
-####################################################################
-#
-# csBehavior v1.05
-#
-# A Python program that allows you to run 
-# behavioral/stimulus experiments 
-# with a Teensy (and related) microcontrollers.
-# 
-# questions to --> Chris Deister - cdeister@brown.edu
-# 
-# contributors: Chris Deister, Sinda Fekir
-# Anything that is licenseable is 
-# governed by a MIT License found in the github directory. 
-#
-####################################################################
+########################################################################
+########################################################################
+########################################################################
+####																####
+####    csBehavior v1.1												####
+####																####
+####    A Python program that allows you to run 					####
+####    behavioral/stimulus experiments 							####
+####    with a Teensy (and related) microcontrollers. 				####
+#### 																####
+####    questions to --> Chris Deister - cdeister@brown.edu 		####
+#### 																####
+####    contributors: Chris Deister, Sinda Fekir					####
+####    Anything that is licenseable is 							####	
+####    governed by a MIT License found in the github directory. 	####
+####																####
+########################################################################
+########################################################################
+########################################################################
+
+# todo: add ser tracker for piezo
+# todo: add import dict button 
+# todo: fix ordering of windows populated from dicts
+# todo: black.white in dictionaries
+# todo: change optical to DAC
 
 from tkinter import *
 import tkinter.filedialog as fd
@@ -39,24 +49,33 @@ import configparser
 
 
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-# $$$$$$$$$$$$$ Class Definituions $$$$$$$$$$$$$$$
+# $$$$$$$$$$$   Class Definitions   $$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 
 class csGUI(object):
-	
+	# a) initialize
 	def __init__(self,varDict,timingDict,visualDict,opticalDict):
 		
 		self.curFeeds=[]
-		self.totalMQTTDataCount = 0
-	
+		self.totalMQTTDataCount = 1
+		self.curNotes = []
+		self.useGUI=1
+		self.darkMode=0
 	# b) window generation
 	def makeParentWindow(self,master,varDict,timingDict,visualDict,opticalDict):
 		# make the window object
 		self.master = master
 		self.taskBar = Frame(self.master)
 		self.master.title("csBehavior")
-		# self.taskBar.configure(background='gray')
+		if self.darkMode:
+			self.taskBar.configure(background='black')
+
+
+		# log the hostname
+		mchString=socket.gethostname()
+		varDict['hostName']=mchString.split('.')[0]
+
 		
 		# set the initial geometry variables
 		col1_width=14
@@ -71,75 +90,138 @@ class csGUI(object):
 		self.dirPath_btn = Button(self.taskBar,text="set path",justify=LEFT,width=col1_width,\
 			command=lambda: self.getPath(varDict,timingDict,visualDict,opticalDict))
 		self.dirPath_btn.grid(row=startRow+1,column=rightCol,sticky=W,padx=10)
+		if self.darkMode:
+			self.dirPath_btn.configure(foreground='white')
+			self.dirPath_btn.configure(highlightbackground='black')
 		self.dirPath_label=Label(self.taskBar, text="Save Path:", justify=LEFT)
 		self.dirPath_label.grid(row=startRow,column=leftCol,padx=0,sticky=W)
+		if self.darkMode:
+			self.dirPath_label.configure(foreground='white')
+			self.dirPath_label.configure(background='black')
 		self.dirPath_TV=StringVar(self.taskBar)
 		self.dirPath_TV.set(varDict['dirPath'])
 		self.dirPath_entry=Entry(self.taskBar, width=22, textvariable=self.dirPath_TV)
 		self.dirPath_entry.grid(row=startRow+1,column=leftCol,padx=0,columnspan=1,sticky=W)
+		if self.darkMode:
+			self.dirPath_entry.configure(foreground='white')
+			self.dirPath_entry.configure(background='black')
+
 
 		self.comPath_label=Label(self.taskBar, text="COM Port:", justify=LEFT)
 		self.comPath_label.grid(row=startRow+2,column=leftCol,padx=0,sticky=W)
+		if self.darkMode:
+			self.comPath_label.configure(foreground='white')
+			self.comPath_label.configure(background='black')
 		self.comPath_TV=StringVar(self.taskBar)
 		
 		self.comPath_TV.set(varDict['comPath'])
-		tempPath = self.guessComPort()
-		if len(tempPath)>1:
-			varDict['comPath'] = tempPath
-			self.comPath_TV.set(tempPath)
+		self.checkCOMPort(varDict)
 
 		self.comPath_entry=Entry(self.taskBar, width=22, textvariable=self.comPath_TV)
 		self.comPath_entry.grid(row=startRow+3,column=leftCol,padx=0,sticky=W)
-		
+		if self.darkMode:
+			self.comPath_entry.configure(background='black')
+			self.comPath_entry.configure(foreground='white')
+
+		self.refreshCom_btn = Button(self.taskBar,text="guess com",justify=LEFT,\
+			width=col1_width,command=lambda: self.checkCOMPort(varDict))
+		self.refreshCom_btn.grid(row=startRow+startRow+3,column=rightCol,padx=10,sticky=W)
+		self.refreshCom_btn['state'] = 'normal'
+		if self.darkMode:
+			self.refreshCom_btn.configure(foreground='white')
+			self.refreshCom_btn.configure(highlightbackground='black')
+
 		self.blank=Label(self.taskBar, text=" ——————————————–––",justify=LEFT)
 		self.blank.grid(row=startRow+4,column=leftCol,padx=0,sticky=W)
+		if self.darkMode:
+			self.blank.configure(background='black')
+			self.blank.configure(foreground='white')
 
 		self.subjID_label=Label(self.taskBar, text="Subject ID:", justify=LEFT)
 		self.subjID_label.grid(row=startRow+5,column=0,padx=0,sticky=W)
+		if self.darkMode:
+			self.subjID_label.configure(background='black')
+			self.subjID_label.configure(foreground='white')
 		self.subjID_TV=StringVar(self.taskBar)
 		self.subjID_TV.set(varDict['subjID'])
 		self.subjID_entry=Entry(self.taskBar, width=entryWidth, textvariable=self.subjID_TV)
 		self.subjID_entry.grid(row=startRow+5,column=leftCol,padx=0,sticky=E)
+		if self.darkMode:
+			self.subjID_entry.configure(background='black')
+			self.subjID_entry.configure(foreground='white')
 
 		self.teL=Label(self.taskBar, text="Total Trials:",justify=LEFT)
 		self.teL.grid(row=startRow+6,column=0,padx=0,sticky=W)
+		if self.darkMode:
+			self.teL.configure(background='black')
+			self.teL.configure(foreground='white')
 		self.totalTrials_TV=StringVar(self.taskBar)
 		self.totalTrials_TV.set(varDict['totalTrials'])
 		self.totalTrials_entry = Entry(self.taskBar,width=entryWidth,textvariable=self.totalTrials_TV)
 		self.totalTrials_entry.grid(row=startRow+6,column=leftCol,padx=0,sticky=E)
+		if self.darkMode:
+			self.totalTrials_entry.configure(background='black')
+			self.totalTrials_entry.configure(foreground='white')
 		
 		self.teL=Label(self.taskBar, text="Current Session:",justify=LEFT)
 		self.teL.grid(row=startRow+7,column=leftCol,padx=0,sticky=W)
+		if self.darkMode:
+			self.teL.configure(background='black')
+			self.teL.configure(foreground='white')
 		self.curSession_TV=StringVar(self.taskBar)
 		self.curSession_TV.set(varDict['curSession'])
 		self.te = Entry(self.taskBar,width=entryWidth,textvariable=self.curSession_TV)
 		self.te.grid(row=startRow+7,column=leftCol,padx=0,sticky=E)
+		if self.darkMode:
+			self.te.configure(background='black')
+			self.te.configure(foreground='white')
 
 		self.blL=Label(self.taskBar, text=" ——————————————–––",justify=LEFT)
 		self.blL.grid(row=startRow+8,column=leftCol,padx=0,sticky=W)
+		if self.darkMode:
+			self.blL.configure(background='black')
+			self.blL.configure(foreground='white')
 
 		self.plotSamps_label=Label(self.taskBar, text="Samps per Plot:", justify=LEFT)
 		self.plotSamps_label.grid(row=startRow+9,column=0,padx=0,sticky=W)
+		if self.darkMode:
+			self.plotSamps_label.configure(background='black')
+			self.plotSamps_label.configure(foreground='white')
+
 		self.plotSamps_TV=StringVar(self.taskBar)
 		self.plotSamps_TV.set(varDict['plotSamps'])
 		self.plotSamps_entry=Entry(self.taskBar, width=10, textvariable=self.plotSamps_TV)
 		self.plotSamps_entry.grid(row=startRow+9,column=0,padx=0,sticky=E)
+		if self.darkMode:
+			self.plotSamps_entry.configure(background='black')
+			self.plotSamps_entry.configure(foreground='white')
+
 
 		self.updateCount_label=Label(self.taskBar, text="Plot Update:", justify=LEFT)
 		self.updateCount_label.grid(row=startRow+10,column=0,padx=0,sticky=W)
+		if self.darkMode:
+			self.updateCount_label.configure(background='black')
+			self.updateCount_label.configure(foreground='white')
 		self.updateCount_TV=StringVar(self.taskBar)
 		self.updateCount_TV.set(varDict['updateCount'])
 		self.updateCount_entry=Entry(self.taskBar, width=10, textvariable=self.updateCount_TV)
 		self.updateCount_entry.grid(row=startRow+10,column=0,padx=0,sticky=E)
+		if self.darkMode:
+			self.updateCount_entry.configure(background='black')
+			self.updateCount_entry.configure(foreground='white')
 
 		self.lickAThr_label=Label(self.taskBar, text="Lick Thr:", justify=LEFT)
 		self.lickAThr_label.grid(row=startRow+11,column=0,padx=0,sticky=W)
+		if self.darkMode:
+			self.lickAThr_label.configure(background='black')
+			self.lickAThr_label.configure(foreground='white')
 		self.lickAThr_TV=StringVar(self.taskBar)
 		self.lickAThr_TV.set(varDict['lickAThr'])
 		self.lickAThr_entry=Entry(self.taskBar, width=10, textvariable=self.lickAThr_TV)
 		self.lickAThr_entry.grid(row=startRow+11,column=0,padx=0,sticky=E)
-
-
+		if self.darkMode:
+			self.lickAThr_entry.configure(background='black')
+			self.lickAThr_entry.configure(foreground='white')
 
 		self.shapingTrial_TV=IntVar()
 		self.shapingTrial_TV.set(varDict['shapingTrial'])
@@ -147,7 +229,9 @@ class csGUI(object):
 			variable=self.shapingTrial_TV,onvalue=1,offvalue=0)
 		self.shapingTrial_Toggle.grid(row=startRow+13,column=0,pady=4,sticky=W)
 		self.shapingTrial_Toggle.select()
-
+		if self.darkMode:
+			self.shapingTrial_Toggle.configure(foreground='white')
+			self.shapingTrial_Toggle.configure(background='black')
 
 		self.useFlybackOpto_TV=IntVar()
 		self.useFlybackOpto_TV.set(varDict['useFlybackOpto'])
@@ -155,29 +239,54 @@ class csGUI(object):
 			variable=self.useFlybackOpto_TV,onvalue=1,offvalue=0)
 		self.useFlybackOpto_Toggle.grid(row=startRow+14,column=0,sticky=W)
 		self.useFlybackOpto_Toggle.select()
+		if self.darkMode:
+			self.useFlybackOpto_Toggle.configure(foreground='white')
+			self.useFlybackOpto_Toggle.configure(background='black')
 
-  
 		self.chanPlot_label=Label(self.taskBar, text="Scope:", justify=LEFT)
 		self.chanPlot_label.grid(row=startRow+5,column=rightCol,padx=10,sticky=W)
+		if self.darkMode:
+			self.chanPlot_label.configure(foreground='white')
+			self.chanPlot_label.configure(background='black')
+
 		self.chanPlotIV=IntVar()
 		self.chanPlotIV.set(varDict['chanPlot'])
-		Radiobutton(self.taskBar, text="Load Cell", \
-			variable=self.chanPlotIV, value=4).grid(row=startRow+6,column=rightCol,padx=10,pady=3,sticky=W)
-		Radiobutton(self.taskBar, text="Lick Sensor", \
-			variable=self.chanPlotIV, value=5).grid(row=startRow+7,column=rightCol,padx=10,pady=3,sticky=W)
-		Radiobutton(self.taskBar, text="Motion", \
-			variable=self.chanPlotIV, value=6).grid(row=startRow+8,column=rightCol,padx=10,pady=3,sticky=W)
-		Radiobutton(self.taskBar, text="DAC1", \
-			variable=self.chanPlotIV, value=8).grid(row=startRow+9,column=rightCol,padx=10,pady=3,sticky=W)
-		Radiobutton(self.taskBar, text="Thr Licks", \
-			variable=self.chanPlotIV, value=11).grid(row=startRow+10,column=rightCol,padx=10,pady=3,sticky=W)
-		Radiobutton(self.taskBar, text="Nothing", \
-			variable=self.chanPlotIV, value=0).grid(row=startRow+11,column=rightCol,padx=10,pady=3,sticky=W)
+		if self.darkMode == 0:
+			Radiobutton(self.taskBar, text="Load Cell", \
+				variable=self.chanPlotIV, value=4).grid(row=startRow+6,column=rightCol,padx=10,pady=3,sticky=W,)
+			Radiobutton(self.taskBar, text="Lick Sensor", \
+				variable=self.chanPlotIV, value=5).grid(row=startRow+7,column=rightCol,padx=10,pady=3,sticky=W)
+			Radiobutton(self.taskBar, text="Motion", \
+				variable=self.chanPlotIV, value=6).grid(row=startRow+8,column=rightCol,padx=10,pady=3,sticky=W)
+			Radiobutton(self.taskBar, text="DAC1", \
+				variable=self.chanPlotIV, value=9).grid(row=startRow+9,column=rightCol,padx=10,pady=3,sticky=W)
+			Radiobutton(self.taskBar, text="Thr Licks", \
+				variable=self.chanPlotIV, value=11).grid(row=startRow+10,column=rightCol,padx=10,pady=3,sticky=W)
+			Radiobutton(self.taskBar, text="Nothing", \
+				variable=self.chanPlotIV, value=0).grid(row=startRow+11,column=rightCol,padx=10,pady=3,sticky=W)
+
+
+		if self.darkMode:
+			Radiobutton(self.taskBar, text="Load Cell", \
+				variable=self.chanPlotIV, value=4,foreground='white',background='black').grid(row=startRow+6,column=rightCol,padx=10,pady=3,sticky=W,)
+			Radiobutton(self.taskBar, text="Lick Sensor", \
+				variable=self.chanPlotIV, value=5,foreground='white',background='black').grid(row=startRow+7,column=rightCol,padx=10,pady=3,sticky=W)
+			Radiobutton(self.taskBar, text="Motion", \
+				variable=self.chanPlotIV, value=6,foreground='white',background='black').grid(row=startRow+8,column=rightCol,padx=10,pady=3,sticky=W)
+			Radiobutton(self.taskBar, text="DAC1", \
+				variable=self.chanPlotIV, value=9,foreground='white',background='black').grid(row=startRow+9,column=rightCol,padx=10,pady=3,sticky=W)
+			Radiobutton(self.taskBar, text="Thr Licks", \
+				variable=self.chanPlotIV, value=11,foreground='white',background='black').grid(row=startRow+10,column=rightCol,padx=10,pady=3,sticky=W)
+			Radiobutton(self.taskBar, text="Nothing", \
+				variable=self.chanPlotIV, value=0,foreground='white',background='black').grid(row=startRow+11,column=rightCol,padx=10,pady=3,sticky=W)
 
 
 		# MQTT Stuff
 		self.blL=Label(self.taskBar, text="—— Notes ——————————",justify=LEFT)
-		self.blL.grid(row=startRow+15,column=leftCol,padx=0,sticky=W)		
+		self.blL.grid(row=startRow+15,column=leftCol,padx=0,sticky=W)	
+		if self.darkMode:
+			self.blL.configure(foreground='white')
+			self.blL.configure(background='black')	
 
 		self.logMQTT_TV=IntVar()
 		self.logMQTT_TV.set(varDict['chanPlot'])
@@ -185,32 +294,62 @@ class csGUI(object):
 			variable=self.logMQTT_TV,onvalue=1,offvalue=0)
 		self.logMQTT_Toggle.grid(row=startRow+16,column=0,sticky=W)
 		self.logMQTT_Toggle.select
+		if self.darkMode:
+			self.logMQTT_Toggle.configure(background='black')
+			self.logMQTT_Toggle.configure(foreground='white')
+
 
 
 		self.tBtn_detection = Button(self.taskBar,text="Task:Detection",justify=LEFT,\
 			width=col1_width,command=self.do_detection)
 		self.tBtn_detection.grid(row=startRow+20,column=leftCol,padx=10,sticky=W)
 		self.tBtn_detection['state'] = 'disabled'
+		if self.darkMode:
+			self.tBtn_detection.configure(highlightbackground='black')
+			self.tBtn_detection.configure(foreground='white')
 
 		self.tBtn_trialOpto = Button(self.taskBar,text="Task:Trial Opto",justify=LEFT,width=col1_width,\
 			command=self.do_trialOpto)
 		self.tBtn_trialOpto.grid(row=startRow+21,column=leftCol,padx=10,sticky=W)
 		self.tBtn_trialOpto['state'] = 'disabled'
+		if self.darkMode:
+			self.tBtn_trialOpto.configure(highlightbackground='black')
+			self.tBtn_trialOpto.configure(foreground='white')
+
+		self.tBtn_simpleRecord = Button(self.taskBar,text="Task:Just Record",justify=LEFT,width=col1_width,\
+			command=self.do_justRecord)
+		self.tBtn_simpleRecord.grid(row=startRow+22,column=leftCol,padx=10,sticky=W)
+		self.tBtn_simpleRecord['state'] = 'disabled'
+		if self.darkMode:
+			self.tBtn_simpleRecord.configure(highlightbackground='black')
+			self.tBtn_simpleRecord.configure(foreground='white')
 
 		self.hpL=Label(self.taskBar, text="Hash Path:",justify=LEFT)
 		self.hpL.grid(row=startRow+17,column=0,padx=0,sticky=W)
+		if self.darkMode:
+			self.hpL.configure(background='black')
+			self.hpL.configure(foreground='white')
 		self.hashPath_TV=StringVar(self.taskBar)
 		self.hashPath_TV.set(varDict['hashPath'])
 		self.te = Entry(self.taskBar,width=11,textvariable=self.hashPath_TV)
 		self.te.grid(row=startRow+17,column=0,padx=0,sticky=E)
+		if self.darkMode:
+			self.te.configure(background='black')
+			self.te.configure(foreground='white')
 
 
 		self.vpR=Label(self.taskBar, text="Vol/Rwd (~):",justify=LEFT)
 		self.vpR.grid(row=startRow+18,column=0,padx=0,sticky=W)
+		if self.darkMode:
+			self.vpR.configure(background='black')
+			self.vpR.configure(foreground='white')
 		self.volPerRwd_TV=StringVar(self.taskBar)
 		self.volPerRwd_TV.set(varDict['volPerRwd'])
 		self.te = Entry(self.taskBar,width=11,textvariable=self.volPerRwd_TV)
 		self.te.grid(row=startRow+18,column=0,padx=0,sticky=E)
+		if self.darkMode:
+			self.te.configure(background='black')
+			self.te.configure(foreground='white')
 
 		# self.stimButton = Button(self.taskBar,text="Dev:Stim",justify=LEFT,width=col1_width,\
 		# 	command= lambda: self.makePulseControl(varDict))
@@ -222,26 +361,53 @@ class csGUI(object):
 		self.quitButton = Button(self.taskBar,text="Quit",width=col1_width,\
 			command=lambda: self.closeup(varDict,visualDict,timingDict,opticalDict))
 		self.quitButton.grid(row=startRow+21,column=rightCol,padx=10,pady=5,sticky=W)
+		if self.darkMode:
+			self.quitButton.configure(foreground='white')
+			self.quitButton.configure(highlightbackground='black')
+
 
 		self.devControlButton = Button(self.taskBar,text="Dev:Gen",justify=LEFT,width=col1_width,\
 			command= lambda: self.makeDevControl(varDict))
 		self.devControlButton.grid(row=startRow+14,column=1,padx=10,sticky=W)
+		if self.darkMode:
+			self.devControlButton.configure(highlightbackground='black')
+			self.devControlButton.configure(foreground='white')
 		
 		self.tBtn_timeWin = Button(self.taskBar,text="Vars: Timing",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeTimingWindow(self,timingDict))
 		self.tBtn_timeWin.grid(row=startRow+16,column=rightCol,padx=10,pady=5,sticky=W)
+		if self.darkMode:
+			self.tBtn_timeWin.configure(highlightbackground='black')
+			self.tBtn_timeWin.configure(foreground='white')
 
 		self.tBtn_visualWin = Button(self.taskBar,text="Vars: Sensory",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeVisualWindow(self,visualDict))
 		self.tBtn_visualWin.grid(row=startRow+17,column=rightCol,padx=10,pady=2,sticky=W)
+		if self.darkMode:
+			self.tBtn_visualWin.configure(highlightbackground='black')
+			self.tBtn_visualWin.configure(foreground='white')
 
 		self.tBtn_opticalWin = Button(self.taskBar,text="Vars: Optical",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeOpticalWindow(self,opticalDict))
 		self.tBtn_opticalWin.grid(row=startRow+18,column=rightCol,padx=10,pady=2,sticky=W)
+		if self.darkMode:
+			self.tBtn_opticalWin.configure(highlightbackground='black')
+			self.tBtn_opticalWin.configure(foreground='white')
+
 
 		self.tBtn_mqttWin = Button(self.taskBar,text="MQTT Opts",justify=LEFT,width=col1_width,\
 			command=lambda: self.makeMQTTWindow(varDict))
 		self.tBtn_mqttWin.grid(row=startRow+19,column=rightCol,padx=10,pady=2,sticky=W)
+		if self.darkMode:
+			self.tBtn_mqttWin.configure(highlightbackground='black')
+			self.tBtn_mqttWin.configure(foreground='white')
+
+		self.tBtn_notesWin = Button(self.taskBar,text="Notes",justify=LEFT,width=col1_width,\
+			command=lambda: self.makeNotesWindow(varDict))
+		self.tBtn_notesWin.grid(row=startRow+20,column=rightCol,padx=10,pady=2,sticky=W)
+		if self.darkMode:
+			self.tBtn_notesWin.configure(highlightbackground='black')
+			self.tBtn_notesWin.configure(foreground='white')
 		
 
 		# Finish the window
@@ -258,35 +424,47 @@ class csGUI(object):
 
 		if varPerCol == 0:
 			varPerCol = len(list(dictName.keys()))
-
-		exec('r_label = Label(self.{}, text="{}")'.format(frameName,headerString))
+		if self.darkMode:
+			exec('r_label = Label(self.{}, text="{}",background ="black",foreground ="white")'.format(frameName,headerString))
+		else:
+			exec('r_label = Label(self.{}, text="{}")'.format(frameName,headerString))
 		exec('r_label.grid(row=1,column=stCol,sticky=W)'.format(dictName))
 		
 		for key in list(dictName.keys()):
 			if key not in excludeKeys:
 				
 				exec('self.{}_TV=StringVar(self.{})'.format(key,frameName))
-				exec('self.{}_label = Label(self.{}, text="{}")'.format(key,frameName,key))
-				exec('self.{}_entries=Entry(self.{},width={},textvariable=self.{}_TV)'.format(key,frameName,entryWidth,key))
+				if self.darkMode:
+					exec('self.{}_label = Label(self.{}, text="{}",background ="black",foreground ="white")'.format(key,frameName,key))
+					exec('self.{}_entries=Entry(self.{},width={},textvariable=self.{}_TV,background ="black",foreground ="white")'.format(key,frameName,entryWidth,key))
+				elif self.darkMode==0:
+					exec('self.{}_label = Label(self.{}, text="{}")'.format(key,frameName,key))
+					exec('self.{}_entries=Entry(self.{},width={},textvariable=self.{}_TV)'.format(key,frameName,entryWidth,key))
 				exec('self.{}_label.grid(row={}, column=curColumnEnt,sticky=W)'.format(key,rowCounter+rowOffset))
 				exec('self.{}_entries.grid(row={}, column=curColumn)'.format(key,rowCounter+rowOffset))
+				
 				# This stuff lets us display ints, floats, ranges and lists correctly
-				if type(dictName[key]) is int or type(dictName[key]) is float:
-					exec('self.{}_TV.set({})'.format(key,dictName[key]))
-				elif type(dictName[key]) is range:
-					tempStr = ["{},>,{}".format(dictName[key][0],dictName[key][-1])]
-					exec('self.{}_TV.set({})'.format(key,tempStr))
-				elif type(dictName[key]) is list:
-					tempStr = ''
-					if len(dictName[key]) == 0:
-						tempStr = ','
-					elif len(dictName[key]) > 0:
-						for x in dictName[key]:
-							tempStr = tempStr + '{}'.format(x) + ','
-					if tempStr[-1] is ',':
-						tempStr=tempStr[0:-1]
-					exec('self.{}_TV.set(tempStr)'.format(key))
 
+				try:
+					if type(dictName[key]) is int or type(dictName[key]) is float:
+						exec('self.{}_TV.set({})'.format(key,dictName[key]))
+					elif type(dictName[key]) is range:
+						tempStr = ["{},>,{}".format(dictName[key][0],dictName[key][-1])]
+						exec('self.{}_TV.set({})'.format(key,tempStr))
+					elif type(dictName[key]) is list:
+		
+						tempStr = ''
+						if len(dictName[key]) == 0:
+							pass
+						elif len(dictName[key]) > 0:
+							for x in dictName[key]:
+								tempStr = tempStr + '{}'.format(x) + ','
+							if tempStr[-1] is ',':
+								tempStr=tempStr[0:-1]
+		
+						exec('self.{}_TV.set(tempStr)'.format(key))
+				except:
+					exec('self.{}_TV.set("")'.format(key))
 				rowCounter=rowCounter+1
 				if rowCounter >= varPerCol:
 					rowCounter = 0
@@ -295,14 +473,23 @@ class csGUI(object):
 	def makeTimingWindow(self,master,timingDict):
 		
 		self.timingControl_frame = Toplevel(self.master)
+		if self.darkMode:
+			self.timingControl_frame.configure(background='black')
+
+
 		self.timingControl_frame.title('Session/Trial Timing')
 		self.populateVarFrameFromDict(timingDict,0,0,'Current Values','timingControl_frame',['varsToUse','trialCount'],entryWidth=12)
 		self.tBtn_updateTimingDict = Button(self.timingControl_frame,text="Update Timing Vars",justify=LEFT,width=15,\
 			command=lambda: self.updateDictFromGUI(timingDict))
+		if self.darkMode:
+			self.tBtn_updateTimingDict.configure(foreground='white')
+			self.tBtn_updateTimingDict.configure(highlightbackground='black')
 		self.tBtn_updateTimingDict.grid(row=999,column=0,padx=2,pady=2)
 	def makeVisualWindow(self,master,visualDict):
 		
 		self.visualControl_frame = Toplevel(self.master)
+		if self.darkMode:
+			self.visualControl_frame.configure(background='black')
 		self.visualControl_frame.title('Visual Probs')
 		self.populateVarFrameFromDict(visualDict,0,10,'Cur Val','visualControl_frame',['varsToUse','trialCount'],entryWidth=12)
 		self.tBtn_updateVisualDict = Button(self.visualControl_frame,text="Update Visual Vars",justify=LEFT,width=15,\
@@ -311,6 +498,8 @@ class csGUI(object):
 	def makeOpticalWindow(self,master,opticalDict):
 		
 		self.opticalControl_frame = Toplevel(self.master)
+		if self.darkMode:
+			self.opticalControl_frame.configure(background='black')
 		self.opticalControl_frame.title('Optical Probs')
 		self.populateVarFrameFromDict(opticalDict,0,20,'Pew Pew','opticalControl_frame',['varsToUse','trialCount'],entryWidth=12)
 		self.tBtn_updateOpticalDict = Button(self.opticalControl_frame,text="Update Optical Vars",justify=LEFT,width=15,\
@@ -473,6 +662,9 @@ class csGUI(object):
 		self.lickAThr_TV.set(varDict['lickAThr'])
 		self.lickAThr_entry=Entry(self.taskBar, width=10, textvariable=self.lickAThr_TV)
 		self.lickAThr_entry.grid(row=startRow,column=0,padx=0,sticky=E)
+		self.lickAThr_entry.configure(background='black')
+		self.lickAThr_entry.configure(foreground='white')
+
 	def makeTrialOptoOptions(self,varDict,timingDict,visualDict,opticalDict):
 
 		startRow=startRow+1
@@ -510,58 +702,115 @@ class csGUI(object):
 		self.getFeedsBtn['state'] = 'normal'
 
 		self.feed_listbox = Listbox(self.mqttControl_frame,height=5)
-		self.feed_listbox.grid(row=1,column=0,padx=5,rowspan=5)
+		self.feed_listbox.grid(row=1,column=0,pady=5,rowspan=5,columnspan=2)
 
+		self.mqttDataPointLab = Label(self.mqttControl_frame, text="Last Val:", justify=LEFT)
+		self.mqttDataPointLab.grid(row=0,column=2,sticky=W)
 		self.mqttDataPoint_TV = StringVar(self.mqttControl_frame)
-		self.feedData_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataPoint_TV,width=14)
-		self.feedData_entry.grid(row=0,column=1)
+		self.feedData_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataPoint_TV,width=10)
+		self.feedData_entry.grid(row=0,column=3,padx=3)
 
+		self.mqttDateStampLab = Label(self.mqttControl_frame, text="Date:", justify=LEFT)
+		self.mqttDateStampLab.grid(row=1,column=2,sticky=W)
 		self.mqttDateStamp_TV = StringVar(self.mqttControl_frame)
-		self.mqttDateStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDateStamp_TV,width=14)
-		self.mqttDateStamp_entry.grid(row=1,column=1)
+		self.mqttDateStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDateStamp_TV,width=10)
+		self.mqttDateStamp_entry.grid(row=1,column=3,padx=3)
 
+		self.mqttTimeStampLab = Label(self.mqttControl_frame, text="Time:", justify=LEFT)
+		self.mqttTimeStampLab.grid(row=2,column=2,sticky=W)
 		self.mqttTimeStamp_TV = StringVar(self.mqttControl_frame)
-		self.mqttTimeStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttTimeStamp_TV,width=14)
-		self.mqttTimeStamp_entry.grid(row=2,column=1)
+		self.mqttTimeStamp_entry = Entry(self.mqttControl_frame,textvariable=self.mqttTimeStamp_TV,width=10)
+		self.mqttTimeStamp_entry.grid(row=2,column=3,padx=3)
 
+		self.mqttDataCountLab = Label(self.mqttControl_frame, text="Count:", justify=LEFT)
+		self.mqttDataCountLab.grid(row=3,column=2,sticky=W)
 		self.mqttDataCount_TV = StringVar(self.mqttControl_frame)
 		self.mqttDataCount_TV.set(self.totalMQTTDataCount)
-		self.mqttDataCount_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataCount_TV,width=14)
-		self.mqttDataCount_entry.grid(row=3,column=1)
+		self.mqttDataCount_entry = Entry(self.mqttControl_frame,textvariable=self.mqttDataCount_TV,width=10)
+		self.mqttDataCount_entry.grid(row=3,column=3,padx=3)
 
 		self.inspectFeedsBtn = Button(self.mqttControl_frame,text="Inspect",width=dCBWd,\
 			command=lambda:self.inspectFeed())
-		self.inspectFeedsBtn.grid(row=6,column=0,sticky=W,pady=5,padx=5)
+		self.inspectFeedsBtn.grid(row=6,column=0,sticky=W,pady=2,padx=2)
 		self.inspectFeedsBtn['state'] = 'disabled'
 
 		self.getAllDataBtn = Button(self.mqttControl_frame,text="Poll All",width=dCBWd,\
 			command=lambda:self.getAllFeedData())
-		self.getAllDataBtn.grid(row=7,column=0,sticky=W,pady=5,padx=5)
+		self.getAllDataBtn.grid(row=7,column=0,sticky=W,pady=2,padx=2)
 		self.getAllDataBtn['state'] = 'disabled'
 
-		self.buAllDataBtn = Button(self.mqttControl_frame,text="Save Feed",width=dCBWd,\
+		self.buAllDataBtn = Button(self.mqttControl_frame,text="Save Data",width=dCBWd,\
 			command=lambda:self.allMQTTDataToPandas(varDict['dirPath']))
-		self.buAllDataBtn.grid(row=7,column=1,sticky=W,pady=5,padx=5)
+		self.buAllDataBtn.grid(row=7,column=1,sticky=W,pady=2,padx=2)
 		self.buAllDataBtn['state'] = 'disabled'
 
+		self.makeRigFeedBtn = Button(self.mqttControl_frame,text="+ Rig Feed",width=dCBWd,\
+			command=lambda:self.makeRigFeed('rig-' + varDict['hostName']))
+		self.makeRigFeedBtn.grid(row=8,column=1,sticky=W,pady=2,padx=2)
+		self.makeRigFeedBtn['state'] = 'disabled'
+
+		self.makeSubjFeedBtn = Button(self.mqttControl_frame,text="+ Subj Feeds",width=dCBWd,\
+			command=lambda:csMQTT.makeSubjectFeeds(self,self.subjID_TV.get(),self.aio))
+		self.makeSubjFeedBtn.grid(row=8,column=0,sticky=W,pady=2,padx=2)
+		self.makeSubjFeedBtn['state'] = 'disabled'
+	def makeNotesWindow(self,varDict):
+
+		self.notes_frame = Toplevel(self.master)
+		self.notes_frame.title('MQTT Feeds')
+		
+		self.noteEntry_TV = StringVar(self.notes_frame)
+		self.noteEntry_TV.set('')
+		self.noteEntry_entry = Entry(self.notes_frame,textvariable=self.noteEntry_TV,width=30)
+		self.noteEntry_entry.grid(row=0,column=0,padx=3,rowspan=10,columnspan=4)
+
+		self.sendNoteBtn = Button(self.notes_frame,text="log note",width=12,\
+			command=lambda:self.makeNotes(self.subjID_TV.get().lower() + '-notes',self.noteEntry_TV.get(),varDict))
+		self.sendNoteBtn.grid(row=11,column=0,sticky=W,pady=2,padx=2)
+		self.sendNoteBtn['state'] = 'normal'
+				
+	
 	# c) Methods
+	def makeNotes(self,feedName,newNote,varDict):
+		if self.logMQTT_TV.get()==1:
+			try:
+				self.aio
+			except:
+				self.aio = csMQTT.connect_REST(self,varDict['hashPath'] + '/simpHashes/csIO.txt')
+
+		# always append to the note record
+		self.curNotes.append(newNote)
+		# we want a local copy and a remote copy (if we can)
+		if self.logMQTT_TV.get()==1 and varDict['sessionOn']==0:
+			csMQTT.sendData(self,feedName,newNote,self.aio)
+		self.noteEntry_TV.set('')
+		return self.curNotes
+
+	def checkCOMPort(self,varDict):
+		tempPath = self.guessComPort()
+		if len(tempPath)>1:
+			varDict['comPath'] = tempPath
+			self.comPath_TV.set(tempPath)
+		return varDict
 	def getFeeds(self,hashPath):
 		try:
-			self.curFeeds = csMQTT.getMQTTFeeds(self,hashPath)
+			self.aio = csMQTT.connect_REST(self,hashPath)
+			self.curFeeds = csMQTT.getMQTTFeeds(self,hashPath,self.aio)
 			for thing in self.curFeeds:
 				self.feed_listbox.insert(END, thing)
 			self.buAllDataBtn['state'] = 'normal'
 			self.getAllDataBtn['state'] = 'normal'
 			self.inspectFeedsBtn['state'] = 'normal'
+			self.makeRigFeedBtn['state'] = 'normal'
+			self.makeSubjFeedBtn['state'] = 'normal'
 		except:
 			print("mqtt: couldn't load feeds")
 			self.curFeeds = []
-		return self.curFeeds
+		return self.curFeeds,self.aio
 	def inspectFeed(self):
 		bb=[]
 		curSelFeed = self.feed_listbox.curselection()
 		aa= self.feed_listbox.get(curSelFeed)
-		bb=csMQTT.getMQTTLast(self,aa.lower())
+		bb=csMQTT.getMQTTLast(self,aa.lower(),self.aio)
 		try:
 			self.mqttDataPoint_TV.set(bb.value)
 			tsSp=bb.created_at.split('T')
@@ -571,11 +820,13 @@ class csGUI(object):
 			self.mqttDataPoint_TV.set(bb)
 			self.mqttDateStamp_TV.set([])
 			self.mqttTimeStamp_TV.set([])
+	def makeRigFeed(self,hostNameStr):
+		csMQTT.makeMQTTFeed(self,hostNameStr,self.aio)
 	def getAllFeedData(self):
 		try:
 			curSelFeed = self.feed_listbox.curselection()
 			aa= self.feed_listbox.get(curSelFeed)
-			bb=csMQTT.getMQTTDataAll(self,aa.lower())
+			bb=csMQTT.getMQTTDataAll(self,aa.lower(),self.aio)
 			bbValues = []
 			for x in bb:
 				tVal = self.inferType(x.value)
@@ -584,13 +835,15 @@ class csGUI(object):
 		except:
 			self.totalMQTTDataCount=0
 		self.mqttDataCount_TV.set(self.totalMQTTDataCount)
-		
+		bbFig = plt.figure(976)
+		plt.plot(bbValues)
+		plt.show(block=False)
 		return self.totalMQTTDataCount,bbValues
 	def allMQTTDataToPandas(self,savePath):
 		
 		curSelFeed = self.feed_listbox.curselection()
 		aa= self.feed_listbox.get(curSelFeed)
-		allData=csMQTT.getMQTTDataAll(self,aa.lower())
+		allData=csMQTT.getMQTTDataAll(self,aa.lower(),self.aio)
 		tdStamp=datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
 		
@@ -625,8 +878,6 @@ class csGUI(object):
 		tIDs = []
 		tValues=[]
 		tFeedNames = []
-
-
 	def guessComPort(self):
 		cp = platform.system()
 		# if mac then teensy devices will be a cu.usbmodemXXXXX in /dev/ where XXXXX is the serial
@@ -654,57 +905,43 @@ class csGUI(object):
 				devPathStrings.append(child.name)
 		self.devPathStrings = devPathStrings
 		return self.devPathStrings
-	def getPath(self,varDict,timingDict,visualDict,opticalDict):
+	def loadCSVDictionary(self,varDict,csvPath):
 		try:
-			selectPath = fd.askdirectory(title ="what what?")
-		except:
-			selectPath='/'
-
-		self.dirPath_TV.set(selectPath)
-		self.subjID_TV.set(os.path.basename(selectPath))
-		varDict['dirPath']=selectPath
-		varDict['subjID']=os.path.basename(selectPath)
-		self.toggleTaskButtons(1)
-
-		try:
-			tempMeta=pd.read_csv(selectPath +'/' + 'sesVars.csv',index_col=0,header=None)
+			tempMeta=pd.read_csv(csvPath,index_col=0,header=None)
 			varDict = self.updateDictFromPandas(tempMeta,varDict)
 			self.refreshGuiFromDict(varDict)
 		except:
 			pass
-
+		return varDict
+	def getPath(self,varDict,timingDict,visualDict,opticalDict):
 		try:
-			tempMeta=pd.read_csv(selectPath +'/' + 'timingVars.csv',index_col=0,header=None)
-			timingDict = self.updateDictFromPandas(tempMeta,timingDict)
-			self.updateDictFromGUI(timingDict)
-			self.refreshGuiFromDict(timingDict)
+			tPth = fd.askdirectory(title ="what what?")
+			basePath = Path(tPth)
 		except:
-			pass
+			# default to home directory
+			basePath=Path(str(Path.home()))
 
-		try:
-			tempMeta=pd.read_csv(selectPath +'/' + 'sensVars.csv',index_col=0,header=None)
-			visualDict = self.updateDictFromPandas(tempMeta,visualDict)
-			self.updateDictFromGUI(visualDict)
-			self.refreshGuiFromDict(visualDict)
+		self.dirPath_TV.set(basePath.as_posix())
+		self.subjID_TV.set(os.path.basename(basePath))
+		varDict['dirPath']=basePath
+		varDict['subjID']=basePath.name
+		self.toggleTaskButtons(1)
+		varDict = self.loadCSVDictionary(varDict,basePath.joinpath('sesVars.csv'))
+		timingDict = self.loadCSVDictionary(timingDict,basePath.joinpath('timingVars.csv'))
+		visualDict = self.loadCSVDictionary(visualDict,basePath.joinpath('sensVars.csv'))
+		opticalDict = self.loadCSVDictionary(opticalDict,basePath.joinpath('opticalVars.csv'))
 
-		except:
-			pass
 
-		try:
-			tempMeta=pd.read_csv(selectPath +'/' + 'opticalVars.csv',index_col=0,header=None)
-			opticalDict = self.updateDictFromPandas(tempMeta,opticalDict)
-			self.updateDictFromGUI(opticalDict)
-			self.refreshGuiFromDict(opticalDict)
-
-		except:
-			pass
 	def toggleTaskButtons(self,boolState=1):
 		if boolState == 1:
 			self.tBtn_trialOpto['state'] = 'normal'
 			self.tBtn_detection['state'] = 'normal'
+			self.tBtn_simpleRecord['state'] = 'normal'
 		elif boolState == 0:
 			self.tBtn_trialOpto['state'] = 'disabled'
 			self.tBtn_detection['state'] = 'disabled'
+			self.tBtn_simpleRecord['state'] = 'disabled'
+
 	def inferType(self,singleCharNum):
 		try:
 			# if it is numeric, it can be a float
@@ -838,6 +1075,10 @@ class csGUI(object):
 			varDict['canQuit']=1
 			quitButton['text']="Quit"
 
+		try:
+			os.remove(varDict['dirPath'] + '/' + 'sesDataMemMap.npy')
+		except:
+			pass
 		if varDict['canQuit']==1:
 			# try to close a plot and exit    
 			try:
@@ -923,15 +1164,16 @@ class csGUI(object):
 		wVals=[]
 		lIt=0
 		while lIt<=20:
-			[rV,vN]=csSer.checkVariable(teensy,'l',0.01)
+			[rV,vN]=csSer.checkVariable(teensy,'l',0.25)
 			if vN:
 				wVals.append(rV)
 				lIt=lIt+1
-		varDict['loadBaseline']=np.mean(wVals)
-		self.offsetTV.set(float(np.mean(wVals)))
-		print(float(np.mean(wVals)))
+		varDict['loadBaseline']=np.mean(wVals)-15.2
+		self.offsetTV.set(float(np.mean(wVals)-15.2))
+		print(float(np.mean(wVals)-15.2))
 		teensy.close()
 		return varDict	
+	
 	# d) Call outside task functions via a function.
 	def do_detection(self):
 		
@@ -939,14 +1181,16 @@ class csGUI(object):
 	def do_trialOpto(self):
 		
 		runTrialOptoTask()
+	def do_justRecord(self):
+		runSimpleRecord()
 class csVariables(object):
 	def __init__(self,sesVarDict={},sensory={},timing={},optical={}):
 
 		self.sesVarDict={'curSession':1,'comPath':'/dev/ttyACM0',\
 		'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':100,\
 		'logMQTT':1,'mqttUpDel':0.05,'curWeight':20,'rigGMTZoneDif':5,'volPerRwd':0.0023,\
-		'waterConsumed':0,'consumpTarg':1.5,'dirPath':'/Users/Deister/BData',\
-		'hashPath':'/Users/cad','trialNum':0,'sessionOn':1,'canQuit':1,\
+		'waterConsumed':0,'waterNeeded':1.5,'dirPath':'/Users/Deister/BData',\
+		'hashPath':'/Users/cad','trialNum':0,'sessionOn':0,'canQuit':1,\
 		'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':15,\
 		'rewardDur':500,'lickAThr':3900,'lickLatchA':0,'minNoLickTime':1000,\
 		'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStim':1500,\
@@ -955,7 +1199,7 @@ class csVariables(object):
 		'detectPlotNum':100,'updateCount':500,'plotSamps':200,'taskType':'detection',\
 		'useFlybackOpto':1,'flybackScale':100,'pulsefrequency':20,'pulsedutycycle':10,\
 		'firstTrialWait':10000,'pulseTrainLength':5000,\
-		'startState':1}
+		'startState':1,'hostName':'Compy386','experimenter':'deister','dprime':0,'criterion':0}
 
 		# All steps go in list, even if there aren't any.
 		# So: 0 steps = []; 
@@ -983,7 +1227,7 @@ class csVariables(object):
 
 		self.optical={'trialCount':1000,\
 		'varsToUse':['c1_amp','c1_pulseDur','c1_interPulseDur','c1_pulseCount',\
-		'c2_amp','c2_pulseDur','c2_interPulseDur','c2_pulseCount','c1_mask'],\
+		'c2_amp','c2_pulseDur','c2_interPulseDur','c2_pulseCount','c1_mask','c5_waveform'],\
 		'c1_amp_min':0,'c1_amp_max':4095,'c1_amp_steps':[1000],'c1_amp_probs':[0.0,1.0],\
 		'c1_pulseDur_min':10,'c1_pulseDur_max':10,'c1_pulseDur_steps':[],'c1_pulseDur_probs':[1.0,0.0],\
 		'c1_interPulseDur_min':90,'c1_interPulseDur_max':90,'c1_interPulseDur_steps':[90],'c1_interPulseDur_probs':[1.0,0.0],\
@@ -992,7 +1236,21 @@ class csVariables(object):
 		'c2_pulseDur_min':10,'c2_pulseDur_max':10,'c2_pulseDur_steps':[],'c2_pulseDur_probs':[1.0,0.0],\
 		'c2_interPulseDur_min':90,'c2_interPulseDur_max':90,'c2_interPulseDur_steps':[90],'c2_interPulseDur_probs':[1.0,0.0],\
 		'c2_pulseCount_min':20,'c2_pulseCount_max':20,'c2_pulseCount_steps':[20],'c2_pulseCount_probs':[0.0,1.0],\
-		'c1_mask_min':2,'c1_mask_max':1,'c1_mask_steps':[],'c1_mask_probs':[0.3,0.7]}
+		'c3_amp_min':0,'c3_amp_max':4095,'c3_amp_steps':[1000],'c3_amp_probs':[0.0,1.0],\
+		'c3_pulseDur_min':10,'c3_pulseDur_max':10,'c3_pulseDur_steps':[],'c3_pulseDur_probs':[1.0,0.0],\
+		'c3_interPulseDur_min':90,'c3_interPulseDur_max':90,'c3_interPulseDur_steps':[90],'c3_interPulseDur_probs':[1.0,0.0],\
+		'c3_pulseCount_min':20,'c3_pulseCount_max':20,'c3_pulseCount_steps':[20],'c3_pulseCount_probs':[0.0,1.0],\
+		'c4_amp_min':0,'c4_amp_max':4095,'c4_amp_steps':[1000],'c4_amp_probs':[0.0,1.0],\
+		'c4_pulseDur_min':10,'c4_pulseDur_max':10,'c4_pulseDur_steps':[],'c4_pulseDur_probs':[1.0,0.0],\
+		'c4_interPulseDur_min':90,'c4_interPulseDur_max':90,'c4_interPulseDur_steps':[90],'c4_interPulseDur_probs':[1.0,0.0],\
+		'c4_pulseCount_min':20,'c4_pulseCount_max':20,'c4_pulseCount_steps':[20],'c4_pulseCount_probs':[0.0,1.0],\
+		'c5_amp_min':0,'c5_amp_max':4095,'c5_amp_steps':[1000],'c5_amp_probs':[0.0,1.0],\
+		'c5_pulseDur_min':10,'c5_pulseDur_max':10,'c5_pulseDur_steps':[],'c5_pulseDur_probs':[1.0,0.0],\
+		'c5_interPulseDur_min':90,'c5_interPulseDur_max':90,'c5_interPulseDur_steps':[90],'c5_interPulseDur_probs':[1.0,0.0],\
+		'c5_pulseCount_min':20,'c5_pulseCount_max':20,'c5_pulseCount_steps':[20],'c5_pulseCount_probs':[0.0,1.0],\
+		'c1_mask_min':2,'c1_mask_max':1,'c1_mask_steps':[],'c1_mask_probs':[0.3,0.7],\
+		'c2_mask_min':1,'c2_mask_max':2,'c2_mask_steps':[],'c2_mask_probs':[0.3,0.7],\
+		'c5_waveform_min':0,'c5_waveform_max':1,'c5_waveform_steps':2,'c5_waveform_probs':[0.5,0.0]}
 	def getFeatureProb(self,probDict):
 		labelList = probDict['varsToUse']
 		trLen = probDict['trialCount']
@@ -1043,14 +1301,16 @@ class csVariables(object):
 						computeSteps = 0
 			except:
 				# then it is singular and numeric
-				computeSteps = 0
+				computeSteps = 1
 			curStepProb=1-(curMaxProb+curMinProb)
+			
 			if curStepProb <= 0:
 				curStepCount = 0
 				computeSteps = 0
 			elif curStepProb > 0:
 				curStepCount = int(np.round(curAvail*curStepProb))
 				tempCountArray[2,x]=curStepCount
+	
 
 			# deal with mins
 			np.random.shuffle(availIndicies)
@@ -1069,13 +1329,21 @@ class csVariables(object):
 			# C) compute steps
 			if computeSteps == 1:
 				try:
-					if len(curSteps)>0:
+					if type(curSteps) == list:
+						
+						if len(curSteps)>0:
+							for g in range(0,len(availIndicies)):
+								tempArray[availIndicies[g],x] = curSteps[np.random.randint(len(curSteps))]
+						elif len(curSteps)==0 and len(availIndicies)>0:
+							print("h2")
+							print(curStr)
+							for g in range(0,len(availIndicies)):
+								tempRand=[curMax,curMin]
+								tempArray[availIndicies[g],x] = tempRand[np.random.randint(2)]
+					else:
+
 						for g in range(0,len(availIndicies)):
-							tempArray[availIndicies[g],x] = curSteps[np.random.randint(len(curSteps))]
-					elif len(curSteps)==0 and len(availIndicies)>0:
-						for g in range(0,len(availIndicies)):
-							tempRand=[curMax,curMin]
-							tempArray[availIndicies[g],x] = tempRand[np.random.randint(2)]
+							tempArray[availIndicies[g],x] = curSteps
 				except:
 					pass
 		trialVar_pandaFrame = pd.DataFrame(tempArray,columns = varIndex)
@@ -1168,14 +1436,13 @@ class csHDF(object):
 		self.sesHDF = h5py.File(basePath+"{}_behav_{}.hdf".format(subID,cStr),"a")
 		return self.sesHDF
 class csMQTT(object):
-	def __init__(self,dStamp):
-
-		self.dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
+	def __init__(self):
+		pass
 	def connect_REST(self,hashPath):
 		simpHash=open(hashPath)
 		a=list(simpHash)
 		userName = a[0].strip()
-		apiKey = a[1]
+		apiKey = a[1].strip()
 		self.aio = Client(userName,apiKey)
 		print("mqtt: connected to aio as {}".format(self.aio.username))
 		return self.aio
@@ -1183,155 +1450,129 @@ class csMQTT(object):
 		simpHash=open(hashPath)
 		a=list(simpHash)
 		userName = a[0].strip()
-		apiKey = a[1]
+		apiKey = a[1].strip()
 		self.mqtt = MQTTClient(userName,apiKey)
 		return self.mqtt
-	def getMQTTLast(self,feedName):
+	def getMQTTLast(self,feedName,mqttObj):
 		lastFeedVal='NA'
 		try:
-			lastFeedVal = self.aio.receive_previous(feedName)
+			lastFeedVal = mqttObj.receive(feedName)
 		except:
 			pass
 		return lastFeedVal
-	def getMQTTDataAll(self,feedName):
+	def getMQTTDataAll(self,feedName,mqttObj):
 		lastFeedVal='NA'
 		try:
-			allFeedValues = self.aio.data(feedName)
+			allFeedValues = mqttObj.data(feedName)
 		except:
 			pass
 		return allFeedValues
-
-	def getMQTTFeeds(self,hashPath):
+	def makeMQTTFeed(self,feedName,mqttObj):
+		try:
+			feed = Feed(name=feedName.lower())
+			result = mqttObj.create_feed(feed)
+		except:
+			pass
+	def getMQTTFeeds(self,hashPath,mqttObj):
 		feedList = []
-		csMQTT.connect_REST(self,hashPath)
-		allFeeds = self.aio.feeds()
+		allFeeds = mqttObj.feeds()
 		for things in allFeeds:
 			feedList.append(things.name)
 		return feedList
-	def getDailyConsumption(self,mqObj,sID,rigGMTDif,hourThresh):
-		# Get last reward count logged.
-		# assume nothing
+	def sendData(self,feedName,dataToSend,mqttObj):
+		tFeed = mqttObj.feeds(feedName)
+		mqttObj.send_data(tFeed.key,dataToSend)
+	def makeSubjectFeeds(self,subjectID,mqttObj):
+		subFeedLabels = ['rig','task','waterconsumed','waterneeded','weight','dprime','criterion','trials','experimenter','notes']
+		subjectID = subjectID.lower()
+		for x in subFeedLabels:
+			feedStr = subjectID + '-' + x
+			feed = Feed(name = feedStr)
+			try:
+				mqttObj.create_feed(feed)
+			except:
+				pass
+	def getDailyConsumption(self,mqObj,sID,rigGMTDif,hourThresh,targetVol):
+		
+		dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
+		
+		# we want to determine how much water the subject has had in the last day.
+		# and we want to know how much water they are supposed to have.
+		# we assumne they haven't had any water
 		waterConsumed=0
+		# and we assume they need the default volume (1.5 - 2 ml)
+		waterNeeded=targetVol
+		# we will eventually see how far our last data logged is from now.
+		# we will assume the worst, meaning 2 hours for a session and no data logged before
 		hourDif=22
-		# I assume the mqtt gmt day is the same as our rigs day for now.
+
+		# I assume the mqtt gmt day and month is the same as our rigs day for now.
 		dayOffset=0
 		monthOffset=0
 
-		# but grab the last point logged on the MQTT feed.
-	
-		gDP=mqObj.receive('{}-waterconsumed'.format(sID))
-	
-
-		# Look at when it was logged.
-		crStr=gDP.created_at[0:10]
-
+		# now we compute the time and normalize it relative to GMT
 		rigHr=int(datetime.datetime.fromtimestamp(time.time()).strftime('%H'))
 		rigHr=rigHr+rigGMTDif
-		# if you offset the rig for GMT and go over 24,
+		
+		# now things get crazy, if you offset the rig for GMT and go over 24,
 		# that means GMT has crossed the date line. 
 		# thus, we need to add a day to our rig's day
 		if rigHr>24:
 			rigHr=rigHr-24
 			dayOffset=1
-
-
-		# add the GMT diff to the current time in our time zone.
-		mqHr=int(gDP.created_at[11:13])
-
-		#compare year (should be a given, but never know)
-		if crStr[0:4]==dStamp[6:10]:
-
-			#compare month (less of a given)
-			# I allow for a month difference of 1 in case we are on a month boundary before GMT correction.
-			if abs(int(crStr[5:7])-int(dStamp[0:2]))<2:
-				# todo: add month boundary logic.
-
-				#compare day if there is more than a dif of 1 then can't be 12-23.9 hours dif.
-				dayDif=(int(dStamp[3:5])+dayOffset)-int(crStr[8:10])
-
-				if abs(dayDif)<2:
-					hourDif=rigHr-mqHr
-
-					if hourDif<=hourThresh:
-						waterConsumed=float('{:0.3f}'.format(float(gDP.value)))
 		
 		
+		# Now we poll the subjects water needed feed
+		try:
+			tWNeed=self.getMQTTLast(sID+'-waterneeded',mqObj)
+			# Look at when it was logged.
+			crStr=tWNeed.created_at[0:10]
+			mqHr=int(tWNeed.created_at[11:13])
+			#compare year (should be a given, but never know)
+			if crStr[0:4]==dStamp[6:10]:
+				#compare month (less of a given)
+				# I allow for a month difference of 1 in case we are on a month boundary before GMT correction.
+				if abs(int(crStr[5:7])-int(dStamp[0:2]))<2:
+					# todo: add month boundary logic.
+					#compare day if there is more than a dif of 1 then can't be 12-23.9 hours dif.
+					dayDif=(int(dStamp[3:5])+dayOffset)-int(crStr[8:10])
+					if abs(dayDif)<2:
+						hourDif=rigHr-mqHr
+						if hourDif<=hourThresh:
+							# after all that, if the time since the last data point is less than our time threshold
+							# which is usually 12 hours, we use the feed's value as truth.
+							waterNeeded=float('{:0.4f}'.format(float(tWNeed.value)))
+		except:
+			pass
+
+		# now we need to do the same for what has been consumed
+		try:
+			gDP=self.getMQTTLast(sID+'-waterconsumed',mqObj)
+			# Look at when it was logged.
+			crStr=gDP.created_at[0:10]
+			mqHr=int(gDP.created_at[11:13])
+			#compare year (should be a given, but never know)
+			if crStr[0:4]==dStamp[6:10]:
+				#compare month (less of a given)
+				# I allow for a month difference of 1 in case we are on a month boundary before GMT correction.
+				if abs(int(crStr[5:7])-int(dStamp[0:2]))<2:
+					# todo: add month boundary logic.
+					#compare day if there is more than a dif of 1 then can't be 12-23.9 hours dif.
+					dayDif=(int(dStamp[3:5])+dayOffset)-int(crStr[8:10])
+					if abs(dayDif)<2:
+						hourDif=rigHr-mqHr
+						if hourDif<=hourThresh:
+							waterConsumed=float('{:0.4f}'.format(float(gDP.value)))
+		except:
+			waterConsumed=0
+			hourDif = 0
+		
+		self.waterNeeded=waterNeeded
 		self.waterConsumed=waterConsumed
 		self.hourDif=hourDif
+		self.dStamp=dStamp
 		
-		return self.waterConsumed,self.hourDif
-	def rigOnLog(self,mqObj,sID,sWeight,hostName,mqDel):
-		
-		# a) log on to the rig's on-off feed.
-		try:
-			mqObj.send('rig-{}'.format(hostName.lower()),1)
-			time.sleep(mqDel)
-			print('mqtt: logged rig')
-		except:
-			try:
-				mqObj.create_feed(Feed(name="rig-{}".format(hostName.lower())))
-				print('mqtt: created new rig feed named: {}'.format(hostName.lower()))
-				mqObj.send('rig-{}'.format(hostName.lower()),1)
-				time.sleep(mqDel)
-			except:
-				print('mqtt: failed to create new rig feed')
-
-
-		# b) log the rig string the subject is on to the subject's rig tracking feed.
-		try:
-			mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName.lower()))
-			time.sleep(mqDel)
-		except:
-			try:
-				mqObj.create_feed(Feed(name="{}-rig".format(sID)))
-				print("mqtt: created {}'s rig feed".format(sID))
-				mqObj.send('{}-rig'.format(sID),'{}-on'.format(hostName.lower()))
-				time.sleep(mqDel)
-			except:
-				print("mqtt: failed to create {}'s rig feed".format(sID.lower()))
-
-			# if we had to make a new subject weight feed, then others may not exist that we need
-			try:
-				mqObj.create_feed(Feed(name="{}-waterconsumed".format(sID.lower())))
-				print("mqtt: created {}'s consumption feed".format(sID))
-				mqObj.send('{}-waterconsumed'.format(sID),0)
-				time.sleep(mqDel)
-			except:
-				print("mqtt: failed to create {}'s consumption feed".format(sID.lower()))
-
-			try:
-				mqObj.create_feed(Feed(name="{}-topvol".format(sID.lower())))
-				print("mqtt: created {}'s top volume feed".format(sID.lower()))
-				mqObj.send('{}-topvol'.format(sID.lower()),1.2)
-				time.sleep(mqDel)
-			except:
-				print("mqtt: failed to create {}'s top volume feed".format(sID.lower()))
-
-
-		# c) log the weight to subject's weight tracking feed.
-		try:
-			mqObj.send('{}-weight'.format(sID),sWeight)
-			print("mqtt: logged weight of {}".format(sWeight))
-		except:
-			try:
-				mqObj.create_feed(Feed(name='{}-weight'.format(sID.lower())))
-				print("mqtt: created {}'s weight feed".format(sID.lower()))
-				mqObj.send('{}-weight'.format(sID.lower()),sWeight)
-				print("mqtt: logged weight of {}".format(sWeight))
-			except:
-				print("mqtt: failed to create {}'s weight feed".format(sID))
-	def rigOffLog(self,mqObj,sID,sWeight,hostName,mqDel):
-		
-		# a) log off to the rig's on-off feed.
-		mqObj.send('rig-{}'.format(hostName.lower()),0)
-		time.sleep(mqDel)
-
-		# b) log the rig string the subject is on to the subject's rig tracking feed.
-		mqObj.send('{}-rig'.format(sID),'{}-off'.format(hostName.lower()))
-		time.sleep(mqDel)
-
-		# c) log the weight to subject's weight tracking feed.
-		mqObj.send('{}-weight'.format(sID),sWeight)
+		return self.waterConsumed,self.waterNeeded,self.hourDif,self.dStamp
 	def openGoogleSheet(self,gAPIHashPath):
 		#gAPIHashPath='/Users/cad/simpHashes/client_secret.json'
 		self.gc = pygsheets.authorize(gAPIHashPath)
@@ -1434,9 +1675,10 @@ class csSerial(object):
 
 	def sendAnalogOutValues(self,comObj,varChar,sendValues):
 		# Specific to csStateBehavior defaults.
-		# Analog output is handled by passing a variable and specifying a channel (1-4)
-		comObj.write('{}{}1>'.format(varChar,sendValues[0]).encode('utf-8'))
-		comObj.write('{}{}2>'.format(varChar,sendValues[1]).encode('utf-8'))
+		# Analog output is handled by passing a variable and specifying a channel (1-X)
+		for x in sendValues:
+			comObj.write('{}{}{}>'.format(varChar,sendValues[0],x+1).encode('utf-8'))
+
 
 	def sendVisualValues(self,comObj,trialNum):
 		
@@ -1476,34 +1718,24 @@ class csPlot(object):
 		for yVals in list(self.stPlotY.values()):
 			self.pltY.append(yVals)
 	def makeTrialFig_detection(self,fNum):
+		try:
+			plt.close(fNum)
+		except:
+			pass
+		dGrid = plt.GridSpec(9, 2, wspace=0.2, hspace=0.2) # 1 row, 5 col , wspace=0.4, hspace=0.3
 		self.initializeDetectFigVars()
 		self.binDP=[]
 		# Make feedback figure.
-		self.trialFig = plt.figure(fNum)
-		self.trialFig.suptitle('trial # 0 of  ; State # ',fontsize=10)
+		#figure(num=None, figsize=(8, 6), dpi=80, facecolor='w', edgecolor='k')
+		self.trialFig = plt.figure(fNum,figsize=(5,3))
 		self.trialFramePosition='+250+0' # can be specified elsewhere
 		mng = plt.get_current_fig_manager()
 		eval('mng.window.wm_geometry("{}")'.format(self.trialFramePosition))
 		plt.show(block=False)
 		self.trialFig.canvas.flush_events()
 
-		# add the lickA axes and lines.
-		self.lA_Axes=self.trialFig.add_subplot(2,2,1) #col,rows
-
-		self.lA_Axes.set_ylim([-100,1200])
-		self.lA_Axes.set_xticks([])
-		# self.lA_Axes.set_yticks([])
-		self.lA_Line,=self.lA_Axes.plot([],color="cornflowerblue",lw=1)
-		self.trialFig.canvas.draw_idle()
-		plt.show(block=False)
-		self.trialFig.canvas.flush_events()
-		self.lA_Axes.draw_artist(self.lA_Line)
-		self.lA_Axes.draw_artist(self.lA_Axes.patch)
-		self.trialFig.canvas.flush_events()
-
-		self.stAxes=self.trialFig.add_subplot(2,2,2) #col,rows
+		self.stAxes=self.trialFig.add_subplot(dGrid[0, 0:]) 
 		self.stAxes.set_axis_off()
-		# self.stAxes.set_axis_off()
 		self.stText = self.stAxes.text(0.5,0.1,'trial # {} of {}; State # {}'.format([],[],0),\
 			bbox={'facecolor':'w', 'alpha':0.0, 'pad':5},transform=self.stAxes.transAxes, ha="center")
 		plt.show(block=False)
@@ -1512,39 +1744,8 @@ class csPlot(object):
 		self.stAxes.draw_artist(self.stAxes.patch)
 		self.trialFig.canvas.flush_events()
 
-
-		# OUTCOME AXES
-		self.outcomeAxis=self.trialFig.add_subplot(2,2,3) #col,rows
-		self.outcomeAxis.axis([-2,100,-0.2,5.2])
-		self.outcomeAxis.yaxis.tick_left()
-
-		self.stimOutcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",\
-			markerfacecolor="cornflowerblue",markersize=12,lw=0,alpha=0.5,markeredgewidth=2)
-		
-		self.noStimOutcomeLine,=self.outcomeAxis.plot([],[],marker="o",markeredgecolor="black",\
-			markerfacecolor="red",markersize=12,lw=0,alpha=0.5,markeredgewidth=2)
-		self.outcomeAxis.set_title('dprime: ',fontsize=10)
-		self.binDPOutcomeLine,=self.outcomeAxis.plot([],[],color="black",lw=1)
-		plt.show(block=False)
-		self.trialFig.canvas.flush_events()
-		self.outcomeAxis.draw_artist(self.stimOutcomeLine)
-		self.outcomeAxis.draw_artist(self.noStimOutcomeLine)
-		self.outcomeAxis.draw_artist(self.binDPOutcomeLine)
-		self.outcomeAxis.draw_artist(self.outcomeAxis.patch)
-	def makeTrialFig_opto(self,fNum):
-		self.initializeOptoFigVars()
-		self.binDP=[]
-		# Make feedback figure.
-		self.trialFig = plt.figure(fNum)
-		self.trialFig.suptitle('trial # 0 of  ; State # ',fontsize=10)
-		self.trialFramePosition='+250+0' # can be specified elsewhere
-		mng = plt.get_current_fig_manager()
-		eval('mng.window.wm_geometry("{}")'.format(self.trialFramePosition))
-		plt.show(block=False)
-		self.trialFig.canvas.flush_events()
-
 		# add the lickA axes and lines.
-		self.lA_Axes=self.trialFig.add_subplot(2,2,1) #col,rows
+		self.lA_Axes=self.trialFig.add_subplot(dGrid[1:4,0:]) #col,rows
 		self.lA_Axes.set_ylim([-100,1200])
 		self.lA_Axes.set_xticks([])
 		# self.lA_Axes.set_yticks([])
@@ -1556,34 +1757,10 @@ class csPlot(object):
 		self.lA_Axes.draw_artist(self.lA_Axes.patch)
 		self.trialFig.canvas.flush_events()
 
-		# # STATE AXES
-		# self.stAxes = self.trialFig.add_subplot(2,2,2) #col,rows
-		# self.stAxes.set_ylim([-0.02,1.02])
-		# self.stAxes.set_xlim([-0.02,1.02])
-		# self.stAxes.set_axis_off()
-		# self.stMrkSz=28
-		# self.txtOff=-0.02
-		# self.stPLine,=self.stAxes.plot(self.pltX,self.pltY,marker='o',\
-		# 	markersize=self.stMrkSz,markeredgewidth=2,\
-		# 	markerfacecolor="white",markeredgecolor="black",lw=0)
-		# k=0
-		# for stAnTxt in list(self.stPlotX.keys()):
-		# 	tASt="{}".format(stAnTxt)
-		# 	self.stAxes.text(self.pltX[k],self.pltY[k]+self.txtOff,tASt,\
-		# 		horizontalalignment='center',fontsize=9,fontdict={'family': 'monospace'})
-		# 	k=k+1
-
-		# self.curStLine,=self.stAxes.plot(self.pltX[1],self.pltY[1],marker='o',markersize=self.stMrkSz+1,\
-		# 	markeredgewidth=2,markerfacecolor=self.pClrs['cBlue'],markeredgecolor='black',lw=0,alpha=0.5)
-		# plt.show(block=False)
 		
-		# self.trialFig.canvas.flush_events()
-		# self.stAxes.draw_artist(self.stPLine)
-		# self.stAxes.draw_artist(self.curStLine)
-		# self.stAxes.draw_artist(self.stAxes.patch)
 
 		# OUTCOME AXES
-		self.outcomeAxis=self.trialFig.add_subplot(2,2,3) #col,rows
+		self.outcomeAxis=self.trialFig.add_subplot(dGrid[5:8,0]) #col,rows
 		self.outcomeAxis.axis([-2,100,-0.2,5.2])
 		self.outcomeAxis.yaxis.tick_left()
 
@@ -1601,11 +1778,9 @@ class csPlot(object):
 		self.outcomeAxis.draw_artist(self.binDPOutcomeLine)
 		self.outcomeAxis.draw_artist(self.outcomeAxis.patch)
 	def quickUpdateTrialFig(self,trialNum,totalTrials,curState):
-		self.trialFig.suptitle('trial # {} of {}; State # {}'.format(trialNum,totalTrials,curState),fontsize=10)
 		self.trialFig.canvas.flush_events()
 	def updateTrialFig(self,xData,yData,trialNum,totalTrials,curState,yLims):
 		try:
-			# self.trialFig.suptitle('trial # {} of {}; State # {}'.format(trialNum,totalTrials,curState),fontsize=10)
 			self.stText.set_text('trial # {} of {}; State # {}'.format(trialNum,totalTrials,curState))
 			self.lA_Line.set_xdata(xData)
 			self.lA_Line.set_ydata(yData)
@@ -1619,7 +1794,7 @@ class csPlot(object):
 			self.trialFig.canvas.flush_events()
 
 		except:
-			 a=1
+			 pass
 	def updateStateFig(self,curState):
 		try:
 			self.stAxes.draw_artist(self.stText)
@@ -1638,11 +1813,8 @@ class csPlot(object):
 			sM=np.mean(stimResponses)
 		if len(noStimResponses)>0:
 			nsM=np.mean(noStimResponses)
-		
-
 
 		dpEst=norm.ppf(max(sM,0.0001))-norm.ppf(max(nsM,0.0001))
-		# self.outcomeAxis.set_title('CR: {} , FR: {}'.format(sM,nsM),fontsize=10)
 		self.outcomeAxis.set_title('dprime: {:0.3f}'.format(dpEst),fontsize=10)
 		self.stimOutcomeLine.set_xdata(stimTrials)
 		self.stimOutcomeLine.set_ydata(stimResponses)
@@ -1666,18 +1838,18 @@ class csPlot(object):
 		self.trialFig.canvas.flush_events()
 
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-# $$$$$$$$$$$$$ Main Program Body $$$$$$$$$$$$$$$$
+# $$$$$$$$$$    Main Program Body    $$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# >>> Make Class Instances <<<
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+# >>> Make Class Instances <<< #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 csVar=csVariables(1)
 try:
 	config = configparser.ConfigParser()
 	config.read(sys.argv[1])
-	useGUI = int(config['settings']['useGUI'])
+	csGui.useGUI = int(config['settings']['useGUI'])
 
 	#todo: show sinda this pattern
 	#todo: loop through what could be in the config obj, or is
@@ -1686,10 +1858,9 @@ try:
 		csVar.sesVarDict['comPath'] = config['sesVars']['comPath']
 		csVar.sesVarDict['dirPath'] = config['sesVars']['savePath']
 		csVar.sesVarDict['hashPath'] = config['sesVars']['hashPath']
-		csVar.sesVarDict['subjID']=config['sesVars']['subjID']
+		csVar.sesVarDict['subjID'] = config['sesVars']['subjID']
 	except:
 		print("issue with config vars")
-		
 except:
 	useGUI=1
 	print("using gui ...")
@@ -1697,22 +1868,20 @@ except:
 	csGui = csGUI(csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
 	csGui.makeParentWindow(root,csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
 
-if useGUI == 0:
+if csGui.useGUI == 0:
 	print("not using gui")
 	csGui = csGUI(csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
 	csGui.loadPandaSeries(csVar.sesVarDict['dirPath'] ,csVar.sesVarDict,csVar.timing,csVar.sensory,csVar.optical)
 
 
-	
 csSesHDF=csHDF(1)
-csAIO=csMQTT(1)
+csAIO=csMQTT()
 csSer=csSerial(1)
 csPlt=csPlot(1)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # >>> Common Tasks Functions <<<
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 def makeTrialVariables():
 	for x in csVar.sensory['varsToUse']:
 		exec("csVar.{}=[]".format(x))
@@ -1750,44 +1919,181 @@ def initializeLoadCell():
 	try:
 		wVals=[]
 		lIt=0
-		while lIt<=50:
-			[rV,vN]=csSer.checkVariable(teensy,'l',0.002)
+		while lIt<=10:
+			[rV,vN]=csSer.checkVariable(teensy,'l',0.2)
 			if vN:
 				wVals.append(rV)
 				lIt=lIt+1
 		csVar.sesVarDict['curWeight']=(np.mean(wVals)-csVar.sesVarDict['loadBaseline'])*0.1;
 		preWeight=csVar.sesVarDict['curWeight']
 		print("pre weight={}".format(preWeight))
+		tNote = 'pre-session weight = {}'.format(preWeight)
+		csGui.curNotes.append(tNote)
+		if csVar.sesVarDict['logMQTT']==1:
+			csGui.makeNotes(csVar.sesVarDict['subjID'] + '-notes',tNote,csVar.sesVarDict)
 	except:
-		csVar.sesVarDict['curWeight']=20
+		csVar.sesVarDict['curWeight']=0
+		csGui.curNotes.append('pre-session weight = {}'.format(0))
 def mqttStart():
+	# subFeedLabels = ['rig','task','waterconsumed','waterneeded','weight','performance','notes']
+	tdStamp=datetime.datetime.now().strftime("%Y_%m_%d_%H:%M:%S")
+	csGui.curNotes.append('session start: ' + '{}'.format(tdStamp))
+	csVar.sesVarDict['logMQTT'] = csGui.logMQTT_TV.get()
+	tMqLog = csVar.sesVarDict['logMQTT']
+	csGui.curNotes.append(tMqLog)
+	hPath = csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
+	tDelay = csVar.sesVarDict['mqttUpDel']
 
-	# Optional: Update MQTT Feeds
-	if csVar.sesVarDict['logMQTT']:
-		aioHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/csIO.txt'
-		aio=csAIO.connect_REST(aioHashPath)
+	tWeight = csVar.sesVarDict['curWeight']
+	csVar.sesVarDict['hostName'] = csVar.getRig().lower()
+	tSubj = csVar.sesVarDict['subjID'].lower()
+	
+	csGui.curNotes.append("subject: {}".format(tSubj))
+	csGui.curNotes.append("mqtt logging: {}".format(tMqLog))
+	csGui.curNotes.append("host name: {}".format(csVar.sesVarDict['hostName']))
+	csGui.curNotes.append("task type: {}".format(csVar.sesVarDict['taskType']))
+	csGui.curNotes.append("session number: {}".format(csVar.sesVarDict['curSession']))
+	csGui.curNotes.append("experimenter: {}".format(csVar.sesVarDict['experimenter']))
+
+	if tMqLog==1:
+		aio=csAIO.connect_REST(hPath)
+		csAIO.makeSubjectFeeds(tSubj,aio)
+		csAIO.makeMQTTFeed('rig-' + csVar.sesVarDict['hostName'],aio)
+		csVar.sesVarDict['waterConsumed'],csVar.sesVarDict['waterNeeded'],_,_ = \
+		csAIO.getDailyConsumption(aio,tSubj,csVar.sesVarDict['rigGMTZoneDif'],12,csVar.sesVarDict['waterNeeded'])
+
+		
+		# make a prediction about consumption
+		topAmount=csVar.sesVarDict['waterNeeded']-csVar.sesVarDict['waterConsumed']
+		predTrials = int(topAmount/csVar.sesVarDict['volPerRwd'])
+		if predTrials < 0:
+			predTrials = 0
+		print('mqtt: {} still needs {:0.4f} mL of water today'.format(tSubj,topAmount))
+		print('mqtt: {} should run at least {} rewarded trials'.format(tSubj,predTrials))
+		
 		if len(aio.username) == 0:
-			print("did not connect to mqtt broker: you are probably offline")
+			print("mqtt: did not connect to mqtt broker: you are probably offline")
 			csVar.sesVarDict['logMQTT'] = 0
-			return
+		
 		elif len(aio.username) > 0:
 			print('logged into aio (mqtt broker)')
+			
 			try:
-				csAIO.rigOnLog(aio,csVar.sesVarDict['subjID'],\
-					csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
+				csAIO.sendData(tSubj + '-weight',tWeight,aio)
+				time.sleep(tDelay)
+				csAIO.sendData(tSubj + '-task',csVar.sesVarDict['taskType'],aio)
+				time.sleep(tDelay)
+				csAIO.sendData(tSubj + '-experimenter',csVar.sesVarDict['experimenter'],aio)
+				time.sleep(tDelay)
+				csAIO.sendData(tSubj + '-rig',csVar.sesVarDict['hostName'] + '-on',aio)
+				time.sleep(tDelay)
+				csAIO.sendData('rig-' + csVar.sesVarDict['hostName'],1,aio)
+				time.sleep(tDelay)
+				
 			except:
-				print('no mqtt logging: feed issue')
-
+				print('mqtt: logging issue')
 		try:
 			print('logging to sheet')
 			gHashPath=csVar.sesVarDict['hashPath'] + '/simpHashes/client_secret.json'
 			gSheet=csAIO.openGoogleSheet(gHashPath)
-			csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-				'Weight Pre',csVar.sesVarDict['curWeight'])
+			csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],'Weight Pre',csVar.sesVarDict['curWeight'])
 			print('logged to sheet')
 		except:
 			print('did not log to google sheet')
+	elif csVar.sesVarDict['logMQTT']!=1:
+		aio =[]
 	return aio
+def mqttStop(mqttObj):
+	
+
+	tDelay = csVar.sesVarDict['mqttUpDel']
+	if csVar.sesVarDict['logMQTT']==1:
+		waterConsumed = csVar.sesVarDict['waterConsumed']
+		waterNeeded = float(csVar.sesVarDict['waterNeeded'])
+		tDPrime = csVar.sesVarDict['dprime']
+		tCriterion = csVar.sesVarDict['criterion']
+		loadCellChan = 4
+		tSubj = csVar.sesVarDict['subjID'].lower()
+		try:
+			waterNeeded=float(waterNeeded)-float(waterConsumed)
+			csVar.sesVarDict['curWeight']=0
+			# todo: fix the post weight
+			# (np.mean(sesData[csVar.loopCnt-plotSamps:csVar.loopCnt,4])-csVar.sesVarDict['loadBaseline'])*0.1
+			
+			if waterNeeded<0:
+				waterNeeded=0
+				csVar.sesVarDict['waterNeeded'] = 0
+			try:
+				csAIO.sendData(tSubj + '-weight',csVar.sesVarDict['curWeight'],mqttObj)
+				time.sleep(tDelay)
+				csAIO.sendData('rig-' + csVar.sesVarDict['hostName'],0,mqttObj)
+				time.sleep(tDelay)
+				csAIO.sendData(tSubj + '-rig',csVar.sesVarDict['hostName'] + '-off',mqttObj)
+				time.sleep(tDelay)
+				csAIO.sendData(tSubj + '-waterconsumed',waterConsumed,mqttObj)
+				time.sleep(tDelay)
+				csAIO.sendData(tSubj + '-waterneeded',waterNeeded,mqttObj)
+				time.sleep(tDelay)
+				csAIO.sendData(tSubj + '-dprime',tDPrime,mqttObj)
+				time.sleep(tDelay)
+				csAIO.sendData(tSubj + '-criterion',tCriterion,mqttObj)
+				time.sleep(tDelay)
+				csAIO.sendData(tSubj + '-trials',csVar.sesVarDict['trialNum'],mqttObj)
+				time.sleep(tDelay)
+			except:
+				print('mqtt: logging issue')
+			
+			# Google Sheet Stuff
+			try:
+				gDStamp=datetime.datetime.now().strftime("%m/%d/%Y")
+				gTStamp=datetime.datetime.now().strftime("%H:%M:%S")
+			except:
+				print('did not log to google sheet')
+		
+			try:
+				print('attempting to log to sheet')
+				gSheet=csAIO.openGoogleSheet(gHashPath)
+				canLog=1
+			except:
+				print('failed to open google sheet')
+				canLog=0
+		
+			if canLog==1:
+				try:
+					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
+						'Weight Post',csVar.sesVarDict['curWeight'])
+					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
+						'Delivered',csVar.sesVarDict['waterConsumed'])
+					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
+						'Place',csVar.sesVarDict['hostName'])
+					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
+						'Date Stamp',gDStamp)
+					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
+						'Time Stamp',gTStamp)
+				except:
+					print('did not log some things to sheet')
+		except:
+			pass
+def writeData(hdfObj,sessionNumber,sessionData,attributeLabels,attributeData):
+	
+	hdfObj["session_{}".format(sessionNumber)]=sessionData
+	for x in csVar.sensory['varsToUse']:
+		hdfObj["session_{}".format(sessionNumber)].attrs[x]=eval('csVar.' + x)
+	for x in csVar.timing['varsToUse']:
+		hdfObj["session_{}".format(sessionNumber)].attrs[x]=eval('csVar.' + x)
+	for x in csVar.optical['varsToUse']:
+		hdfObj["session_{}".format(sessionNumber)].attrs[x]=eval('csVar.' + x)
+	
+	atCount = 0
+	for idx in csVar.attributeLabels:
+		hdfObj["session_{}".format(sessionNumber)].attrs[attributeLabels[atCount]]=attributeData[atCount]
+		atCount = atCount+1
+	# also add notes
+	try:
+		hdfObj["session_{}".format(sessionNumber)].attrs['notes']=[v.encode('utf8') for v in csGui.curNotes]
+	except:
+		pass
+	hdfObj.close()
 def getThisTrialsVariables(trialNumber):
 	for x in csVar.timing['varsToUse']:
 		tVal = csVar.trialVars_timing[x][trialNumber]
@@ -1802,9 +2108,9 @@ def getThisTrialsVariables(trialNumber):
 	for x in csVar.optical['varsToUse']:
 		tVal = csVar.trialVars_optical[x][trialNumber]
 		eval("csVar.{}.append({})".format(x,tVal))
-def updateDetectionTaskVars():
+def updateTaskVars():
 	# a) Check variables related to whether we keep running, or not. 
-	if useGUI==1:
+	if csGui.useGUI==1:
 		# if we are using the GUI, we need to check to see if the user has changed text variables. 
 		csVar.sesVarDict['totalTrials']=int(csGui.totalTrials_TV.get())
 		try:
@@ -1812,1015 +2118,509 @@ def updateDetectionTaskVars():
 		except:
 			csVar.sesVarDict['shapingTrial']=0
 			shapingTrial_TV.set('0')
+		csVar.sesVarDict['useFlybackOpto']=int(csGui.useFlybackOpto_TV.get())
 		csVar.sesVarDict['lickAThr']=int(csGui.lickAThr_TV.get())
 		csVar.sesVarDict['chanPlot']=csGui.chanPlotIV.get()
-
-		# if we are not using the GUI, then we already checeked the config text for these variables. 
-		# we can poll for changes, but I am not certain checking every loop is wise. 
-
-		# b) We check to make sure that we haven't gone over in the number of trials. If we did, we quit.
 		if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
 			csVar.sesVarDict['sessionOn']=0
+def initializeTasks():
+	csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
+	csVar.attributeData=[[],[],[],[],[]]
+	csVar.curTime = 0
+	csVar.curStateTime = 0
+	csVar.curInt = 0
+
+	if csGui.useGUI==1:
+		csPlt.makeTrialFig_detection(csVar.sesVarDict['detectPlotNum'])
+		csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
+	elif csGui.useGUI==0:
+		config.read(sys.argv[1])
+		csVar.sesVarDict=csVar.updateDictFromTXT(csVar.sesVarDict,config)
+	makeTrialVariables()
+	# connect to the teensy
+	[csSer.teensy,csSer.tState] = initializeTeensy()
+	initializeLoadCell()
+	csAIO.mAIO = mqttStart()
+	csVar.sesVarDict['sessionOn']=1
+	csVar.sesVarDict['canQuit']=0
+	if csGui.useGUI==1:
+		csGui.quitButton['text']="End Ses"
+
+	csVar.sesVarDict['sampRate']=1000
+	csVar.sesVarDict['maxDur']=3600*2*csVar.sesVarDict['sampRate']
+	csVar.sesData = np.memmap(csVar.sesVarDict['dirPath'] + '/' + 'sesDataMemMap.npy',\
+		mode='w+',dtype=np.int32,shape=(csVar.sesVarDict['maxDur'],csVar.sesVarDict['dStreams']))
+	csVar.sesHDF=csSesHDF.makeHDF(csVar.sesVarDict['dirPath'] +'/',csVar.sesVarDict['subjID'] + '_ses{}'.\
+		format(csVar.sesVarDict['curSession']),datetime.datetime.now().strftime("%m_%d_%Y"))
+	csVar.pyState=csVar.sesVarDict['startState']
+	csSer.serialBuf=bytearray()
+	csVar.trialSamps=[0,0]
+	csVar.sampLog=[]
+	csVar.sList=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	csVar.sHeaders=np.zeros(len(csVar.sList))
+	if csGui.useGUI==1:
+		csGui.toggleTaskButtons(0)
+	csVar.sesVarDict['trialNum']=0
+	csVar.sesVarDict['lickLatchA']=0
+	
+	csVar.outSyncCount=0
+	csVar.serialVarTracker = [0,0,0,0,0,0,0,0]
+	csVar.stateSync=0
+	csVar.loopCnt=0
+
+	csVar.lastLick=0
+	csVar.lickCounter=0
+	csVar.lastLickCount=0
+	csSer.teensy.write('a1>'.encode('utf-8')) 
+	# generic "report" variable
+	csVar.reported = 0
+def checkTeensyData():
+	newData=0
+	[csSer.serialBuf,eR,tString]=csSer.readSerialBuffer(csSer.teensy,csSer.serialBuf,csVar.sesVarDict['serBufSize'])
+	if len(tString)==csVar.sesVarDict['dStreams']-1:
+		newData =1
+		# handle timing stuff
+		intNum = int(tString[1])
+		tTime = int(tString[2])
+		tStateTime=int(tString[3])
+		# if time did not go backward (out of order packet) 
+		# then increment python time, int, and state time.
+		if (tTime >= csVar.curTime):
+			csVar.curTime  = tTime
+			csVar.cutInt = intNum
+			csVar.curStateTime = tStateTime
+		
+		# check the teensy state
+		csSer.tState=int(tString[4])
+		
+		# even if the the data came out of order, we need to assign it to the right part of the array.
+		for x in range(0,csVar.sesVarDict['dStreams']-2):
+			csVar.sesData[intNum,x]=int(tString[x+1])
+		csVar.sesData[intNum,csVar.sesVarDict['dStreams']-2]=csVar.pyState # The state python wants to be.
+		csVar.sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
+		csVar.loopCnt=csVar.loopCnt+1
+	
+	return newData
+def updatePlots():
+	# d) If we are using the GUI plot updates ever so often.
+	if csGui.useGUI==1:
+		plotSamps=csVar.sesVarDict['plotSamps']
+		updateCount=csVar.sesVarDict['updateCount']
+		lyMin=-1
+		lyMax=4098
+		if csVar.sesVarDict['chanPlot']==11 or csVar.sesVarDict['chanPlot']==7:
+			lyMin=-0.1
+			lyMax=1.1
+		if csVar.loopCnt>plotSamps and np.mod(csVar.loopCnt,updateCount)==0:
+			if csVar.sesVarDict['chanPlot']==0:
+				csPlt.quickUpdateTrialFig(csVar.sesVarDict['trialNum'],\
+					csVar.sesVarDict['totalTrials'],csSer.tState)
+			elif csVar.sesVarDict['chanPlot'] != 0:
+				csPlt.updateTrialFig(np.arange(len(csVar.sesData[csVar.loopCnt-plotSamps:csVar.loopCnt,\
+					csVar.sesVarDict['chanPlot']])),csVar.sesData[csVar.loopCnt-plotSamps:csVar.loopCnt,\
+				csVar.sesVarDict['chanPlot']],csVar.sesVarDict['trialNum'],\
+					csVar.sesVarDict['totalTrials'],csSer.tState,[lyMin,lyMax])
+def lickDetection(sensorChan = 5,latchTime=50):
+	# e) Lick detection. This can be done in hardware, but I like software because thresholds can be dynamic.
+	if csVar.sesData[csVar.cutInt,sensorChan]>=csVar.sesVarDict['lickAThr'] and csVar.sesVarDict['lickLatchA']==0:
+		csVar.sesData[csVar.cutInt,csVar.sesVarDict['dStreams']-1]=1
+		csVar.sesVarDict['lickLatchA']=latchTime
+		# these are used in states
+		csVar.lickCounter=csVar.lickCounter+1
+		csVar.lastLick=csVar.curStateTime
+
+	elif csVar.sesVarDict['lickLatchA']>0:
+		csVar.sesVarDict['lickLatchA']=csVar.sesVarDict['lickLatchA']-1
+def stateResolution():
+	# f) Resolve state.
+	# if the python side's desired state differs from the actual Teensy state
+	# then note in python we are out of sync, and try again next loop.
+	if csVar.pyState == csSer.tState:
+		csVar.stateSync=1
+	elif csVar.pyState != csSer.tState:
+		csVar.stateSync=0
+
+	# If we are out of sync for too long, then push another change over the serial line.
+	# ******* This is a failsafe, but it shouldn't really happen.
+	if csVar.stateSync==0:
+		csVar.outSyncCount=csVar.outSyncCount+1
+		if csVar.outSyncCount>=200:
+			csSer.teensy.write('a{}>'.format(csVar.pyState).encode('utf-8'))  
+def genericHeader():
+	csVar.trialSamps[0]=csVar.loopCnt-1
+	# reset counters that track state stuff.
+	csVar.lickCounter=0
+	csVar.lastLickCount = 0
+	csVar.lastLick=0  
+	csVar.reported =0                  
+	csVar.outSyncCount=0
+	csVar.serialVarTracker = [0,0,0,0,0,0,0,0]
+	csVar.sHeaders[csVar.pyState]=1
+	csVar.sHeaders[np.setdiff1d(csVar.sList,csVar.pyState)]=0
+def trialMaintenance():
+	# g) Trial resolution.
+	tTrial = csVar.sesVarDict['trialNum']
+	getThisTrialsVariables(tTrial)
+	csVar.sesVarDict['minStim']=csVar.visualStimTime[tTrial]
+	csVar.waitTime = csVar.trialTime[tTrial]
+	csVar.lickWaitTime = csVar.noLickTime[tTrial]
+
+	csVar.serialVarTracker = [0,0,0,0,0,0,0,0]
+	csVar.tTrial = tTrial
+
+	# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
+	# in the text file. However, we shouldn't poll all the time because we have to reopen the file each time. 
+	# We do so here. 
+	if csGui.useGUI==0:
+		config.read(sys.argv[1])
+		csVar.sesVarDict['totalTrials'] = int(config['sesVars']['totalTrials'])
+		csVar.sesVarDict['lickAThr'] = int(config['sesVars']['lickAThr'])
+		csVar.sesVarDict['volPerRwd'] = float(config['sesVars']['volPerRwd'])
+
+		if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
+			csVar.sesVarDict['sessionOn']=0
+	
+	# 3) incrment the trial count and 
+	csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
+
+	# 4) inform the user via the terminal what's going on.
+	print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],csVar.sesVarDict['totalTrials']))
+	print('target contrast: {:0.2f} ; orientation: {}'.format(csVar.contrast[csVar.tTrial],csVar.orientation[csVar.tTrial]))
+	print('target xpos: {} ; size: {}'.format(csVar.xPos[csVar.tTrial],csVar.stimSize[csVar.tTrial]))
+	print('estimated trial time = {:0.3f} seconds'.format((csVar.noLickTime[csVar.tTrial] + csVar.trialTime[csVar.tTrial])*0.001))
+def setupVisualStim(featureSendTime,placementSendTime):
+	# update visual stim params on the Teensy
+	# first 
+	if csVar.serialVarTracker[0] == 0 and csVar.curStateTime>=featureSendTime:
+		csSer.sendVisualValues(csSer.teensy,csVar.tTrial)
+		csVar.serialVarTracker[0]=1
+
+	elif csVar.serialVarTracker[1] == 0 and csVar.curStateTime>=placementSendTime:
+		csSer.sendVisualPlaceValues(csSer.teensy,csVar.tTrial)
+		csVar.serialVarTracker[1] = 1
+def enforceNoLickRule():
+	if csVar.lickCounter>csVar.lastLickCount:
+		csVar.lastLickCount=csVar.lickCounter
+		# if the lick happens such that the minimum 
+		# lick time will go over the pre time, 
+		# then we advance waitTime by the minumum
+		if csVar.curStateTime>(csVar.waitTime-csVar.lickWaitTime):
+			csVar.waitTime = csVar.waitTime + csVar.lickWaitTime
+def sessionCleanup(exceptionBool):
+
+	if exceptionBool == 1:
+		csVar.sesData.flush()
+		print(csVar.loopCnt)
+		sesNum = csVar.sesVarDict['curSession']-1
+
+	if exceptionBool == 0:
+		sesNum = csVar.sesVarDict['curSession']
+	writeData(csVar.sesHDF,csVar.sesVarDict['curSession'],csVar.sesData[0:csVar.loopCnt,:],csVar.attributeLabels,csVar.attributeData)
+	if csGui.useGUI==1:
+		csGui.toggleTaskButtons(1)
+	
+
+
+	csSer.teensy.write('a0>'.encode('utf-8'))
+	time.sleep(0.05)
+	csSer.teensy.write('a0>'.encode('utf-8'))
+
+	print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
+	csVar.sesVarDict['trialNum']=0
+
+	# Update MQTT Feeds
+	mqttStop(csAIO.mAIO)
+	tdStamp=datetime.datetime.now().strftime("%Y_%m_%d_%H:%M:%S")
+	tfStamp=datetime.datetime.now().strftime("_%Y%m%d%H%M%S")
+	csGui.curNotes.append('session end: ' + tdStamp)
+	if Path(csVar.sesVarDict['dirPath']).joinpath('notes').exists() == 0:
+		Path(csVar.sesVarDict['dirPath']).joinpath('notes').mkdir()
+	txtNotesPath = Path(csVar.sesVarDict['dirPath']).joinpath('notes').joinpath(csVar.sesVarDict['subjID'] + '_session' +\
+	 '{}'.format(csVar.sesVarDict['curSession']) + tfStamp + '_notes.txt')
+
+	tempNoteString = ''
+	for v in csGui.curNotes:
+		if type(v) is not str:
+			v = '{}'.format(v)
+		tempNoteString = tempNoteString + v + '\n'
+	txtNotesPath.write_text(tempNoteString)
+
+	print('finished your session')
+	csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
+	if csGui.useGUI==1:
+		csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
+	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,csGui.useGUI)
+	csVar.sesVarDict['canQuit']=1
+	csSer.flushBuffer(csSer.teensy)
+	csSer.teensy.close()
+	if useGUI==1:
+		csGui.quitButton['text']="Quit"
+def resolveOutputMasks():
+	if csVar.c1_mask[csVar.tTrial]==2:
+		csVar.c1_amp[csVar.tTrial]=0
+		csVar.c2_amp[csVar.tTrial]=csVar.c2_amp[csVar.tTrial]
+		# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(1)
+		# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(0)
+		print("optical --> mask trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
+			.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
+
+	elif csVar.c1_mask[csVar.tTrial]!=2:
+		csVar.c1_amp[csVar.tTrial]=csVar.c1_amp[csVar.tTrial]
+		csVar.c2_amp[csVar.tTrial]=0
+		# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(0)
+		# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(1)
+		print("optical --> stim trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
+			.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
+def sendDACVariables(vTime,pTime,dTime,mTime,tTime):
+
+
+	if csVar.serialVarTracker[2] == 0 and csVar.curStateTime>=vTime:
+		optoVoltages = [int(csVar.c1_amp[csVar.tTrial]),int(csVar.c2_amp[csVar.tTrial])]
+		csSer.sendAnalogOutValues(csSer.teensy,'v',optoVoltages)
+		csVar.serialVarTracker[2] = 1
+	elif csVar.serialVarTracker[3] == 0 and csVar.curStateTime>=pTime:
+		optoPulseDurs = [int(csVar.c1_pulseDur[csVar.tTrial]),int(csVar.c2_pulseDur[csVar.tTrial])]
+		csSer.sendAnalogOutValues(csSer.teensy,'p',optoPulseDurs)
+		csVar.serialVarTracker[3] = 1
+	elif csVar.serialVarTracker[4] == 0 and csVar.curStateTime>=dTime:
+		optoIPIs = [int(csVar.c1_interPulseDur[csVar.tTrial]),int(csVar.c2_interPulseDur[csVar.tTrial])]
+		csSer.sendAnalogOutValues(csSer.teensy,'d',optoIPIs)
+		csVar.serialVarTracker[4] = 1
+	elif csVar.serialVarTracker[5] == 0 and csVar.curStateTime>=mTime:
+		optoPulseNum = [int(csVar.c1_pulseCount[csVar.tTrial]),int(csVar.c2_pulseCount[csVar.tTrial])]
+		csSer.sendAnalogOutValues(csSer.teensy,'m',optoPulseNum)
+		csVar.serialVarTracker[5] = 1
+	elif csVar.serialVarTracker[6] == 0 and csVar.curStateTime>=tTime:
+		optoWave = [int(csVar.c5_waveform[csVar.tTrial])]
+		csSer.sendAnalogOutValues(csSer.teensy,'t',optoWave)
+		csVar.serialVarTracker[6] = 1
+
 
 # ~~~~~~~~~~~~~~~~~~~~
 # >>> Define Tasks <<<
 # ~~~~~~~~~~~~~~~~~~~~
 
 def runDetectionTask():
-	
-	cTime = datetime.datetime.now()
-	dStamp=cTime.strftime("%m_%d_%Y")
-	curMachine=csVar.getRig()
-	curTime = 0
-	curStateTime = 0
-	curInt = 0
-
-
-	makeTrialVariables()
-	
-	if useGUI==1:
-		csPlt.makeTrialFig_detection(csVar.sesVarDict['detectPlotNum'])
-		csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-	elif useGUI==0:
-		config.read(sys.argv[1])
-		csVar.sesVarDict=csVar.updateDictFromTXT(csVar.sesVarDict,config)
-	
-	[teensy,tTeensyState] = initializeTeensy()
-	initializeLoadCell()
-	mqttStart()
-	
-	# Set some session flow variables before the task begins
-	# Turn the session on. 
-	csVar.sesVarDict['sessionOn']=1
-	csVar.sesVarDict['canQuit']=0
-
-	if useGUI==1:
-		csGui.quitButton['text']="End Ses"
-	
-	csVar.sesVarDict['sampRate']=1000
-	csVar.sesVarDict['maxDur']=3600*2*csVar.sesVarDict['sampRate']
-	npSamps=csVar.sesVarDict['maxDur']
-	sesData = np.memmap('cur.npy', mode='w+',dtype=np.int32,\
-		shape=(npSamps,csVar.sesVarDict['dStreams']))
-	np.save('sesData.npy',sesData)
-
-	# Make HDF
-	f=csSesHDF.makeHDF(csVar.sesVarDict['dirPath'] +'/',csVar.sesVarDict['subjID'] + '_ses{}'.\
-		format(csVar.sesVarDict['curSession']),dStamp)
-
-	pyState=csVar.sesVarDict['startState']
-
-	# task-specific local variables
-	lastLick=0
-	lickCounter=0
-
-	sList=[0,1,2,3,4,5,6,7,8]
-	sHeaders=np.zeros(len(sList))
-	trialSamps=[0,0]
-	
-	serialBuf=bytearray()
-	sampLog=[]
-	if useGUI==1:
-		csGui.toggleTaskButtons(0)
-	stimResponses=[]
-	stimTrials=[]
-	noStimResponses=[]
-	noStimTrials=[]
-	loopCnt=0
-	csVar.sesVarDict['trialNum']=0
-	csVar.sesVarDict['lickLatchA']=0
-	outSyncCount=0
-	serialVarTracker = [0,0,0,0,0,0]
-	
-	sessionStarted = 0
-	# Send to 1, wait state.
-	teensy.write('a1>'.encode('utf-8')) 	
-	
-	# now we can start a session.
+	csVar.sesVarDict['taskType']='detection'
+	initializeTasks()
 	while csVar.sesVarDict['sessionOn']:
 		# try to execute the task.
 		try:
-			updateDetectionTaskVars()
-			# c) ****** Teensy Data Check ******
-			# If there is, we can poll the state machine. 
-			# NOTE: there should always be data, but we do NOTHING when there isn't data. 
-			# This choice was made to give top priority to the accumulation of serial streams. 
-			# However, you could conceptually poll other things, if you know those things won't bog us down.
-			[serialBuf,eR,tString]=csSer.readSerialBuffer(teensy,serialBuf,csVar.sesVarDict['serBufSize'])
-			if len(tString)==csVar.sesVarDict['dStreams']-1:
-
-				# handle timing stuff
-				intNum = int(tString[1])
-				tTime = int(tString[2])
-				tStateTime=int(tString[3])
-				# if time did not go backward (out of order packet) then increment python time, int, and state time.
-				if tTime >= curTime:
-					curTime = tTime
-					cutInt = intNum
-					curStateTime = tStateTime
-				
-				# check the teensy state
-				tTeensyState=int(tString[4])
-		
-
-				tFrameCount=0  # Todo: frame counter in.
-				# even if the the data came out of order, we need to assign it to the right part of the array.
-				for x in range(0,csVar.sesVarDict['dStreams']-2):
-					sesData[intNum,x]=int(tString[x+1])
-				sesData[intNum,csVar.sesVarDict['dStreams']-2]=pyState # The state python wants to be.
-				sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
-				loopCnt=loopCnt+1
-				
-				# d) If we are using the GUI plot updates ever so often.
-				if useGUI==1:
-					plotSamps=csVar.sesVarDict['plotSamps']
-					updateCount=csVar.sesVarDict['updateCount']
-					lyMin=-1
-					lyMax=4098
-					if csVar.sesVarDict['chanPlot']==11 or csVar.sesVarDict['chanPlot']==7:
-						lyMin=-0.1
-						lyMax=1.1
-					if loopCnt>plotSamps and np.mod(loopCnt,updateCount)==0:
-						if csVar.sesVarDict['chanPlot']==0:
-							csPlt.quickUpdateTrialFig(csVar.sesVarDict['trialNum'],\
-								csVar.sesVarDict['totalTrials'],tTeensyState)
-						elif csVar.sesVarDict['chanPlot'] != 0:
-							csPlt.updateTrialFig(np.arange(len(sesData[loopCnt-plotSamps:loopCnt,\
-								csVar.sesVarDict['chanPlot']])),sesData[loopCnt-plotSamps:loopCnt,\
-							csVar.sesVarDict['chanPlot']],csVar.sesVarDict['trialNum'],\
-								csVar.sesVarDict['totalTrials'],tTeensyState,[lyMin,lyMax])
-
-
-				# e) Lick detection. This can be done in hardware, but I like software because thresholds can be dynamic.
-				latchTime=50
-				if sesData[cutInt,5]>=csVar.sesVarDict['lickAThr'] and csVar.sesVarDict['lickLatchA']==0:
-					sesData[cutInt,csVar.sesVarDict['dStreams']-1]=1
-					csVar.sesVarDict['lickLatchA']=latchTime
-					# these are used in states
-					lickCounter=lickCounter+1
-					lastLick=curStateTime
-
-				elif csVar.sesVarDict['lickLatchA']>0:
-					csVar.sesVarDict['lickLatchA']=csVar.sesVarDict['lickLatchA']-1
-
-				# f) Resolve state.
-				# if the python side's desired state differs from the actual Teensy state
-				# then note in python we are out of sync, and try again next loop.
-				if pyState == tTeensyState:
-					stateSync=1
-				elif pyState != tTeensyState:
-					stateSync=0
-
-				# If we are out of sync for too long, then push another change over the serial line.
-				# ******* This is a failsafe, but it shouldn't really happen.
-				if stateSync==0:
-					outSyncCount=outSyncCount+1
-					if outSyncCount>=200:
-						teensy.write('a{}>'.format(pyState).encode('utf-8'))  
+			updateTaskVars()
+			newData = checkTeensyData()
+			if newData:
+				updatePlots()
+				lickDetection()
+				stateResolution()
 
 				# 4) Now look at what state you are in and evaluate accordingly
-				if pyState == 1 and stateSync==1:
-					
-					if sHeaders[pyState]==0:
-						
-						
-						# if useGUI==1:
-							# csPlt.updateStateFig(1)
-						trialSamps[0]=loopCnt-1
+				if csVar.stateSync==1:
+					if csVar.pyState == 1:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+							# we treat state 1 as the begining of a trial
+							# so anything we need to fix between trials ...
+							trialMaintenance()
+						setupVisualStim(10,110)
+						enforceNoLickRule()
 
-						# reset counters that track state stuff.
-						lickCounter=0
-						lastLickCount = 0
-						lastLick=0                    
-						outSyncCount=0
+						# state 1 exit:
+						if csVar.curStateTime>csVar.waitTime:
+							csVar.stateSync=0
+							if csVar.contrast[csVar.tTrial]>0:
+								csVar.pyState=2
+								csSer.teensy.write('a2>'.encode('utf-8'))
+							elif csVar.contrast[csVar.tTrial]==0:
+								csVar.pyState=3
+								csSer.teensy.write('a3>'.encode('utf-8'))
+					elif csVar.pyState == 2:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()                      
+		 
+						if csVar.lastLick>0.02:
+							csVar.reported=1
 
-						# g) Trial resolution.
-						# Some things we want to do once per trial. csBehavior has a soft concept of trial.
-						# This is because it is a state machine and is an ongoing dynmaic process. But, 
-						# we can define a trial any way we like. We define an elapsed trial as:
-						# any tranistion from state 1, to any other state or states, and back to state 1. 
-						# Thus, when you start the session, you have not finished a trial, you just started it. 
-						# We can do things we want to do once when we start new trials, here is state 1's header. 
-	
-						# 1) determine the current trial's visual and state timing variables.
-						# 	note we have not incremented the trialNum, which should start at 0, 
-						# 	thus we are indexing the array correctly without using a -1. 
-						tTrial = csVar.sesVarDict['trialNum']
-						getThisTrialsVariables(tTrial)						
-						
-						if csVar.c1_mask[tTrial]==2:
-							csVar.c1_amp[tTrial]=0
-							csVar.c2_amp[tTrial]=csVar.c2_amp[tTrial]
-							print("optical --> mask trial; LED_C1: {}V; C2 {}V"\
-								.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
-						elif csVar.c1_mask[tTrial]==1:
-							csVar.c1_amp[tTrial]=csVar.c1_amp[tTrial]
-							csVar.c2_amp[tTrial]=0
-							print("optical --> stim trial; LED_C1: {}V; C2 {}V"\
-								.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
-						csVar.sesVarDict['minStim']=csVar.visualStimTime[tTrial]
-						waitTime = csVar.trialTime[tTrial]
-						lickWaitTime = csVar.noLickTime[tTrial]
+						if csVar.curStateTime>csVar.sesVarDict['minStim']:
+							if csVar.reported==1 or csVar.sesVarDict['shapingTrial']:
+								print("hit")
+								csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
+								csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
+								csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(csVar.sesVarDict['trialNum'])
+								csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(1)
+								csVar.stateSync=0
+								csVar.pyState=4
+								csSer.teensy.write('a4>'.encode('utf-8'))
+							elif csVar.reported==0:
+								csVar.stateSync=0
+								csVar.pyState=1
+								print("miss")
+								csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
+								csVar.attributeData[csVar.attributeLabels.index('responses')].append(0)
+								csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(csVar.sesVarDict['trialNum'])
+								csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(1)
+								csVar.trialSamps[1]=csVar.loopCnt
+								csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
+								csSer.teensy.write('a1>'.encode('utf-8'))
+								print('miss: last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+					elif csVar.pyState == 3:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+		 
+						if csVar.lastLick>0.005:
+							csVar.reported=1
 
-						serialVarTracker = [0,0,0,0,0,0]
+						if csVar.curStateTime>csVar.sesVarDict['minStim']:
+							if csVar.reported==1:
+								print("false alarm")
+								csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
+								csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
+								csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
+								csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(0)
+								
+								csVar.stateSync=0
+								csVar.pyState=5
+								csSer.teensy.write('a5>'.encode('utf-8'))
+								
+								if csGui.useGUI==1:
+									csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,csVar.sesVarDict['totalTrials'])
+							
+							elif csVar.reported==0:
+								# correct rejections
+								print("correct rejection")
+								csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
+								csVar.attributeData[csVar.attributeLabels.index('responses')].append(0)
+								csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
+								csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(0)
+								csVar.trialSamps[1]=csVar.loopCnt
+								# update sample log
+								csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
 
-						# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
-						# in the text file. However, we shouldn't poll all the time because we have to reopen the file each time. 
-						# We do so here. 
-						if useGUI==0:
-							config.read(sys.argv[1])
-							csVar.sesVarDict['totalTrials'] = int(config['sesVars']['totalTrials'])
-							csVar.sesVarDict['lickAThr'] = int(config['sesVars']['lickAThr'])
-							csVar.sesVarDict['volPerRwd'] = float(config['sesVars']['volPerRwd'])
-
-							if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
-								csVar.sesVarDict['sessionOn']=0
-						
-						# 3) incrment the trial count and 
-						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
-
-						# 4) inform the user via the terminal what's going on.
-						print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],\
-							csVar.sesVarDict['totalTrials']))
-						print('target contrast: {:0.2f} ; orientation: {}'.format(csVar.contrast[tTrial],csVar.orientation[tTrial]))
-						print('target xpos: {} ; size: {}'.format(csVar.xPos[tTrial],csVar.stimSize[tTrial]))
-						print('estimated trial time = {:0.3f} seconds'.format((csVar.noLickTime[tTrial] + csVar.trialTime[tTrial])*0.001))
-
-						# close the header and flip the others open.
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0
-
-					# update visual stim params on the Teensy
-					if serialVarTracker[0] == 0 and curStateTime>=10:
-						csSer.sendVisualValues(teensy,tTrial)
-						serialVarTracker[0]=1
-
-					elif serialVarTracker[1] == 0 and curStateTime>=110:
-						csSer.sendVisualPlaceValues(teensy,tTrial)
-						serialVarTracker[1] = 1
-					
-					# # send optical/analog output values, but spread the serial load across loops.
-					# elif serialVarTracker[2] == 0 and curStateTime>=210:
-					# 	optoVoltages = [int(csVar.c1_amp[tTrial]),int(csVar.c2_amp[tTrial])]
-					# 	csSer.sendAnalogOutValues(teensy,'v',optoVoltages)
-					# 	serialVarTracker[2] = 1
-
-
-					# elif serialVarTracker[3] == 0 and curStateTime>=310:
-					# 	optoPulseDurs = [int(csVar.c1_pulseDur[tTrial]),int(csVar.c2_pulseDur[tTrial])]
-					# 	csSer.sendAnalogOutValues(teensy,'p',optoPulseDurs)
-					# 	serialVarTracker[3] = 1
-
-					# elif serialVarTracker[4] == 0 and curStateTime>=410:
-					# 	optoIPIs = [int(csVar.c1_interPulseDur[tTrial]),int(csVar.c2_interPulseDur[tTrial])]
-					# 	csSer.sendAnalogOutValues(teensy,'d',optoIPIs)
-					# 	serialVarTracker[4] = 1
-
-					# elif serialVarTracker[5] == 0 and curStateTime>=510:
-					# 	optoPulseNum = [int(csVar.c1_pulseCount[tTrial]),int(csVar.c2_pulseCount[tTrial])]
-					# 	csSer.sendAnalogOutValues(teensy,'m',optoPulseNum)
-					# 	serialVarTracker[5] = 1
-
-
-					if lickCounter>lastLickCount:
-						lastLickCount=lickCounter
-						# if the lick happens such that the minimum lick time will go over the pre time, 
-						# then we advance waitTime by the minumum
-						if curStateTime>(waitTime-lickWaitTime):
-							waitTime = waitTime + lickWaitTime
-
-					if curStateTime>waitTime:
-						stateSync=0
-						if csVar.contrast[tTrial]>0:
-							pyState=2
-							teensy.write('a2>'.encode('utf-8'))
-						elif csVar.contrast[tTrial]==0:
-							pyState=3
-							teensy.write('a3>'.encode('utf-8'))
-
-				if pyState == 2 and stateSync==1:
-					if sHeaders[pyState]==0:
-						reported=0
-						lickCounter=0
-						lastLick=0
-						outSyncCount=0
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0                        
-	 
-					if lastLick>0.02:
-						reported=1
-
-					if curStateTime>csVar.sesVarDict['minStim']:
-						if reported==1 or csVar.sesVarDict['shapingTrial']:
-							stimTrials.append(csVar.sesVarDict['trialNum'])
-							stimResponses.append(1)
-							stateSync=0
-							pyState=4
-							teensy.write('a4>'.encode('utf-8'))
-							if useGUI==1:
-								csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-									csVar.sesVarDict['totalTrials'])
-						elif reported==0:
-							stimTrials.append(csVar.sesVarDict['trialNum'])
-							stimResponses.append(0)
-							stateSync=0
-							pyState=1
-							trialSamps[1]=loopCnt
-							sampLog.append(np.diff(trialSamps)[0])
-							teensy.write('a1>'.encode('utf-8'))
-							if useGUI==1:
-								csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-									csVar.sesVarDict['totalTrials'])
-							print('miss: last trial took: {} seconds'.format(sampLog[-1]/1000))
-
-				
-				if pyState == 3 and stateSync==1:
-					if sHeaders[pyState]==0:
-						reported=0
-						lickCounter=0
-						lastLick=0
-						outSyncCount=0
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0
-	 
-					if lastLick>0.005:
-						reported=1
-
-					if curStateTime>csVar.sesVarDict['minStim']:
-						if reported==1:
-							noStimTrials.append(csVar.sesVarDict['trialNum'])
-							noStimResponses.append(1)
-							stateSync=0
-							pyState=5
-							teensy.write('a5>'.encode('utf-8'))
-							if useGUI==1:
-								csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-									csVar.sesVarDict['totalTrials'])
-						elif reported==0:
-							noStimTrials.append(csVar.sesVarDict['trialNum'])
-							noStimResponses.append(0)
-							stateSync=0
-							pyState=1
-							trialSamps[1]=loopCnt
-							sampLog.append(np.diff(trialSamps)[0])
-							teensy.write('a1>'.encode('utf-8'))
-							if useGUI==1:
-								csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,\
-									csVar.sesVarDict['totalTrials'])
-							print('cor rejection: last trial took: {} seconds'.format(sampLog[-1]/1000))
-
-				if pyState == 4 and stateSync==1:
-					if sHeaders[pyState]==0:
-						# if useGUI==1:
-							# csPlt.updateStateFig(pyState)
-						lickCounter=0
-						lastLick=0
-						outSyncCount=0
-						csVar.sesVarDict['waterConsumed']=csVar.sesVarDict['waterConsumed']+csVar.sesVarDict['volPerRwd']
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0
-					# exit
-					if curStateTime>csVar.sesVarDict['rewardDur']:
-						trialSamps[1]=loopCnt
-						sampLog.append(np.diff(trialSamps)[0])
-						stateSync=0
-						pyState=1
-						outSyncCount=0
-						teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(sampLog[-1]/1000))
-
-				if pyState == 5 and stateSync==1:
-					if sHeaders[pyState]==0:
-						# if useGUI==1:
-							# csPlt.updateStateFig(pyState)
-						lickCounter=0
-						lastLick=0
-						outSyncCount=0
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0
-					
-					# exit
-					if curStateTime>csVar.sesVarDict['toTime']:
-						trialSamps[1]=loopCnt
-						sampLog.append(np.diff(trialSamps)[0])
-						stateSync=0
-						pyState=1
-						teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(sampLog[-1]/1000))
+								csVar.stateSync=0
+								csVar.pyState=1
+								
+								csSer.teensy.write('a1>'.encode('utf-8'))
+								# if useGUI==1:
+								# 	csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,csVar.sesVarDict['totalTrials'])
+								print('correct rejection: last trial took: {} seconds'\
+									.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+					elif csVar.pyState == 4:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+						# exit
+						if csVar.curStateTime>csVar.sesVarDict['rewardDur']:
+							csVar.trialSamps[1]=csVar.loopCnt
+							# update sample log
+							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
+							
+							csVar.stateSync=0
+							csVar.pyState=1
+							csVar.outSyncCount=0
+							csSer.teensy.write('a1>'.encode('utf-8'))
+							print('last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+					elif csVar.pyState == 5:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+						# exit
+						if csVar.curStateTime>csVar.sesVarDict['toTime']:
+							csVar.trialSamps[1]=csVar.loopCnt
+							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
+							csVar.stateSync=0
+							csVar.pyState=1
+							csSer.teensy.write('a1>'.encode('utf-8'))
+							print('last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
 		except:
-			sesData.flush()
-			np.save('sesData.npy',sesData)
-			print(loopCnt)
-			print(tString)
-			sesData[intNum,x]=int(tString[x+1])
-			if useGUI==1:
-				csGui.toggleTaskButtons(1)
-			
-			csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-			if useGUI:
-				csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
-
-			teensy.write('a0>'.encode('utf-8'))
-			time.sleep(0.05)
-			teensy.write('a0>'.encode('utf-8'))
-
-			print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
-			csVar.sesVarDict['trialNum']=0
-			if useGUI==1:
-				csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
-			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
-			
-			tSessionNum = csVar.sesVarDict['curSession']-1
-			f["session_{}".format(tSessionNum)]=sesData[0:loopCnt,:]
-			for x in csVar.sensory['varsToUse']:
-				f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-			for x in csVar.timing['varsToUse']:
-				f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-			for x in csVar.optical['varsToUse']:
-				f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-
-			f["session_{}".format(tSessionNum)].attrs['stimResponses']=stimResponses
-			f["session_{}".format(tSessionNum)].attrs['stimTrials']=stimTrials
-			f["session_{}".format(tSessionNum)].attrs['noStimResponses']=noStimResponses
-			f["session_{}".format(tSessionNum)].attrs['noStimTrials']=noStimTrials
-			f["session_{}".format(tSessionNum)].attrs['trialDurs']=sampLog
-			f.close()
-
-			
-
-			# Update MQTT Feeds
-			if csVar.sesVarDict['logMQTT']:
-				try:
-					csVar.sesVarDict['curWeight']=(np.mean(sesData[-1000:-1,4])-csVar.sesVarDict['loadBaseline'])*0.1
-					csAIO.rigOffLog(aio,csVar.sesVarDict['subjID'],\
-						csVar.sesVarDict['curWeight'],\
-						curMachine,csVar.sesVarDict['mqttUpDel'])
-
-					# update animal's water consumed feed.
-					csVar.sesVarDict['waterConsumed']=int(csVar.sesVarDict['waterConsumed']*10000)/10000
-					aio.send('{}-waterconsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
-					topAmount=csVar.sesVarDict['consumpTarg']-csVar.sesVarDict['waterConsumed']
-					topAmount=int(topAmount*10000)/10000
-					if topAmount<0:
-						topAmount=0
-				 
-					print('give {:0.3f} ml later by 12 hrs from now'.format(topAmount))
-					aio.send('{}-topvol'.format(csVar.sesVarDict['subjID']),topAmount)
-				except:
-					pass
-			if useGUI==1:
-				csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
-			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
-
-			csSer.flushBuffer(teensy) 
-			teensy.close()
-			csVar.sesVarDict['canQuit']=1
-			if useGUI==1:
-				csGui.quitButton['text']="Quit"
-						 
-
-	tSessionNum = csVar.sesVarDict['curSession']
-	f["session_{}".format(tSessionNum)]=sesData[0:loopCnt,:]
-	for x in csVar.sensory['varsToUse']:
-		f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-	for x in csVar.timing['varsToUse']:
-		f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-	for x in csVar.optical['varsToUse']:
-		f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-
-	f["session_{}".format(tSessionNum)].attrs['stimResponses']=stimResponses
-	f["session_{}".format(tSessionNum)].attrs['stimTrials']=stimTrials
-	f["session_{}".format(tSessionNum)].attrs['noStimResponses']=noStimResponses
-	f["session_{}".format(tSessionNum)].attrs['noStimTrials']=noStimTrials
-	
-	f["session_{}".format(tSessionNum)].attrs['trialDurs']=sampLog
-	f.close()
-
-
-	
-	
-	if useGUI==1:
-		csGui.toggleTaskButtons(1)
-	
-	csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-	if useGUI==1:
-		csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
-	
-	teensy.write('a0>'.encode('utf-8'))
-	time.sleep(0.05)
-	teensy.write('a0>'.encode('utf-8'))
-
-	print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
-	csVar.sesVarDict['trialNum']=0
-
-	# Update MQTT Feeds
-	if csVar.sesVarDict['logMQTT']:
-		try:
-			csVar.sesVarDict['curWeight']=(np.mean(sesData[loopCnt-plotSamps:loopCnt,4])-\
-				csVar.sesVarDict['loadBaseline'])*0.1
-			csVar.sesVarDict['waterConsumed']=int(csVar.sesVarDict['waterConsumed']*10000)/10000
-			topAmount=csVar.sesVarDict['consumpTarg']-csVar.sesVarDict['waterConsumed']
-			topAmount=int(topAmount*10000)/10000
-			if topAmount<0:
-				topAmount=0
-			print('give {:0.3f} ml later by 12 hrs from now'.format(topAmount))
-
-			try:
-				csAIO.rigOffLog(aio,csVar.sesVarDict['subjID'],\
-					csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
-				aio.send('{}-waterconsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
-				aio.send('{}-topvol'.format(csVar.sesVarDict['subjID']),topAmount)
-			except:
-				print('failed to log mqtt info')
-	   
-			# update animal's water consumed feed.
-
-			try:
-				gDStamp=datetime.datetime.now().strftime("%m/%d/%Y")
-				gTStamp=datetime.datetime.now().strftime("%H:%M:%S")
-			except:
-				print('did not log to google sheet')
-		
-			try:
-				print('attempting to log to sheet')
-				gSheet=csAIO.openGoogleSheet(gHashPath)
-				canLog=1
-			except:
-				print('failed to open google sheet')
-				canLog=0
-		
-			if canLog==1:
-				try:
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Weight Post',csVar.sesVarDict['curWeight'])
-					print('gsheet: logged weight')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Delivered',csVar.sesVarDict['waterConsumed'])
-					print('gsheet: logged consumption')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Place',curMachine)
-					print('gsheet: logged rig')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Date Stamp',gDStamp)
-					print('gsheet: logged date')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Time Stamp',gTStamp)
-					print('gsheet: logged time')
-				except:
-					print('did not log some things')
-		except:
-			print("failed to log")
-
-	print('finished your session')
-	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,useGUI)
-	csVar.sesVarDict['canQuit']=1
-	csSer.flushBuffer(teensy)
-	teensy.close()
-	if useGUI==1:
-		csGui.quitButton['text']="Quit"
+			sessionCleanup(1)
+	sessionCleanup(0)
 def runTrialOptoTask():
-	
-	cTime = datetime.datetime.now()
-	dStamp=cTime.strftime("%m_%d_%Y")
-	curMachine=csVar.getRig()
-	curTime = 0
-	curStateTime = 0
-	curInt = 0
-
-
-	makeTrialVariables()
-	
-	if useGUI==1:
-		csPlt.makeTrialFig_detection(csVar.sesVarDict['detectPlotNum'])
-		csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-	elif useGUI==0:
-		config.read(sys.argv[1])
-		csVar.sesVarDict=csVar.updateDictFromTXT(csVar.sesVarDict,config)
-	
-	[teensy,tTeensyState] = initializeTeensy()
-	initializeLoadCell()
-	mqttStart()
-	
-	# Set some session flow variables before the task begins
-	# Turn the session on. 
-	csVar.sesVarDict['sessionOn']=1
-	csVar.sesVarDict['canQuit']=0
-
-	if useGUI==1:
-		csGui.quitButton['text']="End Ses"
-	
-	csVar.sesVarDict['sampRate']=1000
-	csVar.sesVarDict['maxDur']=3600*2*csVar.sesVarDict['sampRate']
-	npSamps=csVar.sesVarDict['maxDur']
-	sesData = np.memmap('cur.npy', mode='w+',dtype=np.int32,\
-		shape=(npSamps,csVar.sesVarDict['dStreams']))
-	np.save('sesData.npy',sesData)
-
-	# Make HDF
-	f=csSesHDF.makeHDF(csVar.sesVarDict['dirPath'] +'/',csVar.sesVarDict['subjID'] + '_ses{}'.\
-		format(csVar.sesVarDict['curSession']),dStamp)
-
-	pyState=csVar.sesVarDict['startState']
-
-	# task-specific local variables
-	lastLick=0
-	lickCounter=0
-
-	sList=[0,1,2,3,4,5,6,7,8]
-	sHeaders=np.zeros(len(sList))
-	trialSamps=[0,0]
-	
-	serialBuf=bytearray()
-	sampLog=[]
-	if useGUI==1:
-		csGui.toggleTaskButtons(0)
-	stimTrials=[]
-	maskTrials=[]
-	loopCnt=0
-	csVar.sesVarDict['trialNum']=0
-	csVar.sesVarDict['lickLatchA']=0
-	outSyncCount=0
-	serialVarTracker = [0,0,0,0,0,0]
-	
-	sessionStarted = 0
-	# Send to 1, wait state.
-	teensy.write('a1>'.encode('utf-8')) 
-	
-	# now we can start a session.
+	csVar.sesVarDict['taskType']='trialOpto'
+	initializeTasks()
 	while csVar.sesVarDict['sessionOn']:
 		# try to execute the task.
 		try:
-			updateDetectionTaskVars()
-			[serialBuf,eR,tString]=csSer.readSerialBuffer(teensy,serialBuf,csVar.sesVarDict['serBufSize'])
-			if len(tString)==csVar.sesVarDict['dStreams']-1:
-
-				# handle timing stuff
-				intNum = int(tString[1])
-				tTime = int(tString[2])
-				tStateTime=int(tString[3])
-				# if time did not go backward (out of order packet) then increment python time, int, and state time.
-				if tTime >= curTime:
-					curTime = tTime
-					cutInt = intNum
-					curStateTime = tStateTime
-				
-				# check the teensy state
-				tTeensyState=int(tString[4])
-		
-
-				tFrameCount=0  # Todo: frame counter in.
-				# even if the the data came out of order, we need to assign it to the right part of the array.
-				for x in range(0,csVar.sesVarDict['dStreams']-2):
-					sesData[intNum,x]=int(tString[x+1])
-				sesData[intNum,csVar.sesVarDict['dStreams']-2]=pyState # The state python wants to be.
-				sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
-				loopCnt=loopCnt+1
-				
-				# d) If we are using the GUI plot updates ever so often.
-				if useGUI==1:
-					plotSamps=csVar.sesVarDict['plotSamps']
-					updateCount=csVar.sesVarDict['updateCount']
-					lyMin=-1
-					lyMax=4098
-					if csVar.sesVarDict['chanPlot']==11 or csVar.sesVarDict['chanPlot']==7:
-						lyMin=-0.1
-						lyMax=1.1
-					if loopCnt>plotSamps and np.mod(loopCnt,updateCount)==0:
-						if csVar.sesVarDict['chanPlot']==0:
-							csPlt.quickUpdateTrialFig(csVar.sesVarDict['trialNum'],\
-								csVar.sesVarDict['totalTrials'],tTeensyState)
-						elif csVar.sesVarDict['chanPlot'] != 0:
-							csPlt.updateTrialFig(np.arange(len(sesData[loopCnt-plotSamps:loopCnt,\
-								csVar.sesVarDict['chanPlot']])),sesData[loopCnt-plotSamps:loopCnt,\
-							csVar.sesVarDict['chanPlot']],csVar.sesVarDict['trialNum'],\
-								csVar.sesVarDict['totalTrials'],tTeensyState,[lyMin,lyMax])
-
-
-				# e) Lick detection. This can be done in hardware, but I like software because thresholds can be dynamic.
-				latchTime=50
-				if sesData[cutInt,5]>=csVar.sesVarDict['lickAThr'] and csVar.sesVarDict['lickLatchA']==0:
-					sesData[cutInt,csVar.sesVarDict['dStreams']-1]=1
-					csVar.sesVarDict['lickLatchA']=latchTime
-					# these are used in states
-					lickCounter=lickCounter+1
-					lastLick=curStateTime
-
-				elif csVar.sesVarDict['lickLatchA']>0:
-					csVar.sesVarDict['lickLatchA']=csVar.sesVarDict['lickLatchA']-1
-
-				# f) Resolve state.
-				# if the python side's desired state differs from the actual Teensy state
-				# then note in python we are out of sync, and try again next loop.
-				if pyState == tTeensyState:
-					stateSync=1
-				elif pyState != tTeensyState:
-					stateSync=0
-
-				# If we are out of sync for too long, then push another change over the serial line.
-				# ******* This is a failsafe, but it shouldn't really happen.
-				if stateSync==0:
-					outSyncCount=outSyncCount+1
-					if outSyncCount>=200:
-						teensy.write('a{}>'.format(pyState).encode('utf-8'))  
+			updateTaskVars()
+			newData = checkTeensyData()
+			if newData:
+				updatePlots()
+				stateResolution()
 
 				# 4) Now look at what state you are in and evaluate accordingly
-				if pyState == 1 and stateSync==1:
-					
-					if sHeaders[pyState]==0:
-						
-						
-						# if useGUI==1:
-							# csPlt.updateStateFig(1)
-						trialSamps[0]=loopCnt-1
+				if csVar.stateSync==1:
+					if csVar.pyState == 1:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+							# we treat state 1 as the begining of a trial
+							# so anything we need to fix between trials ...
+							trialMaintenance()
+							resolveOutputMasks()
+							try:
+								csVar.sesVarDict['useFlybackOpto'] = int(csGui.useFlybackOpto_TV.get())
+							except:
+								pass
+						# all we do in the body is update the DAC variables
+						sendDACVariables(220,320,420,520,720)
 
-						# reset counters that track state stuff.                 
-						outSyncCount=0
+						# state 1 exit:
+						if csVar.curStateTime>csVar.waitTime:
+							csVar.stateSync=0
+							if csVar.sesVarDict['useFlybackOpto']==1:
+								csVar.pyState=8
+								csSer.teensy.write('a8>'.encode('utf-8'))
+							elif csVar.sesVarDict['useFlybackOpto'] is not 1:
+							 	csVar.pyState=7
+							 	csSer.teensy.write('a7>'.encode('utf-8'))
+					elif csVar.pyState == 7:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+						if csVar.curStateTime>csVar.opticalStimTime[csVar.tTrial]:
+							csVar.trialSamps[1]=csVar.loopCnt
+							# update sample log
+							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
+							csVar.stateSync=0
+							csVar.pyState=1
+							csSer.teensy.write('a1>'.encode('utf-8'))
 
-						# g) Trial resolution.
-						# Some things we want to do once per trial. csBehavior has a soft concept of trial.
-						# This is because it is a state machine and is an ongoing dynmaic process. But, 
-						# we can define a trial any way we like. We define an elapsed trial as:
-						# any tranistion from state 1, to any other state or states, and back to state 1. 
-						# Thus, when you start the session, you have not finished a trial, you just started it. 
-						# We can do things we want to do once when we start new trials, here is state 1's header. 
-	
-						# 1) determine the current trial's visual and state timing variables.
-						# 	note we have not incremented the trialNum, which should start at 0, 
-						# 	thus we are indexing the array correctly without using a -1. 
-						
-						tTrial = csVar.sesVarDict['trialNum']
-						getThisTrialsVariables(tTrial)	
-						
-						if csVar.c1_mask[tTrial]==2:
-							csVar.c1_amp[tTrial]=0
-							csVar.c2_amp[tTrial]=csVar.c2_amp[tTrial]
-							stimTrials.append(1)
-							maskTrials.append(0)
-							print("optical --> mask trial; LED_C1: {}V; C2 {}V"\
-								.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
+							print('normal stim: last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+					elif csVar.pyState == 8:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+						if csVar.curStateTime>csVar.sesVarDict['minStim']:
+							csVar.trialSamps[1]=csVar.loopCnt
+							# update sample log
+							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
+							csVar.stateSync=0
+							csVar.pyState=1
+							csSer.teensy.write('a1>'.encode('utf-8'))
 
-						elif csVar.c1_mask[tTrial]!=2:
-							csVar.c1_amp[tTrial]=csVar.c1_amp[tTrial]
-							csVar.c2_amp[tTrial]=0
-							stimTrials.append(0)
-							maskTrials.append(1)
-							print("optical --> stim trial; LED_C1: {}V; C2 {}V"\
-								.format(5.0*(csVar.c1_amp[tTrial]/4095),5.0*(csVar.c2_amp[tTrial]/4095)))
-
-
-						csVar.sesVarDict['minStim']=csVar.opticalStimTime[tTrial]
-						waitTime = csVar.trialTime[tTrial]
-						# lickWaitTime = csVar.noLickTime[tTrial]
-
-						serialVarTracker = [0,0,0,0,0,0]
-
-						# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
-						# in the text file. However, we shouldn't poll all the time because we have to reopen the file each time. 
-						# We do so here. 
-						if useGUI==0:
-							config.read(sys.argv[1])
-							csVar.sesVarDict['totalTrials'] = int(config['sesVars']['totalTrials'])
-
-							if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
-								csVar.sesVarDict['sessionOn']=0
-						
-						# 3) incrment the trial count and 
-						csVar.sesVarDict['trialNum']=csVar.sesVarDict['trialNum']+1
-
-						# 4) inform the user via the terminal what's going on.
-						print('starting trial #{} of {}'.format(csVar.sesVarDict['trialNum'],\
-							csVar.sesVarDict['totalTrials']))
-						print('estimated trial time = {:0.3f} seconds'.format((csVar.noLickTime[tTrial] + csVar.trialTime[tTrial])*0.001))
-
-						# close the header and flip the others open.
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0
-
-					elif serialVarTracker[2] == 0 and curStateTime>=100:
-						optoVoltages = [int(csVar.c1_amp[tTrial]),int(csVar.c2_amp[tTrial])]
-						csSer.sendAnalogOutValues(teensy,'v',optoVoltages)
-						serialVarTracker[2] = 1
-
-					elif serialVarTracker[3] == 0 and curStateTime>=510:
-						optoPulseDurs = [int(csVar.c1_pulseDur[tTrial]),int(csVar.c2_pulseDur[tTrial])]
-						csSer.sendAnalogOutValues(teensy,'p',optoPulseDurs)
-						serialVarTracker[3] = 1
-
-					elif serialVarTracker[4] == 0 and curStateTime>=910:
-						optoIPIs = [int(csVar.c1_interPulseDur[tTrial]),int(csVar.c2_interPulseDur[tTrial])]
-						csSer.sendAnalogOutValues(teensy,'d',optoIPIs)
-						serialVarTracker[4] = 1
-
-					#elif serialVarTracker[5] == 0 and curStateTime>=610:
-					#	optoPulseNum = [int(csVar.c1_pulseCount[tTrial]),int(csVar.c2_pulseCount[tTrial])]
-					#	csSer.sendAnalogOutValues(teensy,'m',optoPulseNum)
-					#	serialVarTracker[5] = 1
-
-					if curStateTime>waitTime:
-						stateSync=0
-						if csVar.sesVarDict['useFlybackOpto'] == 1:
-							pyState=8
-							teensy.write('a8>'.encode('utf-8'))
-						elif csVar.sesVarDict['useFlybackOpto'] == 0:
-							pyState=7
-							teensy.write('a7>'.encode('utf-8'))
-
-				if pyState == 7 and stateSync==1:
-					if sHeaders[pyState]==0:
-						outSyncCount=0
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0                        
-
-					if curStateTime>csVar.sesVarDict['minStim']:
-						trialSamps[1]=loopCnt
-						sampLog.append(np.diff(trialSamps)[0])
-						stateSync=0
-						pyState=1
-						teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(sampLog[-1]/1000))
-						
-				if pyState == 8 and stateSync==1:
-					if sHeaders[pyState]==0:
-						outSyncCount=0
-						sHeaders[pyState]=1
-						sHeaders[np.setdiff1d(sList,pyState)]=0                        
-
-					if curStateTime>csVar.sesVarDict['minStim']:
-						trialSamps[1]=loopCnt
-						sampLog.append(np.diff(trialSamps)[0])
-						stateSync=0
-						pyState=1
-						teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(sampLog[-1]/1000))
-				
+							print('flyback stim: last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
 
 		except:
-			sesData.flush()
-			np.save('sesData.npy',sesData)
-			print(loopCnt)
-			print(tString)
-			sesData[intNum,x]=int(tString[x+1])
-			if useGUI==1:
-				csGui.toggleTaskButtons(1)
-			
-			csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-			if useGUI:
-				csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
+			sessionCleanup(1)
+	sessionCleanup(0)
+def runSimpleRecord():
+	csVar.sesVarDict['taskType']='simpleRecording'
+	initializeTasks()
 
-			teensy.write('a0>'.encode('utf-8'))
-			time.sleep(0.05)
-			teensy.write('a0>'.encode('utf-8'))
-
-			print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
-			csVar.sesVarDict['trialNum']=0
-			if useGUI==1:
-				csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
-			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
-			
-			tSessionNum = csVar.sesVarDict['curSession']-1
-			f["session_{}".format(tSessionNum)]=sesData[0:loopCnt,:]
-			for x in csVar.sensory['varsToUse']:
-				f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-			for x in csVar.timing['varsToUse']:
-				f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-			for x in csVar.optical['varsToUse']:
-				f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-
-			f["session_{}".format(tSessionNum)].attrs['stimTrials']=stimTrials
-			f["session_{}".format(tSessionNum)].attrs['maskTrials']=maskTrials
-			f["session_{}".format(tSessionNum)].attrs['trialDurs']=sampLog
-			f.close()
-
-			
-
-			# Update MQTT Feeds
-			if csVar.sesVarDict['logMQTT']:
-				try:
-					csVar.sesVarDict['curWeight']=(np.mean(sesData[-1000:-1,4])-csVar.sesVarDict['loadBaseline'])*0.1
-					csAIO.rigOffLog(aio,csVar.sesVarDict['subjID'],\
-						csVar.sesVarDict['curWeight'],\
-						curMachine,csVar.sesVarDict['mqttUpDel'])
-
-					# update animal's water consumed feed.
-					csVar.sesVarDict['waterConsumed']=int(csVar.sesVarDict['waterConsumed']*10000)/10000
-					aio.send('{}-waterconsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
-					topAmount=csVar.sesVarDict['consumpTarg']-csVar.sesVarDict['waterConsumed']
-					topAmount=int(topAmount*10000)/10000
-					if topAmount<0:
-						topAmount=0
-				 
-					print('give {:0.3f} ml later by 12 hrs from now'.format(topAmount))
-					aio.send('{}-topvol'.format(csVar.sesVarDict['subjID']),topAmount)
-				except:
-					pass
-			if useGUI==1:
-				csVar.sesVarDict=csGui.updateDictFromGUI(csVar.sesVarDict)
-			csVar.sesVarDict_bindings=csVar.dictToPandas(csVar.sesVarDict)
-			csVar.sesVarDict_bindings.to_csv(csVar.sesVarDict['dirPath'] + '/' +'sesVars.csv')
-
-			csSer.flushBuffer(teensy) 
-			teensy.close()
-			csVar.sesVarDict['canQuit']=1
-			if useGUI==1:
-				csGui.quitButton['text']="Quit"
-						 
-
-	tSessionNum = csVar.sesVarDict['curSession']
-	f["session_{}".format(tSessionNum)]=sesData[0:loopCnt,:]
-	for x in csVar.sensory['varsToUse']:
-		f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-	for x in csVar.timing['varsToUse']:
-		f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-	for x in csVar.optical['varsToUse']:
-		f["session_{}".format(tSessionNum)].attrs[x]=eval('csVar.' + x)
-
-	f["session_{}".format(tSessionNum)].attrs['stimTrials']=stimTrials
-	f["session_{}".format(tSessionNum)].attrs['maskTrials']=maskTrials
-	f["session_{}".format(tSessionNum)].attrs['trialDurs']=sampLog
-	f.close()
-		
-	if useGUI==1:
-		csGui.toggleTaskButtons(1)
-	
-	csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-	if useGUI==1:
-		csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
-	
-	teensy.write('a0>'.encode('utf-8'))
-	time.sleep(0.05)
-	teensy.write('a0>'.encode('utf-8'))
-
-	print('finished {} trials'.format(csVar.sesVarDict['trialNum']-1))
-	csVar.sesVarDict['trialNum']=0
-
-	# Update MQTT Feeds
-	if csVar.sesVarDict['logMQTT']:
+	while csVar.sesVarDict['sessionOn']:
+		# try to execute the task.
 		try:
-			csVar.sesVarDict['curWeight']=(np.mean(sesData[loopCnt-plotSamps:loopCnt,4])-\
-				csVar.sesVarDict['loadBaseline'])*0.1
-			csVar.sesVarDict['waterConsumed']=int(csVar.sesVarDict['waterConsumed']*10000)/10000
-			topAmount=csVar.sesVarDict['consumpTarg']-csVar.sesVarDict['waterConsumed']
-			topAmount=int(topAmount*10000)/10000
-			if topAmount<0:
-				topAmount=0
-			print('give {:0.3f} ml later by 12 hrs from now'.format(topAmount))
+			updateTaskVars()
+			newData = checkTeensyData()
+			if newData:
+				updatePlots()
+				lickDetection()
+				stateResolution()
 
-			try:
-				csAIO.rigOffLog(aio,csVar.sesVarDict['subjID'],\
-					csVar.sesVarDict['curWeight'],curMachine,csVar.sesVarDict['mqttUpDel'])
-				aio.send('{}-waterconsumed'.format(csVar.sesVarDict['subjID']),csVar.sesVarDict['waterConsumed'])
-				aio.send('{}-topvol'.format(csVar.sesVarDict['subjID']),topAmount)
-			except:
-				print('failed to log mqtt info')
-	   
-			# update animal's water consumed feed.
+				# 4) Now look at what state you are in and evaluate accordingly
+				if csVar.pyState == 1 and csVar.stateSync==1:
+					if csVar.sHeaders[csVar.pyState]==0:
+						genericHeader()
+						# we treat state 1 as the begining of a trial
+						# so anything we need to fix between trials ...
+						trialMaintenance()
 
-			try:
-				gDStamp=datetime.datetime.now().strftime("%m/%d/%Y")
-				gTStamp=datetime.datetime.now().strftime("%H:%M:%S")
-			except:
-				print('did not log to google sheet')
-		
-			try:
-				print('attempting to log to sheet')
-				gSheet=csAIO.openGoogleSheet(gHashPath)
-				canLog=1
-			except:
-				print('failed to open google sheet')
-				canLog=0
-		
-			if canLog==1:
-				try:
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Weight Post',csVar.sesVarDict['curWeight'])
-					print('gsheet: logged weight')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Delivered',csVar.sesVarDict['waterConsumed'])
-					print('gsheet: logged consumption')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Place',curMachine)
-					print('gsheet: logged rig')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Date Stamp',gDStamp)
-					print('gsheet: logged date')
-					csAIO.updateGoogleSheet(gSheet,csVar.sesVarDict['subjID'],\
-						'Time Stamp',gTStamp)
-					print('gsheet: logged time')
-				except:
-					print('did not log some things')
 		except:
-			print("failed to log")
-
-	print('finished your session')
-	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,useGUI)
-	csVar.sesVarDict['canQuit']=1
-	csSer.flushBuffer(teensy)
-	teensy.close()
-	if useGUI==1:
-		csGui.quitButton['text']="Quit"
+			sessionCleanup(1)
+	sessionCleanup(0)
 
 if useGUI==1:
 	
@@ -2830,3 +2630,4 @@ elif useGUI==0:
 		runDetectionTask()
 
 
+dd

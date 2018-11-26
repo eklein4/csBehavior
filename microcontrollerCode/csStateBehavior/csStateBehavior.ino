@@ -13,7 +13,7 @@
 // On a Teensy 3.6, each interrupt takes ~50-100 us depending on how many variables are processed.
 //
 // Questions: Chris Deister --> cdeister@brown.edu
-// Last Update 10/30/2018 
+// Last Update 10/30/2018
 //
 //
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -24,6 +24,8 @@
 //
 // Include config vars
 #include "header.h"
+
+#include <math.h>
 
 // Builtin Libraries
 #include <Wire.h>
@@ -172,7 +174,7 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // d/9: interpulse duration (us) of train X end the call with the DAC# so d1001 will set the IPI of DAC1 to 100.
 // p/10: pulse duration (us) of train X end the call with the DAC# so p101 will set the pulse dur of DAC1 to 10.
 // v/11: pulse amplitude of train X end the call with the DAC# so v40001 will set the pulse dur of DAC1 to 4000.
-// t/12: stim type of train X end the call with the DAC# 0 is pulse train and 1 is ramp; so t11> will set DAC1 to ramp.
+// t/12: stim type of train X end the call with the DAC# 0 is pulse train, 1 is ramp, 2 is asymmetric cosine stim; so t11> will set DAC1 to ramp.
 // m/13: max pulses for a stimulus for channel X. m381> will set the number of pulses on DAC1 to 38.
 // ____ Misc.
 // l/14: current value on loadCell
@@ -192,26 +194,28 @@ int knownCount = 21;
 
 // f) stim trains
 // **** here is a map of what each array entry actually does:
-// 0: pulse or baseline?
+// 0: baseline (0) or pulse (1) states
 // 1: stop bit; if you set a max pulse num, it will count down and flip this. If not 0, pulsing will stop.
 // 2/3: baseline/pulse duration in interrupts (ms by default)
 // 4/5: baseline/stim amplitude (as a 12-bit version of 3.3V e.g. 0V is 0 and 3.3V is 4095)
 // 6: Stim type (0 for pulse train; 1 for linear ramp) todo: Ramp has a bug I think.
 // 7: Write Value (determined by the pulseGen function and is what we write to the DAC each interrupt).
 // 8: number of pulses to complete
+// 9: up or down bit: used for complex kernels like asymmetric cosine
 // todo: swap 7 and 8
-uint32_t pulseTrainVars[][9] =
-{ {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13]},
-  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13]},
-  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13]},
-  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13]}
+uint32_t pulseTrainVars[][10] =
+{ {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
+  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
+  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
+  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
+  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0}
 };
 
 // stim trains are timed with elapsedMicros timers, which we store in an array to loop with channels.
-elapsedMillis trainTimer[3];
+elapsedMillis trainTimer[4];
 
 
-uint32_t analogOutVals[] = {pulseTrainVars[0][7], pulseTrainVars[1][7], pulseTrainVars[2][7], pulseTrainVars[3][7]};
+uint32_t analogOutVals[] = {pulseTrainVars[0][7], pulseTrainVars[1][7], pulseTrainVars[2][7], pulseTrainVars[3][7], pulseTrainVars[4][7]};
 
 // g) Reward Params
 uint32_t rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulus
@@ -239,8 +243,8 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 void setup() {
   // Start MCP DACs
-  //  dac3.begin(dac3Address); //adafruit A0 pulled high
-  //  dac4.begin(dac4Address); // sparkfun A0 pulled low
+//  dac3.begin(dac3Address); //adafruit A0 pulled high
+//  dac4.begin(dac4Address); // sparkfun A0 pulled low
 
   // todo: Setup Cyclops
   // Start the device
@@ -564,9 +568,9 @@ void dataReport() {
   Serial.print(',');
   Serial.print(genAnalogInput1);
   Serial.print(',');
-  Serial.print(pulseTrainVars[0][1]);
+  Serial.print(genAnalogInput2);
   Serial.print(',');
-  Serial.println(pulseTrainVars[1][1]);
+  Serial.println(genAnalogInput3);
 }
 
 int flagReceive(char varAr[], int32_t valAr[]) {
@@ -719,10 +723,25 @@ void genericHeader(int stateNum) {
   analogOutVals[1] = 0;
   analogOutVals[2] = 0;
   analogOutVals[3] = 0;
+  analogOutVals[4] = 0;
+  
   pulseTrainVars[0][0] = 1;
   pulseTrainVars[1][0] = 1;
   pulseTrainVars[2][0] = 1;
   pulseTrainVars[3][0] = 1;
+  pulseTrainVars[4][0] = 1;
+
+  pulseTrainVars[0][1] = 0;
+  pulseTrainVars[1][1] = 0;
+  pulseTrainVars[2][1] = 0;
+  pulseTrainVars[3][1] = 0;
+  pulseTrainVars[4][1] = 0;
+
+  pulseTrainVars[0][9] = 0;
+  pulseTrainVars[1][9] = 0;
+  pulseTrainVars[2][9] = 0;
+  pulseTrainVars[3][9] = 0;
+  pulseTrainVars[4][9] = 0;
 
   // d: reset state timer.
   stateTime = 0;
@@ -807,9 +826,9 @@ void frameCount() {
 
 void flybackStim_On() {
 
-
+  pulseCount = pulseCount + 1;
   if (knownValues[0] == 8) {
-    
+
     elapsedMicros pfTime;
     pfTime = 0;
     while (pfTime <= knownValues[16]) {
@@ -827,23 +846,25 @@ void flybackStim_On() {
 // ****************************************************************
 // **************  Pulse Train Function ***************************
 // ****************************************************************
-void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][9]) {
+void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][10]) {
   dacVals[0] = pulseTracker[0][7];
   dacVals[1] = pulseTracker[1][7];
   dacVals[2] = pulseTracker[2][7];
   dacVals[3] = pulseTracker[3][7];
+  dacVals[4] = pulseTracker[4][7];
 }
 
 void writeAnalogOutValues(uint32_t dacVals[]) {
   analogWrite(DAC1, dacVals[0]);
   analogWrite(DAC2, dacVals[1]);
-  //  dac3.setVoltage(dacVals[2], false);
-  //  dac4.setVoltage(dacVals[3], false);
+//  dac3.setVoltage(dacVals[2], false);
+//  dac4.setVoltage(dacVals[3], false);
+//  dac5.setVoltage(dacVals[4], false);
 }
 
-void stimGen(uint32_t pulseTracker[][9]) {
+void stimGen(uint32_t pulseTracker[][10]) {
   int i;
-  for (i = 0; i < 4; i = i + 1) {
+  for (i = 0; i < 5; i = i + 1) {
     // *** 0 == Square Waves
     if (pulseTracker[i][6] == 0) {
       // PULSE STATE
@@ -854,20 +875,22 @@ void stimGen(uint32_t pulseTracker[][9]) {
           trainTimer[i] = 0; // reset counter
           pulseTracker[i][0] = 0; // stop pulsing
           pulseTracker[i][7] = pulseTracker[i][4];
-          //          if (pulseTracker[i][8]  > 0) {
-          //            pulseTracker[i][8] = pulseTracker[i][8] - 1;
-          //            pulseTracker[i][1] = 1;
-          //          }
+          if (pulseTracker[i][8]  > 0) {
+            pulseTracker[i][8] = pulseTracker[i][8] - 1;
+            if (pulseTracker[i][8]<=0){
+              pulseTracker[i][1] = 1;
+              pulseTracker[i][8] = 0;
+            }
+          }
         }
         else {
           // if we still have pulse time, and we haven't flipped the stop bit, then pulse.
-          if (pulseTracker[i][1] == 0) {
+          if (pulseTracker[i][1]==0) {
             pulseTracker[i][7] = pulseTracker[i][5]; // 5 is the pulse amp; 7 is the current output.
           }
-          //          else if (pulseTracker[i][1] == 1){
-          //            Serial.println("ones");
-          //            pulseTracker[i][7] = pulseTracker[i][4]; // baseline
-          //          }
+          else if (pulseTracker[i][1]==1) {
+            pulseTracker[i][7] = pulseTracker[i][4]; // baseline
+          }
         }
       }
 
@@ -887,8 +910,67 @@ void stimGen(uint32_t pulseTracker[][9]) {
       }
     }
     // add ramp back here
+
+    // 2) Asymm Cosine
+    else if (pulseTracker[i][6] == 2) {
+
+      // PULSE STATE
+      if (pulseTracker[i][0] == 1) {
+        // These pulses idealy have a variable time.
+        if (pulseTracker[i][1] == 0) {
+
+          if (trainTimer[i] <= 10) {
+            pulseTracker[i][10] = 0;
+          }
+
+          else if (trainTimer[i] > 10) {
+            pulseTracker[i][10] = 1;
+          }
+
+          if (pulseTracker[i][10] == 0) {
+            float curTimeSc = PI + ((PI * (trainTimer[i] - 1)) / 10);
+            pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
+          }
+          else if (pulseTracker[i][10] == 1) {
+            float curTimeSc = 0 + ((PI * (trainTimer[i] - 1)) / 100);
+            pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
+          }
+
+          if (trainTimer[i] > 110) {
+            pulseTracker[i][10] = 0;
+            pulseTracker[i][0] = 0;
+            trainTimer[i] = 0;
+            pulseTracker[i][7] = pulseTracker[i][4];
+            if (pulseTracker[i][8]  > 0) {
+              pulseTracker[i][8] = pulseTracker[i][8] - 1;
+              pulseTracker[i][1] = 1;
+            }
+          }
+
+        }
+        else if (pulseTracker[i][1] == 1) {
+          pulseTracker[i][7] = pulseTracker[i][4]; // baseline
+        }
+      }
+
+      // baseline STATE
+      else if (pulseTracker[i][0] == 0) {
+        if (trainTimer[i] >=  pulseTracker[i][2]) {
+          pulseTracker[i][0] = 1;
+          pulseTracker[i][10] = 0;
+          trainTimer[i] = 0;
+          pulseTracker[i][7] = pulseTracker[i][4];
+        }
+        else {
+          pulseTracker[i][7] = pulseTracker[i][4];
+        }
+      }
+
+    }
   }
 }
+
+
 
 // ----------------------------------------------
 // ---------- NEOPIXEL FUNCTIONS ----------------

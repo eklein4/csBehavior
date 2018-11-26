@@ -1,0 +1,10 @@
+I ran into an SSH issue
+https://www.raspberrypi.org/forums/viewtopic.php?t=177111
+
+sudo rm -r /etc/ssh/ssh*key
+sudo dpkg-reconfigure openssh-server
+
+
+avoid_warnings=1
+
+https://www.pyimagesearch.com/2017/09/04/raspbian-stretch-install-opencv-3-python-on-your-raspberry-pi/
