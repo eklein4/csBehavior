@@ -94,8 +94,8 @@ elapsedMicros loopTime;
 #define DAC2 A22
 
 // ~~~ MCP DACs
-Adafruit_MCP4725 dac3;
-Adafruit_MCP4725 dac4;
+//Adafruit_MCP4725 dac3;
+//Adafruit_MCP4725 dac4;
 
 
 // **** Make neopixel object
@@ -207,14 +207,15 @@ uint32_t pulseTrainVars[][10] =
 { {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
   {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
   {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
+  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
   {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0}
 };
 
 // stim trains are timed with elapsedMicros timers, which we store in an array to loop with channels.
-elapsedMillis trainTimer[3];
+elapsedMillis trainTimer[4];
 
 
-uint32_t analogOutVals[] = {pulseTrainVars[0][7], pulseTrainVars[1][7], pulseTrainVars[2][7], pulseTrainVars[3][7]};
+uint32_t analogOutVals[] = {pulseTrainVars[0][7], pulseTrainVars[1][7], pulseTrainVars[2][7], pulseTrainVars[3][7], pulseTrainVars[4][7]};
 
 // g) Reward Params
 uint32_t rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulus
@@ -242,8 +243,8 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 void setup() {
   // Start MCP DACs
-  dac3.begin(dac3Address); //adafruit A0 pulled high
-  dac4.begin(dac4Address); // sparkfun A0 pulled low
+//  dac3.begin(dac3Address); //adafruit A0 pulled high
+//  dac4.begin(dac4Address); // sparkfun A0 pulled low
 
   // todo: Setup Cyclops
   // Start the device
@@ -722,20 +723,25 @@ void genericHeader(int stateNum) {
   analogOutVals[1] = 0;
   analogOutVals[2] = 0;
   analogOutVals[3] = 0;
+  analogOutVals[4] = 0;
+  
   pulseTrainVars[0][0] = 1;
   pulseTrainVars[1][0] = 1;
   pulseTrainVars[2][0] = 1;
   pulseTrainVars[3][0] = 1;
+  pulseTrainVars[4][0] = 1;
 
   pulseTrainVars[0][1] = 0;
   pulseTrainVars[1][1] = 0;
   pulseTrainVars[2][1] = 0;
   pulseTrainVars[3][1] = 0;
+  pulseTrainVars[4][1] = 0;
 
   pulseTrainVars[0][9] = 0;
   pulseTrainVars[1][9] = 0;
   pulseTrainVars[2][9] = 0;
   pulseTrainVars[3][9] = 0;
+  pulseTrainVars[4][9] = 0;
 
   // d: reset state timer.
   stateTime = 0;
@@ -845,18 +851,20 @@ void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][10]) {
   dacVals[1] = pulseTracker[1][7];
   dacVals[2] = pulseTracker[2][7];
   dacVals[3] = pulseTracker[3][7];
+  dacVals[4] = pulseTracker[4][7];
 }
 
 void writeAnalogOutValues(uint32_t dacVals[]) {
   analogWrite(DAC1, dacVals[0]);
   analogWrite(DAC2, dacVals[1]);
-  dac3.setVoltage(dacVals[2], false);
-  dac4.setVoltage(dacVals[3], false);
+//  dac3.setVoltage(dacVals[2], false);
+//  dac4.setVoltage(dacVals[3], false);
+//  dac5.setVoltage(dacVals[4], false);
 }
 
 void stimGen(uint32_t pulseTracker[][10]) {
   int i;
-  for (i = 0; i < 4; i = i + 1) {
+  for (i = 0; i < 5; i = i + 1) {
     // *** 0 == Square Waves
     if (pulseTracker[i][6] == 0) {
       // PULSE STATE

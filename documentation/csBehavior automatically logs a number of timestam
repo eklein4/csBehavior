@@ -1,0 +1,8 @@
+csBehavior automatically logs a number of timestamped notes, and saves them in the HDF. Optionally, csBehavior can log those notes, and a variety of ueseful variables to an MQTT broker, and/or a google sheet.
+
+Basic Notes:
+The GUI class creates a note log, and automatically starts the log with the following:
+_ the subject
+_ the time a session starts/ends
+_ the number of trials in the session
+_ d' or some other behavioral metric at the end of a session (if applicable)

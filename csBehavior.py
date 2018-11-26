@@ -424,8 +424,10 @@ class csGUI(object):
 
 		if varPerCol == 0:
 			varPerCol = len(list(dictName.keys()))
-
-		exec('r_label = Label(self.{}, text="{}",background ="black",foreground ="white")'.format(frameName,headerString))
+		if self.darkMode:
+			exec('r_label = Label(self.{}, text="{}",background ="black",foreground ="white")'.format(frameName,headerString))
+		else:
+			exec('r_label = Label(self.{}, text="{}")'.format(frameName,headerString))
 		exec('r_label.grid(row=1,column=stCol,sticky=W)'.format(dictName))
 		
 		for key in list(dictName.keys()):
@@ -440,23 +442,29 @@ class csGUI(object):
 					exec('self.{}_entries=Entry(self.{},width={},textvariable=self.{}_TV)'.format(key,frameName,entryWidth,key))
 				exec('self.{}_label.grid(row={}, column=curColumnEnt,sticky=W)'.format(key,rowCounter+rowOffset))
 				exec('self.{}_entries.grid(row={}, column=curColumn)'.format(key,rowCounter+rowOffset))
+				
 				# This stuff lets us display ints, floats, ranges and lists correctly
-				if type(dictName[key]) is int or type(dictName[key]) is float:
-					exec('self.{}_TV.set({})'.format(key,dictName[key]))
-				elif type(dictName[key]) is range:
-					tempStr = ["{},>,{}".format(dictName[key][0],dictName[key][-1])]
-					exec('self.{}_TV.set({})'.format(key,tempStr))
-				elif type(dictName[key]) is list:
-					tempStr = ''
-					if len(dictName[key]) == 0:
-						tempStr = ','
-					elif len(dictName[key]) > 0:
-						for x in dictName[key]:
-							tempStr = tempStr + '{}'.format(x) + ','
-					if tempStr[-1] is ',':
-						tempStr=tempStr[0:-1]
-					exec('self.{}_TV.set(tempStr)'.format(key))
 
+				try:
+					if type(dictName[key]) is int or type(dictName[key]) is float:
+						exec('self.{}_TV.set({})'.format(key,dictName[key]))
+					elif type(dictName[key]) is range:
+						tempStr = ["{},>,{}".format(dictName[key][0],dictName[key][-1])]
+						exec('self.{}_TV.set({})'.format(key,tempStr))
+					elif type(dictName[key]) is list:
+		
+						tempStr = ''
+						if len(dictName[key]) == 0:
+							pass
+						elif len(dictName[key]) > 0:
+							for x in dictName[key]:
+								tempStr = tempStr + '{}'.format(x) + ','
+							if tempStr[-1] is ',':
+								tempStr=tempStr[0:-1]
+		
+						exec('self.{}_TV.set(tempStr)'.format(key))
+				except:
+					exec('self.{}_TV.set("")'.format(key))
 				rowCounter=rowCounter+1
 				if rowCounter >= varPerCol:
 					rowCounter = 0
@@ -465,18 +473,23 @@ class csGUI(object):
 	def makeTimingWindow(self,master,timingDict):
 		
 		self.timingControl_frame = Toplevel(self.master)
-		self.timingControl_frame.configure(background='black')
+		if self.darkMode:
+			self.timingControl_frame.configure(background='black')
+
+
 		self.timingControl_frame.title('Session/Trial Timing')
 		self.populateVarFrameFromDict(timingDict,0,0,'Current Values','timingControl_frame',['varsToUse','trialCount'],entryWidth=12)
 		self.tBtn_updateTimingDict = Button(self.timingControl_frame,text="Update Timing Vars",justify=LEFT,width=15,\
 			command=lambda: self.updateDictFromGUI(timingDict))
-		self.tBtn_updateTimingDict.configure(foreground='white')
-		self.tBtn_updateTimingDict.configure(highlightbackground='black')
+		if self.darkMode:
+			self.tBtn_updateTimingDict.configure(foreground='white')
+			self.tBtn_updateTimingDict.configure(highlightbackground='black')
 		self.tBtn_updateTimingDict.grid(row=999,column=0,padx=2,pady=2)
 	def makeVisualWindow(self,master,visualDict):
 		
 		self.visualControl_frame = Toplevel(self.master)
-		self.visualControl_frame.configure(background='black')
+		if self.darkMode:
+			self.visualControl_frame.configure(background='black')
 		self.visualControl_frame.title('Visual Probs')
 		self.populateVarFrameFromDict(visualDict,0,10,'Cur Val','visualControl_frame',['varsToUse','trialCount'],entryWidth=12)
 		self.tBtn_updateVisualDict = Button(self.visualControl_frame,text="Update Visual Vars",justify=LEFT,width=15,\
@@ -485,7 +498,8 @@ class csGUI(object):
 	def makeOpticalWindow(self,master,opticalDict):
 		
 		self.opticalControl_frame = Toplevel(self.master)
-		self.opticalControl_frame.configure(background='black')
+		if self.darkMode:
+			self.opticalControl_frame.configure(background='black')
 		self.opticalControl_frame.title('Optical Probs')
 		self.populateVarFrameFromDict(opticalDict,0,20,'Pew Pew','opticalControl_frame',['varsToUse','trialCount'],entryWidth=12)
 		self.tBtn_updateOpticalDict = Button(self.opticalControl_frame,text="Update Optical Vars",justify=LEFT,width=15,\
@@ -893,17 +907,15 @@ class csGUI(object):
 		return self.devPathStrings
 	def loadCSVDictionary(self,varDict,csvPath):
 		try:
-			tempMeta=pd.read_csv(dictionaryPath,index_col=0,header=None)
+			tempMeta=pd.read_csv(csvPath,index_col=0,header=None)
 			varDict = self.updateDictFromPandas(tempMeta,varDict)
 			self.refreshGuiFromDict(varDict)
-			print("debug: yup")
 		except:
 			pass
 		return varDict
 	def getPath(self,varDict,timingDict,visualDict,opticalDict):
 		try:
 			tPth = fd.askdirectory(title ="what what?")
-			print('debug path type = {}'.format(tPth))
 			basePath = Path(tPth)
 		except:
 			# default to home directory
@@ -914,10 +926,10 @@ class csGUI(object):
 		varDict['dirPath']=basePath
 		varDict['subjID']=basePath.name
 		self.toggleTaskButtons(1)
-		varDict = self.loadCSVDictionary(varDict,basePath.as_posix() +'/' + 'sesVars.csv')
-		timingDict = self.loadCSVDictionary(timingDict,basePath.as_posix() +'/' + 'timingVars.csv')
-		visualDict = self.loadCSVDictionary(visualDict,basePath.as_posix() +'/' + 'sensVars.csv')
-		opticalDict = self.loadCSVDictionary(opticalDict,basePath.as_posix() +'/' + 'opticalVars.csv')
+		varDict = self.loadCSVDictionary(varDict,basePath.joinpath('sesVars.csv'))
+		timingDict = self.loadCSVDictionary(timingDict,basePath.joinpath('timingVars.csv'))
+		visualDict = self.loadCSVDictionary(visualDict,basePath.joinpath('sensVars.csv'))
+		opticalDict = self.loadCSVDictionary(opticalDict,basePath.joinpath('opticalVars.csv'))
 
 
 	def toggleTaskButtons(self,boolState=1):
@@ -1215,7 +1227,7 @@ class csVariables(object):
 
 		self.optical={'trialCount':1000,\
 		'varsToUse':['c1_amp','c1_pulseDur','c1_interPulseDur','c1_pulseCount',\
-		'c2_amp','c2_pulseDur','c2_interPulseDur','c2_pulseCount','c1_mask'],\
+		'c2_amp','c2_pulseDur','c2_interPulseDur','c2_pulseCount','c1_mask','c5_waveform'],\
 		'c1_amp_min':0,'c1_amp_max':4095,'c1_amp_steps':[1000],'c1_amp_probs':[0.0,1.0],\
 		'c1_pulseDur_min':10,'c1_pulseDur_max':10,'c1_pulseDur_steps':[],'c1_pulseDur_probs':[1.0,0.0],\
 		'c1_interPulseDur_min':90,'c1_interPulseDur_max':90,'c1_interPulseDur_steps':[90],'c1_interPulseDur_probs':[1.0,0.0],\
@@ -1237,8 +1249,8 @@ class csVariables(object):
 		'c5_interPulseDur_min':90,'c5_interPulseDur_max':90,'c5_interPulseDur_steps':[90],'c5_interPulseDur_probs':[1.0,0.0],\
 		'c5_pulseCount_min':20,'c5_pulseCount_max':20,'c5_pulseCount_steps':[20],'c5_pulseCount_probs':[0.0,1.0],\
 		'c1_mask_min':2,'c1_mask_max':1,'c1_mask_steps':[],'c1_mask_probs':[0.3,0.7],\
-		'c2_mask_min':1,'c2_mask_max':2,'c2_mask_steps':[],'c2_mask_probs':[0.3,0.7],}
-	
+		'c2_mask_min':1,'c2_mask_max':2,'c2_mask_steps':[],'c2_mask_probs':[0.3,0.7],\
+		'c5_waveform_min':0,'c5_waveform_max':1,'c5_waveform_steps':2,'c5_waveform_probs':[0.5,0.0]}
 	def getFeatureProb(self,probDict):
 		labelList = probDict['varsToUse']
 		trLen = probDict['trialCount']
@@ -1289,14 +1301,16 @@ class csVariables(object):
 						computeSteps = 0
 			except:
 				# then it is singular and numeric
-				computeSteps = 0
+				computeSteps = 1
 			curStepProb=1-(curMaxProb+curMinProb)
+			
 			if curStepProb <= 0:
 				curStepCount = 0
 				computeSteps = 0
 			elif curStepProb > 0:
 				curStepCount = int(np.round(curAvail*curStepProb))
 				tempCountArray[2,x]=curStepCount
+	
 
 			# deal with mins
 			np.random.shuffle(availIndicies)
@@ -1315,13 +1329,21 @@ class csVariables(object):
 			# C) compute steps
 			if computeSteps == 1:
 				try:
-					if len(curSteps)>0:
+					if type(curSteps) == list:
+						
+						if len(curSteps)>0:
+							for g in range(0,len(availIndicies)):
+								tempArray[availIndicies[g],x] = curSteps[np.random.randint(len(curSteps))]
+						elif len(curSteps)==0 and len(availIndicies)>0:
+							print("h2")
+							print(curStr)
+							for g in range(0,len(availIndicies)):
+								tempRand=[curMax,curMin]
+								tempArray[availIndicies[g],x] = tempRand[np.random.randint(2)]
+					else:
+
 						for g in range(0,len(availIndicies)):
-							tempArray[availIndicies[g],x] = curSteps[np.random.randint(len(curSteps))]
-					elif len(curSteps)==0 and len(availIndicies)>0:
-						for g in range(0,len(availIndicies)):
-							tempRand=[curMax,curMin]
-							tempArray[availIndicies[g],x] = tempRand[np.random.randint(2)]
+							tempArray[availIndicies[g],x] = curSteps
 				except:
 					pass
 		trialVar_pandaFrame = pd.DataFrame(tempArray,columns = varIndex)
@@ -1653,9 +1675,10 @@ class csSerial(object):
 
 	def sendAnalogOutValues(self,comObj,varChar,sendValues):
 		# Specific to csStateBehavior defaults.
-		# Analog output is handled by passing a variable and specifying a channel (1-4)
-		comObj.write('{}{}1>'.format(varChar,sendValues[0]).encode('utf-8'))
-		comObj.write('{}{}2>'.format(varChar,sendValues[1]).encode('utf-8'))
+		# Analog output is handled by passing a variable and specifying a channel (1-X)
+		for x in sendValues:
+			comObj.write('{}{}{}>'.format(varChar,sendValues[0],x+1).encode('utf-8'))
+
 
 	def sendVisualValues(self,comObj,trialNum):
 		
@@ -1695,12 +1718,16 @@ class csPlot(object):
 		for yVals in list(self.stPlotY.values()):
 			self.pltY.append(yVals)
 	def makeTrialFig_detection(self,fNum):
+		try:
+			plt.close(fNum)
+		except:
+			pass
 		dGrid = plt.GridSpec(9, 2, wspace=0.2, hspace=0.2) # 1 row, 5 col , wspace=0.4, hspace=0.3
 		self.initializeDetectFigVars()
 		self.binDP=[]
 		# Make feedback figure.
 		#figure(num=None, figsize=(8, 6), dpi=80, facecolor='w', edgecolor='k')
-		self.trialFig = plt.figure(fNum,figsize=(4,3))
+		self.trialFig = plt.figure(fNum,figsize=(5,3))
 		self.trialFramePosition='+250+0' # can be specified elsewhere
 		mng = plt.get_current_fig_manager()
 		eval('mng.window.wm_geometry("{}")'.format(self.trialFramePosition))
@@ -1902,7 +1929,6 @@ def initializeLoadCell():
 		print("pre weight={}".format(preWeight))
 		tNote = 'pre-session weight = {}'.format(preWeight)
 		csGui.curNotes.append(tNote)
-		print(csVar.sesVarDict['logMQTT'])
 		if csVar.sesVarDict['logMQTT']==1:
 			csGui.makeNotes(csVar.sesVarDict['subjID'] + '-notes',tNote,csVar.sesVarDict)
 	except:
@@ -1953,8 +1979,6 @@ def mqttStart():
 			print('logged into aio (mqtt broker)')
 			
 			try:
-				print(tSubj + '-weight')
-				print(aio)
 				csAIO.sendData(tSubj + '-weight',tWeight,aio)
 				time.sleep(tDelay)
 				csAIO.sendData(tSubj + '-task',csVar.sesVarDict['taskType'],aio)
@@ -2140,7 +2164,7 @@ def initializeTasks():
 	csVar.sesVarDict['lickLatchA']=0
 	
 	csVar.outSyncCount=0
-	csVar.serialVarTracker = [0,0,0,0,0,0]
+	csVar.serialVarTracker = [0,0,0,0,0,0,0,0]
 	csVar.stateSync=0
 	csVar.loopCnt=0
 
@@ -2230,7 +2254,7 @@ def genericHeader():
 	csVar.lastLick=0  
 	csVar.reported =0                  
 	csVar.outSyncCount=0
-	csVar.serialVarTracker = [0,0,0,0,0,0]
+	csVar.serialVarTracker = [0,0,0,0,0,0,0,0]
 	csVar.sHeaders[csVar.pyState]=1
 	csVar.sHeaders[np.setdiff1d(csVar.sList,csVar.pyState)]=0
 def trialMaintenance():
@@ -2241,7 +2265,7 @@ def trialMaintenance():
 	csVar.waitTime = csVar.trialTime[tTrial]
 	csVar.lickWaitTime = csVar.noLickTime[tTrial]
 
-	csVar.serialVarTracker = [0,0,0,0,0,0]
+	csVar.serialVarTracker = [0,0,0,0,0,0,0,0]
 	csVar.tTrial = tTrial
 
 	# 2) if we aren't using the GUI, we can still change variables, like the number of trials etc.
@@ -2294,9 +2318,8 @@ def sessionCleanup(exceptionBool):
 	writeData(csVar.sesHDF,csVar.sesVarDict['curSession'],csVar.sesData[0:csVar.loopCnt,:],csVar.attributeLabels,csVar.attributeData)
 	if csGui.useGUI==1:
 		csGui.toggleTaskButtons(1)
-	csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
-	if csGui.useGUI==1:
-		csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
+	
+
 
 	csSer.teensy.write('a0>'.encode('utf-8'))
 	time.sleep(0.05)
@@ -2317,12 +2340,15 @@ def sessionCleanup(exceptionBool):
 
 	tempNoteString = ''
 	for v in csGui.curNotes:
-		if type(v) is not 'string':
+		if type(v) is not str:
 			v = '{}'.format(v)
 		tempNoteString = tempNoteString + v + '\n'
 	txtNotesPath.write_text(tempNoteString)
 
 	print('finished your session')
+	csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
+	if csGui.useGUI==1:
+		csGui.curSession_TV.set(csVar.sesVarDict['curSession'])
 	csGUI.refreshPandas(csVar.sesVarDict,csVar.sensory,csVar.timing,csVar.optical,csGui.useGUI)
 	csVar.sesVarDict['canQuit']=1
 	csSer.flushBuffer(csSer.teensy)
@@ -2335,7 +2361,7 @@ def resolveOutputMasks():
 		csVar.c2_amp[csVar.tTrial]=csVar.c2_amp[csVar.tTrial]
 		# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(1)
 		# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(0)
-		print("optical --> mask trial; LED_C1: {}V; C2 {}V"\
+		print("optical --> mask trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
 			.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
 
 	elif csVar.c1_mask[csVar.tTrial]!=2:
@@ -2343,34 +2369,32 @@ def resolveOutputMasks():
 		csVar.c2_amp[csVar.tTrial]=0
 		# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(0)
 		# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(1)
-		print("optical --> stim trial; LED_C1: {}V; C2 {}V"\
+		print("optical --> stim trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
 			.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
-def sendDACVariables(vTime,pTime,dTime,mTime):
-	print("klo")
-	print(csVar.serialVarTracker[1])
-	print("pol")
-	print(csVar.curStateTime)
-	if csVar.serialVarTracker[1] == 0 and csVar.curStateTime>=vTime:
+def sendDACVariables(vTime,pTime,dTime,mTime,tTime):
+
+
+	if csVar.serialVarTracker[2] == 0 and csVar.curStateTime>=vTime:
 		optoVoltages = [int(csVar.c1_amp[csVar.tTrial]),int(csVar.c2_amp[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'v',optoVoltages)
-		csVar.serialVarTracker[1] = 1
-		print("klo2")
-	elif csVar.serialVarTracker[2] == 0 and csVar.curStateTime>=pTime:
+		csVar.serialVarTracker[2] = 1
+	elif csVar.serialVarTracker[3] == 0 and csVar.curStateTime>=pTime:
 		optoPulseDurs = [int(csVar.c1_pulseDur[csVar.tTrial]),int(csVar.c2_pulseDur[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'p',optoPulseDurs)
-		csVar.serialVarTracker[2] = 1
-
-	elif csVar.serialVarTracker[3] == 0 and csVar.curStateTime>=dTime:
+		csVar.serialVarTracker[3] = 1
+	elif csVar.serialVarTracker[4] == 0 and csVar.curStateTime>=dTime:
 		optoIPIs = [int(csVar.c1_interPulseDur[csVar.tTrial]),int(csVar.c2_interPulseDur[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'d',optoIPIs)
-		csVar.serialVarTracker[3] = 1
-
-	elif serialVarTracker[4] == 0 and csVar.curStateTime>=mTime:
+		csVar.serialVarTracker[4] = 1
+	elif csVar.serialVarTracker[5] == 0 and csVar.curStateTime>=mTime:
 		optoPulseNum = [int(csVar.c1_pulseCount[csVar.tTrial]),int(csVar.c2_pulseCount[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'m',optoPulseNum)
-		csVar.serialVarTracker[4] = 1
-	else:
-		pass
+		csVar.serialVarTracker[5] = 1
+	elif csVar.serialVarTracker[6] == 0 and csVar.curStateTime>=tTime:
+		optoWave = [int(csVar.c5_waveform[csVar.tTrial])]
+		csSer.sendAnalogOutValues(csSer.teensy,'t',optoWave)
+		csVar.serialVarTracker[6] = 1
+
 
 # ~~~~~~~~~~~~~~~~~~~~
 # >>> Define Tasks <<<
@@ -2390,129 +2414,125 @@ def runDetectionTask():
 				stateResolution()
 
 				# 4) Now look at what state you are in and evaluate accordingly
-				if csVar.pyState == 1 and csVar.stateSync==1:
-					if csVar.sHeaders[csVar.pyState]==0:
-						genericHeader()
-						# we treat state 1 as the begining of a trial
-						# so anything we need to fix between trials ...
-						trialMaintenance()
-					setupVisualStim(10,110)
-					enforceNoLickRule()
+				if csVar.stateSync==1:
+					if csVar.pyState == 1:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+							# we treat state 1 as the begining of a trial
+							# so anything we need to fix between trials ...
+							trialMaintenance()
+						setupVisualStim(10,110)
+						enforceNoLickRule()
 
-					# state 1 exit:
-					if csVar.curStateTime>csVar.waitTime:
-						csVar.stateSync=0
-						if csVar.contrast[csVar.tTrial]>0:
-							csVar.pyState=2
-							csSer.teensy.write('a2>'.encode('utf-8'))
-						elif csVar.contrast[csVar.tTrial]==0:
-							csVar.pyState=3
-							csSer.teensy.write('a3>'.encode('utf-8'))
-
-				if csVar.pyState == 2 and csVar.stateSync==1:
-					if csVar.sHeaders[csVar.pyState]==0:
-						genericHeader()                      
-	 
-					if csVar.lastLick>0.02:
-						csVar.reported=1
-
-					if csVar.curStateTime>csVar.sesVarDict['minStim']:
-						if csVar.reported==1 or csVar.sesVarDict['shapingTrial']:
-							print("hit")
-							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
-							csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
-							csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(csVar.sesVarDict['trialNum'])
-							csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(1)
+						# state 1 exit:
+						if csVar.curStateTime>csVar.waitTime:
 							csVar.stateSync=0
-							csVar.pyState=4
-							csSer.teensy.write('a4>'.encode('utf-8'))
-						elif csVar.reported==0:
-							csVar.stateSync=0
-							csVar.pyState=1
-							print("miss")
-							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
-							csVar.attributeData[csVar.attributeLabels.index('responses')].append(0)
-							csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(csVar.sesVarDict['trialNum'])
-							csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(1)
-							csVar.trialSamps[1]=csVar.loopCnt
-							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
-							csSer.teensy.write('a1>'.encode('utf-8'))
-							print('miss: last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+							if csVar.contrast[csVar.tTrial]>0:
+								csVar.pyState=2
+								csSer.teensy.write('a2>'.encode('utf-8'))
+							elif csVar.contrast[csVar.tTrial]==0:
+								csVar.pyState=3
+								csSer.teensy.write('a3>'.encode('utf-8'))
+					elif csVar.pyState == 2:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()                      
+		 
+						if csVar.lastLick>0.02:
+							csVar.reported=1
 
-				
-				if csVar.pyState == 3 and csVar.stateSync==1:
-					if csVar.sHeaders[csVar.pyState]==0:
-						genericHeader()
-	 
-					if csVar.lastLick>0.005:
-						csVar.reported=1
+						if csVar.curStateTime>csVar.sesVarDict['minStim']:
+							if csVar.reported==1 or csVar.sesVarDict['shapingTrial']:
+								print("hit")
+								csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
+								csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
+								csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(csVar.sesVarDict['trialNum'])
+								csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(1)
+								csVar.stateSync=0
+								csVar.pyState=4
+								csSer.teensy.write('a4>'.encode('utf-8'))
+							elif csVar.reported==0:
+								csVar.stateSync=0
+								csVar.pyState=1
+								print("miss")
+								csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
+								csVar.attributeData[csVar.attributeLabels.index('responses')].append(0)
+								csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(csVar.sesVarDict['trialNum'])
+								csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(1)
+								csVar.trialSamps[1]=csVar.loopCnt
+								csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
+								csSer.teensy.write('a1>'.encode('utf-8'))
+								print('miss: last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+					elif csVar.pyState == 3:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+		 
+						if csVar.lastLick>0.005:
+							csVar.reported=1
 
-					if csVar.curStateTime>csVar.sesVarDict['minStim']:
-						if csVar.reported==1:
-							print("false alarm")
-							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
-							csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
-							csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
-							csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(0)
+						if csVar.curStateTime>csVar.sesVarDict['minStim']:
+							if csVar.reported==1:
+								print("false alarm")
+								csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
+								csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
+								csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
+								csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(0)
+								
+								csVar.stateSync=0
+								csVar.pyState=5
+								csSer.teensy.write('a5>'.encode('utf-8'))
+								
+								if csGui.useGUI==1:
+									csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,csVar.sesVarDict['totalTrials'])
 							
-							csVar.stateSync=0
-							csVar.pyState=5
-							csSer.teensy.write('a5>'.encode('utf-8'))
-							
-							if csGui.useGUI==1:
-								csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,csVar.sesVarDict['totalTrials'])
-						
-						elif csVar.reported==0:
-							# correct rejections
-							print("correct rejection")
-							csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
-							csVar.attributeData[csVar.attributeLabels.index('responses')].append(0)
-							csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
-							csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(0)
+							elif csVar.reported==0:
+								# correct rejections
+								print("correct rejection")
+								csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
+								csVar.attributeData[csVar.attributeLabels.index('responses')].append(0)
+								csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
+								csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(0)
+								csVar.trialSamps[1]=csVar.loopCnt
+								# update sample log
+								csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
+
+								csVar.stateSync=0
+								csVar.pyState=1
+								
+								csSer.teensy.write('a1>'.encode('utf-8'))
+								# if useGUI==1:
+								# 	csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,csVar.sesVarDict['totalTrials'])
+								print('correct rejection: last trial took: {} seconds'\
+									.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+					elif csVar.pyState == 4:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+						# exit
+						if csVar.curStateTime>csVar.sesVarDict['rewardDur']:
 							csVar.trialSamps[1]=csVar.loopCnt
 							# update sample log
 							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
-
+							
 							csVar.stateSync=0
 							csVar.pyState=1
-							
+							csVar.outSyncCount=0
 							csSer.teensy.write('a1>'.encode('utf-8'))
-							# if useGUI==1:
-							# 	csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,csVar.sesVarDict['totalTrials'])
-							print('correct rejection: last trial took: {} seconds'\
-								.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
-
-				if csVar.pyState == 4 and csVar.stateSync==1:
-					if csVar.sHeaders[csVar.pyState]==0:
-						genericHeader()
-					# exit
-					if csVar.curStateTime>csVar.sesVarDict['rewardDur']:
-						csVar.trialSamps[1]=csVar.loopCnt
-						# update sample log
-						csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
-						
-						csVar.stateSync=0
-						csVar.pyState=1
-						csVar.outSyncCount=0
-						csSer.teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
-
-				if csVar.pyState == 5 and csVar.stateSync==1:
-					if csVar.sHeaders[csVar.pyState]==0:
-						genericHeader()
-					# exit
-					if csVar.curStateTime>csVar.sesVarDict['toTime']:
-						csVar.trialSamps[1]=csVar.loopCnt
-						csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
-						csVar.stateSync=0
-						csVar.pyState=1
-						csSer.teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+							print('last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+					elif csVar.pyState == 5:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+						# exit
+						if csVar.curStateTime>csVar.sesVarDict['toTime']:
+							csVar.trialSamps[1]=csVar.loopCnt
+							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
+							csVar.stateSync=0
+							csVar.pyState=1
+							csSer.teensy.write('a1>'.encode('utf-8'))
+							print('last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
 		except:
 			sessionCleanup(1)
 	sessionCleanup(0)
 def runTrialOptoTask():
-	csVar.sesVarDict['taskType']='trial opto'
+	csVar.sesVarDict['taskType']='trialOpto'
 	initializeTasks()
 	while csVar.sesVarDict['sessionOn']:
 		# try to execute the task.
@@ -2520,69 +2540,64 @@ def runTrialOptoTask():
 			updateTaskVars()
 			newData = checkTeensyData()
 			if newData:
-
 				updatePlots()
 				stateResolution()
 
 				# 4) Now look at what state you are in and evaluate accordingly
-				if csVar.pyState == 1 and csVar.stateSync==1:
-					if csVar.sHeaders[csVar.pyState]==0:
-						genericHeader()
-						# determine if we use flyback or not
-						try:
-							csVar.sesVarDict['useFlybackOpto']=int(csGui.useFlybackOpto_TV.get())
-						except:
-							pass
-						# we treat state 1 as the begining of a trial
-						# so anything we need to fix between trials ...
-						trialMaintenance()
-						print("lko")
-						# resolve output logic (masks etc)
-						resolveOutputMasks()
-						print("lko2")
-						# send DAC variable updates
-						sendDACVariables(110,310,510,710)
-						print("lko3")
+				if csVar.stateSync==1:
+					if csVar.pyState == 1:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+							# we treat state 1 as the begining of a trial
+							# so anything we need to fix between trials ...
+							trialMaintenance()
+							resolveOutputMasks()
+							try:
+								csVar.sesVarDict['useFlybackOpto'] = int(csGui.useFlybackOpto_TV.get())
+							except:
+								pass
+						# all we do in the body is update the DAC variables
+						sendDACVariables(220,320,420,520,720)
 
-					# state 1 exit:
-					if csVar.curStateTime>csVar.waitTime:
-						csVar.stateSync=0
-						if csVar.sesVarDict['useFlybackOpto'] == 1:
-							csVar.pyState=8
-							teensy.write('a8>'.encode('utf-8'))
-						elif csVar.sesVarDict['useFlybackOpto'] != 1:
-							csVar.pyState=7
-							teensy.write('a7>'.encode('utf-8'))
+						# state 1 exit:
+						if csVar.curStateTime>csVar.waitTime:
+							csVar.stateSync=0
+							if csVar.sesVarDict['useFlybackOpto']==1:
+								csVar.pyState=8
+								csSer.teensy.write('a8>'.encode('utf-8'))
+							elif csVar.sesVarDict['useFlybackOpto'] is not 1:
+							 	csVar.pyState=7
+							 	csSer.teensy.write('a7>'.encode('utf-8'))
+					elif csVar.pyState == 7:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+						if csVar.curStateTime>csVar.opticalStimTime[csVar.tTrial]:
+							csVar.trialSamps[1]=csVar.loopCnt
+							# update sample log
+							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
+							csVar.stateSync=0
+							csVar.pyState=1
+							csSer.teensy.write('a1>'.encode('utf-8'))
 
+							print('normal stim: last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
+					elif csVar.pyState == 8:
+						if csVar.sHeaders[csVar.pyState]==0:
+							genericHeader()
+						if csVar.curStateTime>csVar.sesVarDict['minStim']:
+							csVar.trialSamps[1]=csVar.loopCnt
+							# update sample log
+							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
+							csVar.stateSync=0
+							csVar.pyState=1
+							csSer.teensy.write('a1>'.encode('utf-8'))
 
-				if csVar.pyState == 7 and csVar.stateSync==1:
-					if csVar.sHeaders[csVar.pyState]==0:
-						genericHeader()                      
+							print('flyback stim: last trial took: {} seconds'.format(csVar.attributeData[csVar.attributeLabels.index('trialDurs')][-1]/1000))
 
-					if curStateTime>csVar.sesVarDict['minStim']:
-						csVar.trialSamps[1]=csVar.loopCnt
-						csVar.sampLog.append(np.diff(csVar.trialSamps)[0])
-						csVar.stateSync=0
-						csVar.pyState=1
-						csSer.teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(csVar.sampLog[-1]/1000))
-						
-				if csVar.pyState == 8 and csVar.stateSync==1:
-					if csVar.sHeaders[csVar.pyState]==0:
-						genericHeader()                     
-
-					if curStateTime>csVar.sesVarDict['minStim']:
-						csVar.trialSamps[1]=csVar.loopCnt
-						csVar.sampLog.append(np.diff(csVar.trialSamps)[0])
-						csVar.stateSync=0
-						csVar.pyState=1
-						csSer.teensy.write('a1>'.encode('utf-8'))
-						print('last trial took: {} seconds'.format(csVar.sampLog[-1]/1000))
 		except:
 			sessionCleanup(1)
 	sessionCleanup(0)
 def runSimpleRecord():
-	csVar.sesVarDict['taskType']='simple recording'
+	csVar.sesVarDict['taskType']='simpleRecording'
 	initializeTasks()
 
 	while csVar.sesVarDict['sessionOn']:
@@ -2602,15 +2617,6 @@ def runSimpleRecord():
 						# we treat state 1 as the begining of a trial
 						# so anything we need to fix between trials ...
 						trialMaintenance()
-
-
-					# state 1 exit:
-					if csVar.curStateTime>csVar.waitTime:
-						csVar.trialSamps[1]=csVar.loopCnt
-						# update sample log
-						csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
-						print('finished recording')
-						csVar.sesVarDict['sessionOn']=0
 
 		except:
 			sessionCleanup(1)
