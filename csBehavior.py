@@ -18,10 +18,9 @@
 ########################################################################
 ########################################################################
 
-# todo: add ser tracker for piezo
+
 # todo: add import dict button 
 # todo: fix ordering of windows populated from dicts
-# todo: black.white in dictionaries
 # todo: change optical to DAC
 
 from tkinter import *
@@ -69,15 +68,9 @@ class csGUI(object):
 		if self.darkMode:
 			self.taskBar.configure(background='black')
 
-		varDict = csVar.sesVarDict
-		timingDict = csVar.timing
-		visualDict = csVar.sensory
-		opticalDict = csVar.optical
-
-
 		# log the hostname
 		mchString=socket.gethostname()
-		varDict['hostName']=mchString.split('.')[0]
+		csVar.sesVarDict['hostName']=mchString.split('.')[0]
 
 		
 		# set the initial geometry variables
@@ -102,7 +95,7 @@ class csGUI(object):
 			self.dirPath_label.configure(foreground='white')
 			self.dirPath_label.configure(background='black')
 		self.dirPath_TV=StringVar(self.taskBar)
-		self.dirPath_TV.set(varDict['dirPath'])
+		self.dirPath_TV.set(csVar.sesVarDict['dirPath'])
 		self.dirPath_entry=Entry(self.taskBar, width=22, textvariable=self.dirPath_TV)
 		self.dirPath_entry.grid(row=startRow+1,column=leftCol,padx=0,columnspan=1,sticky=W)
 		if self.darkMode:
@@ -117,8 +110,8 @@ class csGUI(object):
 			self.comPath_label.configure(background='black')
 		self.comPath_TV=StringVar(self.taskBar)
 		
-		self.comPath_TV.set(varDict['comPath'])
-		self.checkCOMPort(varDict)
+		self.comPath_TV.set(csVar.sesVarDict['comPath'])
+		self.checkCOMPort(csVar.sesVarDict)
 
 		self.comPath_entry=Entry(self.taskBar, width=22, textvariable=self.comPath_TV)
 		self.comPath_entry.grid(row=startRow+3,column=leftCol,padx=0,sticky=W)
@@ -127,7 +120,7 @@ class csGUI(object):
 			self.comPath_entry.configure(foreground='white')
 
 		self.refreshCom_btn = Button(self.taskBar,text="guess com",justify=LEFT,\
-			width=col1_width,command=lambda: self.checkCOMPort(varDict))
+			width=col1_width,command=lambda: self.checkCOMPort(csVar.sesVarDict))
 		self.refreshCom_btn.grid(row=startRow+startRow+3,column=rightCol,padx=10,sticky=W)
 		self.refreshCom_btn['state'] = 'normal'
 		if self.darkMode:
@@ -146,7 +139,7 @@ class csGUI(object):
 			self.subjID_label.configure(background='black')
 			self.subjID_label.configure(foreground='white')
 		self.subjID_TV=StringVar(self.taskBar)
-		self.subjID_TV.set(varDict['subjID'])
+		self.subjID_TV.set(csVar.sesVarDict['subjID'])
 		self.subjID_entry=Entry(self.taskBar, width=entryWidth, textvariable=self.subjID_TV)
 		self.subjID_entry.grid(row=startRow+5,column=leftCol,padx=0,sticky=E)
 		if self.darkMode:
@@ -159,7 +152,7 @@ class csGUI(object):
 			self.teL.configure(background='black')
 			self.teL.configure(foreground='white')
 		self.totalTrials_TV=StringVar(self.taskBar)
-		self.totalTrials_TV.set(varDict['totalTrials'])
+		self.totalTrials_TV.set(csVar.sesVarDict['totalTrials'])
 		self.totalTrials_entry = Entry(self.taskBar,width=entryWidth,textvariable=self.totalTrials_TV)
 		self.totalTrials_entry.grid(row=startRow+6,column=leftCol,padx=0,sticky=E)
 		if self.darkMode:
@@ -172,7 +165,7 @@ class csGUI(object):
 			self.teL.configure(background='black')
 			self.teL.configure(foreground='white')
 		self.curSession_TV=StringVar(self.taskBar)
-		self.curSession_TV.set(varDict['curSession'])
+		self.curSession_TV.set(csVar.sesVarDict['curSession'])
 		self.te = Entry(self.taskBar,width=entryWidth,textvariable=self.curSession_TV)
 		self.te.grid(row=startRow+7,column=leftCol,padx=0,sticky=E)
 		if self.darkMode:
@@ -192,7 +185,7 @@ class csGUI(object):
 			self.plotSamps_label.configure(foreground='white')
 
 		self.plotSamps_TV=StringVar(self.taskBar)
-		self.plotSamps_TV.set(varDict['plotSamps'])
+		self.plotSamps_TV.set(csVar.sesVarDict['plotSamps'])
 		self.plotSamps_entry=Entry(self.taskBar, width=10, textvariable=self.plotSamps_TV)
 		self.plotSamps_entry.grid(row=startRow+9,column=0,padx=0,sticky=E)
 		if self.darkMode:
@@ -206,7 +199,7 @@ class csGUI(object):
 			self.updateCount_label.configure(background='black')
 			self.updateCount_label.configure(foreground='white')
 		self.updateCount_TV=StringVar(self.taskBar)
-		self.updateCount_TV.set(varDict['updateCount'])
+		self.updateCount_TV.set(csVar.sesVarDict['updateCount'])
 		self.updateCount_entry=Entry(self.taskBar, width=10, textvariable=self.updateCount_TV)
 		self.updateCount_entry.grid(row=startRow+10,column=0,padx=0,sticky=E)
 		if self.darkMode:
@@ -219,7 +212,7 @@ class csGUI(object):
 			self.lickAThr_label.configure(background='black')
 			self.lickAThr_label.configure(foreground='white')
 		self.lickAThr_TV=StringVar(self.taskBar)
-		self.lickAThr_TV.set(varDict['lickAThr'])
+		self.lickAThr_TV.set(csVar.sesVarDict['lickAThr'])
 		self.lickAThr_entry=Entry(self.taskBar, width=10, textvariable=self.lickAThr_TV)
 		self.lickAThr_entry.grid(row=startRow+11,column=0,padx=0,sticky=E)
 		if self.darkMode:
@@ -227,7 +220,7 @@ class csGUI(object):
 			self.lickAThr_entry.configure(foreground='white')
 
 		self.shapingTrial_TV=IntVar()
-		self.shapingTrial_TV.set(varDict['shapingTrial'])
+		self.shapingTrial_TV.set(csVar.sesVarDict['shapingTrial'])
 		self.shapingTrial_Toggle=Checkbutton(self.taskBar,text="Shaping Trial",\
 			variable=self.shapingTrial_TV,onvalue=1,offvalue=0)
 		self.shapingTrial_Toggle.grid(row=startRow+13,column=0,pady=4,sticky=W)
@@ -237,7 +230,7 @@ class csGUI(object):
 			self.shapingTrial_Toggle.configure(background='black')
 
 		self.useFlybackOpto_TV=IntVar()
-		self.useFlybackOpto_TV.set(varDict['useFlybackOpto'])
+		self.useFlybackOpto_TV.set(csVar.sesVarDict['useFlybackOpto'])
 		self.useFlybackOpto_Toggle=Checkbutton(self.taskBar,text="Use Flyback Opto?",\
 			variable=self.useFlybackOpto_TV,onvalue=1,offvalue=0)
 		self.useFlybackOpto_Toggle.grid(row=startRow+14,column=0,sticky=W)
@@ -253,7 +246,7 @@ class csGUI(object):
 			self.chanPlot_label.configure(background='black')
 
 		self.chanPlotIV=IntVar()
-		self.chanPlotIV.set(varDict['chanPlot'])
+		self.chanPlotIV.set(csVar.sesVarDict['chanPlot'])
 		if self.darkMode == 0:
 			Radiobutton(self.taskBar, text="Load Cell", \
 				variable=self.chanPlotIV, value=4).grid(row=startRow+6,column=rightCol,padx=10,pady=3,sticky=W,)
@@ -277,7 +270,7 @@ class csGUI(object):
 			Radiobutton(self.taskBar, text="Motion", \
 				variable=self.chanPlotIV, value=6,foreground='white',background='black').grid(row=startRow+8,column=rightCol,padx=10,pady=3,sticky=W)
 			Radiobutton(self.taskBar, text="DAC1", \
-				variable=self.chanPlotIV, value=9,foreground='white',background='black').grid(row=startRow+9,column=rightCol,padx=10,pady=3,sticky=W)
+				variable=self.chanPlotIV, value=10,foreground='white',background='black').grid(row=startRow+9,column=rightCol,padx=10,pady=3,sticky=W)
 			Radiobutton(self.taskBar, text="Thr Licks", \
 				variable=self.chanPlotIV, value=11,foreground='white',background='black').grid(row=startRow+10,column=rightCol,padx=10,pady=3,sticky=W)
 			Radiobutton(self.taskBar, text="Nothing", \
@@ -292,7 +285,7 @@ class csGUI(object):
 			self.blL.configure(background='black')	
 
 		self.logMQTT_TV=IntVar()
-		self.logMQTT_TV.set(varDict['chanPlot'])
+		self.logMQTT_TV.set(csVar.sesVarDict['chanPlot'])
 		self.logMQTT_Toggle=Checkbutton(self.taskBar,text="Log MQTT Info?",\
 			variable=self.logMQTT_TV,onvalue=1,offvalue=0)
 		self.logMQTT_Toggle.grid(row=startRow+16,column=0,sticky=W)
@@ -333,7 +326,7 @@ class csGUI(object):
 			self.hpL.configure(background='black')
 			self.hpL.configure(foreground='white')
 		self.hashPath_TV=StringVar(self.taskBar)
-		self.hashPath_TV.set(varDict['hashPath'])
+		self.hashPath_TV.set(csVar.sesVarDict['hashPath'])
 		self.te = Entry(self.taskBar,width=11,textvariable=self.hashPath_TV)
 		self.te.grid(row=startRow+17,column=0,padx=0,sticky=E)
 		if self.darkMode:
@@ -347,16 +340,14 @@ class csGUI(object):
 			self.vpR.configure(background='black')
 			self.vpR.configure(foreground='white')
 		self.volPerRwd_TV=StringVar(self.taskBar)
-		self.volPerRwd_TV.set(varDict['volPerRwd'])
+		self.volPerRwd_TV.set(csVar.sesVarDict['volPerRwd'])
 		self.te = Entry(self.taskBar,width=11,textvariable=self.volPerRwd_TV)
 		self.te.grid(row=startRow+18,column=0,padx=0,sticky=E)
 		if self.darkMode:
 			self.te.configure(background='black')
 			self.te.configure(foreground='white')
 
-		# self.stimButton = Button(self.taskBar,text="Dev:Stim",justify=LEFT,width=col1_width,\
-		# 	command= lambda: self.makePulseControl(varDict))
-		# self.stimButton.grid(row=startRow+18,column=rightCol,padx=10,sticky=W)
+
 
 		# options:
 		self.quitButton = Button(self.taskBar,text="Quit",width=col1_width,\
@@ -397,27 +388,22 @@ class csGUI(object):
 
 
 		self.tBtn_mqttWin = Button(self.taskBar,text="MQTT Opts",justify=LEFT,width=col1_width,\
-			command=lambda: self.makeMQTTWindow(varDict))
+			command=lambda: self.makeMQTTWindow(csVar.sesVarDict))
 		self.tBtn_mqttWin.grid(row=startRow+19,column=rightCol,padx=10,pady=2,sticky=W)
 		if self.darkMode:
 			self.tBtn_mqttWin.configure(highlightbackground='black')
 			self.tBtn_mqttWin.configure(foreground='white')
 
 		self.tBtn_notesWin = Button(self.taskBar,text="Notes",justify=LEFT,width=col1_width,\
-			command=lambda: self.makeNotesWindow(varDict))
+			command=lambda: self.makeNotesWindow(csVar.sesVarDict))
 		self.tBtn_notesWin.grid(row=startRow+20,column=rightCol,padx=10,pady=2,sticky=W)
 		if self.darkMode:
 			self.tBtn_notesWin.configure(highlightbackground='black')
 			self.tBtn_notesWin.configure(foreground='white')
-		
 
 		# Finish the window
 		self.taskBar.pack(side=TOP, fill=X)
-
-		# open the dev control window by default
-		# self.makeDevControl(varDict)
 	def populateVarFrameFromDict(self,dictName,stCol,varPerCol,headerString,frameName,excludeKeys=[],entryWidth=5):
-		
 		rowOffset = 2
 		rowCounter = 0
 		curColumn = stCol
@@ -1142,7 +1128,7 @@ class csVariables(object):
 
 		self.optical={'trialCount':1000,\
 		'varsToUse':['c1_amp','c1_pulseDur','c1_interPulseDur','c1_pulseCount',\
-		'c2_amp','c2_pulseDur','c2_interPulseDur','c2_pulseCount','c1_mask','c5_waveform'],\
+		'c2_amp','c2_pulseDur','c2_interPulseDur','c2_pulseCount','c1_mask','c1_waveform'],\
 		'c1_amp_min':0,'c1_amp_max':4095,'c1_amp_steps':[1000],'c1_amp_probs':[0.0,1.0],\
 		'c1_pulseDur_min':10,'c1_pulseDur_max':10,'c1_pulseDur_steps':[],'c1_pulseDur_probs':[1.0,0.0],\
 		'c1_interPulseDur_min':90,'c1_interPulseDur_max':90,'c1_interPulseDur_steps':[90],'c1_interPulseDur_probs':[1.0,0.0],\
@@ -1165,7 +1151,7 @@ class csVariables(object):
 		'c5_pulseCount_min':20,'c5_pulseCount_max':20,'c5_pulseCount_steps':[20],'c5_pulseCount_probs':[0.0,1.0],\
 		'c1_mask_min':2,'c1_mask_max':1,'c1_mask_steps':[],'c1_mask_probs':[0.3,0.7],\
 		'c2_mask_min':1,'c2_mask_max':2,'c2_mask_steps':[],'c2_mask_probs':[0.3,0.7],\
-		'c5_waveform_min':0,'c5_waveform_max':1,'c5_waveform_steps':2,'c5_waveform_probs':[0.5,0.0]}
+		'c1_waveform_min':0,'c1_waveform_max':1,'c1_waveform_steps':2,'c1_waveform_probs':[0.5,0.0]}
 	def getFeatureProb(self,probDict):
 		labelList = probDict['varsToUse']
 		trLen = probDict['trialCount']
@@ -2142,11 +2128,11 @@ def updatePlots():
 	if csGui.useGUI==1:
 		plotSamps=csVar.sesVarDict['plotSamps']
 		updateCount=csVar.sesVarDict['updateCount']
-		lyMin=-1
+		lyMin=-100
 		lyMax=4098
 		if csVar.sesVarDict['chanPlot']==11 or csVar.sesVarDict['chanPlot']==7:
-			lyMin=-0.1
-			lyMax=1.1
+			lyMin=-0.6
+			lyMax=1.2
 		if csVar.loopCnt>plotSamps and np.mod(csVar.loopCnt,updateCount)==0:
 			if csVar.sesVarDict['chanPlot']==0:
 				csPlt.quickUpdateTrialFig(csVar.sesVarDict['trialNum'],\
@@ -2327,7 +2313,7 @@ def sendDACVariables(vTime,pTime,dTime,mTime,tTime):
 		csSer.sendAnalogOutValues(csSer.teensy,'m',optoPulseNum)
 		csVar.serialVarTracker[5] = 1
 	elif csVar.serialVarTracker[6] == 0 and csVar.curStateTime>=tTime:
-		optoWave = [int(csVar.c5_waveform[csVar.tTrial])]
+		optoWave = [int(csVar.c1_waveform[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'t',optoWave)
 		csVar.serialVarTracker[6] = 1
 
