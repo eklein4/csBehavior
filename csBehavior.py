@@ -1585,8 +1585,12 @@ class csSerial(object):
 	def sendAnalogOutValues(self,comObj,varChar,sendValues):
 		# Specific to csStateBehavior defaults.
 		# Analog output is handled by passing a variable and specifying a channel (1-X)
+		count = 0
 		for x in sendValues:
-			comObj.write('{}{}{}>'.format(varChar,sendValues[0],x+1).encode('utf-8'))
+			count = count + 1
+			sendString = varChar + '{}'.format(sendValues[count-1]) + '{}'.format(count)
+			comObj.write('{}{}{}>'.format(varChar,sendValues[0],count).encode('utf-8'))
+
 	def sendVisualValues(self,comObj,trialNum):
 		
 		comObj.write('c{}>'.format(int(csVar.contrast[trialNum])).encode('utf-8'))
@@ -2318,7 +2322,7 @@ def sendDACVariables(vTime,pTime,dTime,mTime,tTime):
 		csSer.sendAnalogOutValues(csSer.teensy,'m',optoPulseNum)
 		csVar.serialVarTracker[5] = 1
 	elif csVar.serialVarTracker[6] == 0 and csVar.curStateTime>=tTime:
-		optoWave = [2,2]
+		optoWave = [0,0]
 		# optoWave = [int(csVar.c1_waveform[csVar.tTrial]),int(csVar.c1_waveform[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'t',optoWave)
 		csVar.serialVarTracker[6] = 1
