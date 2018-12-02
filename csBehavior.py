@@ -1130,7 +1130,11 @@ class csVariables(object):
 
 		self.optical={'trialCount':1000,\
 		'varsToUse':['c1_amp','c1_pulseDur','c1_interPulseDur','c1_pulseCount',\
-		'c2_amp','c2_pulseDur','c2_interPulseDur','c2_pulseCount','c1_mask','c1_waveform'],\
+		'c2_amp','c2_pulseDur','c2_interPulseDur','c2_pulseCount',\
+		'c3_amp','c3_pulseDur','c3_interPulseDur','c3_pulseCount',\
+		'c4_amp','c4_pulseDur','c4_interPulseDur','c4_pulseCount',\
+		'c5_amp','c5_pulseDur','c5_interPulseDur','c5_pulseCount',\
+		'optoPair1','optoPair2','optoPairChoice','optoPiezoChoice','c5_waveform'],\
 		'c1_amp_min':0,'c1_amp_max':4095,'c1_amp_steps':[1000],'c1_amp_probs':[0.0,1.0],\
 		'c1_pulseDur_min':10,'c1_pulseDur_max':10,'c1_pulseDur_steps':[],'c1_pulseDur_probs':[1.0,0.0],\
 		'c1_interPulseDur_min':90,'c1_interPulseDur_max':90,'c1_interPulseDur_steps':[90],'c1_interPulseDur_probs':[1.0,0.0],\
@@ -1151,9 +1155,12 @@ class csVariables(object):
 		'c5_pulseDur_min':10,'c5_pulseDur_max':10,'c5_pulseDur_steps':[],'c5_pulseDur_probs':[1.0,0.0],\
 		'c5_interPulseDur_min':90,'c5_interPulseDur_max':90,'c5_interPulseDur_steps':[90],'c5_interPulseDur_probs':[1.0,0.0],\
 		'c5_pulseCount_min':20,'c5_pulseCount_max':20,'c5_pulseCount_steps':[20],'c5_pulseCount_probs':[0.0,1.0],\
-		'c1_mask_min':2,'c1_mask_max':1,'c1_mask_steps':[],'c1_mask_probs':[0.3,0.7],\
-		'c2_mask_min':1,'c2_mask_max':2,'c2_mask_steps':[],'c2_mask_probs':[0.3,0.7],\
-		'c1_waveform_min':0,'c1_waveform_max':1,'c1_waveform_steps':2,'c1_waveform_probs':[0.5,0.0]}
+		'optoPair1_min':2,'optoPair1_max':1,'optoPair1_steps':[],'optoPair1_probs':[0.5,0.5],\
+		'optoPair2_min':4,'optoPair2_max':3,'optoPair2_steps':[],'optoPair2_probs':[0.5,0.5],\
+		'optoPairChoice_min':1,'optoPairChoice_max':2,'optoPairChoice_steps':[],'optoPairChoice_probs':[0.5,0.5],\
+		'optoPiezoChoice_min':1,'optoPiezoChoice_max':2,'optoPiezoChoice_steps':[],'optoPiezoChoice_probs':[0.5,0.5],\
+		'c5_waveform_min':0,'c5_waveform_max':1,'c5_waveform_steps':2,'c5_waveform_probs':[1,0]}
+
 	def getFeatureProb(self,probDict):
 		labelList = probDict['varsToUse']
 		trLen = probDict['trialCount']
@@ -1238,8 +1245,7 @@ class csVariables(object):
 							for g in range(0,len(availIndicies)):
 								tempArray[availIndicies[g],x] = curSteps[np.random.randint(len(curSteps))]
 						elif len(curSteps)==0 and len(availIndicies)>0:
-							print("h2")
-							print(curStr)
+	
 							for g in range(0,len(availIndicies)):
 								tempRand=[curMax,curMin]
 								tempArray[availIndicies[g],x] = tempRand[np.random.randint(2)]
@@ -1431,18 +1437,16 @@ class csMQTT(object):
 
 		# Now we poll the subjects water needed feed
 		try:
-			print("debug wn pre")
+			
 			tWNeed=self.getMQTTLast(sID+'-waterneeded',mqObj)
-			print("debug wn pre 1")
+			
 			tWTime = dparse(tWNeed.created_at)
 			tWHourDif = timeNow - tWTime
 			hourDif = float('{:0.3f}'.format(float(tWHourDif.total_seconds()/3600)))
-			print(hourDif)
-			print("debug wn pre 4")
+
 			if hourDif<=hourThresh:
 				waterNeeded=float('{:0.4f}'.format(float(tWNeed.value)))
-				print("debug wn:")
-				print(waterNeeded)
+
 
 		except:
 			pass
@@ -1455,8 +1459,7 @@ class csMQTT(object):
 			gpHourDifSec = float('{:0.3f}'.format(float(gpHourDif.total_seconds()/3600)))
 			if gpHourDifSec<=hourThresh:
 				waterConsumed=float('{:0.4f}'.format(float(gDP.value)))
-				print("debug wc:")
-				print(waterConsumed)
+		
 		except:
 			waterConsumed=0
 			hourDif = 0
@@ -2021,8 +2024,10 @@ def getThisTrialsVariables(trialNumber):
 		tVal = csVar.trialVars_optical[x][trialNumber]
 		eval("csVar.{}.append({})".format(x,tVal))
 def updateTaskVars():
+	
 	# a) Check variables related to whether we keep running, or not. 
 	if csGui.useGUI==1:
+		
 		# if we are using the GUI, we need to check to see if the user has changed text variables. 
 		csVar.sesVarDict['totalTrials']=int(csGui.totalTrials_TV.get())
 		try:
@@ -2035,6 +2040,7 @@ def updateTaskVars():
 		csVar.sesVarDict['chanPlot']=csGui.chanPlotIV.get()
 		if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
 			csVar.sesVarDict['sessionOn']=0
+
 def initializeTasks():
 	csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 	csVar.attributeData=[[],[],[],[],[]]
@@ -2270,37 +2276,60 @@ def sessionCleanup(exceptionBool):
 	if useGUI==1:
 		csGui.quitButton['text']="Quit"
 def resolveOutputMasks():
-	if csVar.c1_mask[csVar.tTrial]==2:
+	
+
+
+	if csVar.optoPair1[csVar.tTrial]==2:
 		csVar.c1_amp[csVar.tTrial]=0
 		csVar.c2_amp[csVar.tTrial]=csVar.c2_amp[csVar.tTrial]
-		# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(1)
-		# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(0)
-		print("optical --> mask trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
-			.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
+		# print("optical --> mask trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
+		# 	.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
 
-	elif csVar.c1_mask[csVar.tTrial]!=2:
+	elif csVar.optoPair1[csVar.tTrial]==1:
 		csVar.c1_amp[csVar.tTrial]=csVar.c1_amp[csVar.tTrial]
 		csVar.c2_amp[csVar.tTrial]=0
-		# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(0)
-		# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(1)
-		print("optical --> stim trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
-			.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
+		# print("optical --> stim trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
+		# 	.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
+	
+	if csVar.optoPair2[csVar.tTrial]==4:
+		
+		csVar.c3_amp[csVar.tTrial]=0
+		csVar.c4_amp[csVar.tTrial]=csVar.c4_amp[csVar.tTrial]
+		# print("optical --> mask trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
+		# 	.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
 
-	# if csVar.c2_mask[csVar.tTrial]==2:
-	# 	csVar.c3_amp[csVar.tTrial]=0
-	# 	csVar.c4_amp[csVar.tTrial]=csVar.c4_amp[csVar.tTrial]
-	# 	# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(1)
-	# 	# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(0)
-	# 	print("optical --> mask trial; LED_C3: {:0.2f}V; C4 {:0.2f}V"\
-	# 		.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
+	elif csVar.optoPair2[csVar.tTrial]==3:
+		
+		csVar.c3_amp[csVar.tTrial]=csVar.c3_amp[csVar.tTrial]
+		csVar.c4_amp[csVar.tTrial]=0
+		# print("optical --> stim trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
+		# 	.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
 
-	# elif csVar.c2_mask[csVar.tTrial]!=2:
-	# 	csVar.c3_amp[csVar.tTrial]=csVar.c3_amp[csVar.tTrial]
-	# 	csVar.c4_amp[csVar.tTrial]=0
-	# 	# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(0)
-	# 	# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(1)
-	# 	print("optical --> stim trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
-	# 		.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
+	
+	if csVar.optoPairChoice[csVar.tTrial]==1:
+		csVar.c3_amp[csVar.tTrial]=0
+		csVar.c4_amp[csVar.tTrial]=0
+		# print("optical --> mask trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
+		# 	.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
+
+	elif csVar.optoPairChoice[csVar.tTrial]==2:
+		csVar.c1_amp[csVar.tTrial]=0
+		csVar.c2_amp[csVar.tTrial]=0
+	
+	if csVar.optoPiezoChoice[csVar.tTrial]==1:
+		csVar.c5_amp[csVar.tTrial]=0
+		print("optical trial --> ; LED_C1: {:0.2f}V; C2 {:0.2f}V; C3 {:0.2f}V; C4 {:0.2f}V"\
+			.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095),\
+				5.0*(csVar.c3_amp[csVar.tTrial]/4095),5.0*(csVar.c4_amp[csVar.tTrial]/4095)))
+
+	elif csVar.optoPiezoChoice[csVar.tTrial]==2:
+		csVar.c1_amp[csVar.tTrial]=0
+		csVar.c2_amp[csVar.tTrial]=0
+		csVar.c3_amp[csVar.tTrial]=0
+		csVar.c4_amp[csVar.tTrial]=0
+
+		print("piezo trial -->  amp: {:0.2f}V".format(5.0*(csVar.c5_amp[csVar.tTrial]/4095)))
+
 
 def sendDACVariables(vTime,pTime,dTime,mTime,tTime):
 
@@ -2464,13 +2493,17 @@ def runDetectionTask():
 			sessionCleanup(1)
 	sessionCleanup(0)
 def runTrialOptoTask():
+	
 	csVar.sesVarDict['taskType']='trialOpto'
 	initializeTasks()
+	
 	while csVar.sesVarDict['sessionOn']:
 		# try to execute the task.
 		try:
 			updateTaskVars()
+			
 			newData = checkTeensyData()
+			
 			if newData:
 				updatePlots()
 				stateResolution()
