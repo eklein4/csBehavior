@@ -2281,6 +2281,23 @@ def resolveOutputMasks():
 		# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(1)
 		print("optical --> stim trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
 			.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
+
+	# if csVar.c2_mask[csVar.tTrial]==2:
+	# 	csVar.c3_amp[csVar.tTrial]=0
+	# 	csVar.c4_amp[csVar.tTrial]=csVar.c4_amp[csVar.tTrial]
+	# 	# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(1)
+	# 	# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(0)
+	# 	print("optical --> mask trial; LED_C3: {:0.2f}V; C4 {:0.2f}V"\
+	# 		.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
+
+	# elif csVar.c2_mask[csVar.tTrial]!=2:
+	# 	csVar.c3_amp[csVar.tTrial]=csVar.c3_amp[csVar.tTrial]
+	# 	csVar.c4_amp[csVar.tTrial]=0
+	# 	# csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(0)
+	# 	# csVar.attributeData[csVar.attributeLabels.index('maskTrials')].append(1)
+	# 	print("optical --> stim trial; LED_C1: {:0.2f}V; C2 {:0.2f}V"\
+	# 		.format(5.0*(csVar.c1_amp[csVar.tTrial]/4095),5.0*(csVar.c2_amp[csVar.tTrial]/4095)))
+
 def sendDACVariables(vTime,pTime,dTime,mTime,tTime):
 
 
