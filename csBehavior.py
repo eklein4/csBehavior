@@ -31,6 +31,8 @@ import numpy as np
 import h5py
 import os
 import datetime
+from datetime import timezone
+from dateutil.parser import parse as dparse
 import time
 import platform
 import matplotlib
@@ -47,7 +49,7 @@ import configparser
 
 
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-# $$$$$$$$$$$   Class Definitions   $$$$$$$$$$$$$$
+# $$$$$$$$$$	Class Definitions   $$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 
@@ -1413,77 +1415,48 @@ class csMQTT(object):
 				mqttObj.create_feed(feed)
 			except:
 				pass
-	def getDailyConsumption(self,mqObj,sID,rigGMTDif,hourThresh,targetVol):
-		
-		dStamp=datetime.datetime.now().strftime("%m_%d_%Y")
+	def getDailyConsumption(self,mqObj,sID,hourThresh):
+		timeNow = datetime.datetime.now(timezone.utc)
+		dStamp=timeNow.strftime("%m_%d_%Y")
 		
 		# we want to determine how much water the subject has had in the last day.
 		# and we want to know how much water they are supposed to have.
 		# we assumne they haven't had any water
 		waterConsumed=0
 		# and we assume they need the default volume (1.5 - 2 ml)
-		waterNeeded=targetVol
+		waterNeeded=2
 		# we will eventually see how far our last data logged is from now.
 		# we will assume the worst, meaning 2 hours for a session and no data logged before
 		hourDif=22
 
-		# I assume the mqtt gmt day and month is the same as our rigs day for now.
-		dayOffset=0
-		monthOffset=0
-
-		# now we compute the time and normalize it relative to GMT
-		rigHr=int(datetime.datetime.fromtimestamp(time.time()).strftime('%H'))
-		rigHr=rigHr+rigGMTDif
-		
-		# now things get crazy, if you offset the rig for GMT and go over 24,
-		# that means GMT has crossed the date line. 
-		# thus, we need to add a day to our rig's day
-		if rigHr>24:
-			rigHr=rigHr-24
-			dayOffset=1
-		
-		
 		# Now we poll the subjects water needed feed
 		try:
+			print("debug wn pre")
 			tWNeed=self.getMQTTLast(sID+'-waterneeded',mqObj)
-			# Look at when it was logged.
-			crStr=tWNeed.created_at[0:10]
-			mqHr=int(tWNeed.created_at[11:13])
-			#compare year (should be a given, but never know)
-			if crStr[0:4]==dStamp[6:10]:
-				#compare month (less of a given)
-				# I allow for a month difference of 1 in case we are on a month boundary before GMT correction.
-				if abs(int(crStr[5:7])-int(dStamp[0:2]))<2:
-					# todo: add month boundary logic.
-					#compare day if there is more than a dif of 1 then can't be 12-23.9 hours dif.
-					dayDif=(int(dStamp[3:5])+dayOffset)-int(crStr[8:10])
-					if abs(dayDif)<2:
-						hourDif=rigHr-mqHr
-						if hourDif<=hourThresh:
-							# after all that, if the time since the last data point is less than our time threshold
-							# which is usually 12 hours, we use the feed's value as truth.
-							waterNeeded=float('{:0.4f}'.format(float(tWNeed.value)))
+			print("debug wn pre 1")
+			tWTime = dparse(tWNeed.created_at)
+			tWHourDif = timeNow - tWTime
+			hourDif = float('{:0.3f}'.format(float(tWHourDif.total_seconds()/3600)))
+			print(hourDif)
+			print("debug wn pre 4")
+			if hourDif<=hourThresh:
+				waterNeeded=float('{:0.4f}'.format(float(tWNeed.value)))
+				print("debug wn:")
+				print(waterNeeded)
+
 		except:
 			pass
 
 		# now we need to do the same for what has been consumed
 		try:
 			gDP=self.getMQTTLast(sID+'-waterconsumed',mqObj)
-			# Look at when it was logged.
-			crStr=gDP.created_at[0:10]
-			mqHr=int(gDP.created_at[11:13])
-			#compare year (should be a given, but never know)
-			if crStr[0:4]==dStamp[6:10]:
-				#compare month (less of a given)
-				# I allow for a month difference of 1 in case we are on a month boundary before GMT correction.
-				if abs(int(crStr[5:7])-int(dStamp[0:2]))<2:
-					# todo: add month boundary logic.
-					#compare day if there is more than a dif of 1 then can't be 12-23.9 hours dif.
-					dayDif=(int(dStamp[3:5])+dayOffset)-int(crStr[8:10])
-					if abs(dayDif)<2:
-						hourDif=rigHr-mqHr
-						if hourDif<=hourThresh:
-							waterConsumed=float('{:0.4f}'.format(float(gDP.value)))
+			gDPTime = dparse(gDP.created_at)
+			gpHourDif = timeNow - gDPTime
+			gpHourDifSec = float('{:0.3f}'.format(float(gpHourDif.total_seconds()/3600)))
+			if gpHourDifSec<=hourThresh:
+				waterConsumed=float('{:0.4f}'.format(float(gDP.value)))
+				print("debug wc:")
+				print(waterConsumed)
 		except:
 			waterConsumed=0
 			hourDif = 0
@@ -1521,17 +1494,33 @@ class csMQTT(object):
 			self.updatedCol=varCol
 		return 
 class csSerial(object):
-	
 	def __init__(self,a):
 		
 		self.a=1
-	
+
+	def modelTeensy(self,fdReport,fstate,flatch,flatchTimer,flatchTime):
+		newData = 0
+		if flatch == 0:
+			lastState = fdReport[3]
+			fdReport[0] = fdReport[0]+1
+			fdReport[1] = fdReport[1]+1
+			fdReport[2] = fdReport[2]+1
+			fdReport[3] = fstate
+			if dReport[3] != lastState:
+				dReport[2] = 0
+			flatch = 1
+			newData = 1
+		elif flatch == 1:
+			flatchTimer = flatchTimer + 1
+			if flatchTimer >= flatchTime:
+				flatchTimer = 0
+				flatch = 0
+		return newData,fdReport,flatchTimer,flatch
 	def connectComObj(self,comPath,baudRate):
 		self.comObj = serial.Serial(comPath,baudRate,timeout=0)
 		self.comObj.close()
 		self.comObj.open()
 		return self.comObj
-	
 	def readSerialBuffer(self,comObj,curBuf,bufMaxSize):
 		
 		comObj.timeOut=0
@@ -1593,20 +1582,16 @@ class csSerial(object):
 		elif self.dNew==0:
 			self.returnVar=0
 		return self.returnVar,self.dNew
-
 	def sendAnalogOutValues(self,comObj,varChar,sendValues):
 		# Specific to csStateBehavior defaults.
 		# Analog output is handled by passing a variable and specifying a channel (1-X)
 		for x in sendValues:
 			comObj.write('{}{}{}>'.format(varChar,sendValues[0],x+1).encode('utf-8'))
-
-
 	def sendVisualValues(self,comObj,trialNum):
 		
 		comObj.write('c{}>'.format(int(csVar.contrast[trialNum])).encode('utf-8'))
 		comObj.write('o{}>'.format(int(csVar.orientation[trialNum])).encode('utf-8'))
 		comObj.write('s{}>'.format(int(csVar.spatialFreq[trialNum])).encode('utf-8'))
-
 	def sendVisualPlaceValues(self,comObj,trialNum):
 
 		comObj.write('z{}>'.format(int(csVar.stimSize[trialNum])).encode('utf-8'))
@@ -1699,6 +1684,7 @@ class csPlot(object):
 		self.outcomeAxis.draw_artist(self.binDPOutcomeLine)
 		self.outcomeAxis.draw_artist(self.outcomeAxis.patch)
 	def quickUpdateTrialFig(self,trialNum,totalTrials,curState):
+		
 		self.trialFig.canvas.flush_events()
 	def updateTrialFig(self,xData,yData,trialNum,totalTrials,curState,yLims):
 		try:
@@ -1759,7 +1745,7 @@ class csPlot(object):
 		self.trialFig.canvas.flush_events()
 
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-# $$$$$$$$$$    Main Program Body    $$$$$$$$$$$$$
+# $$$$$$$$$$    Main Program Body    $$$$$$$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -1803,6 +1789,7 @@ csPlt=csPlot(1)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # >>> Common Tasks Functions <<<
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 def makeTrialVariables():
 	for x in csVar.sensory['varsToUse']:
 		exec("csVar.{}=[]".format(x))
@@ -1815,7 +1802,6 @@ def makeTrialVariables():
 	csVar.trialVars_timing.to_csv(csVar.sesVarDict['dirPath'] + '/' +'testTiming.csv')
 	csVar.trialVars_optical.to_csv(csVar.sesVarDict['dirPath'] + '/' +'testOptical.csv')
 	csVar.trialVars_sensory.to_csv(csVar.sesVarDict['dirPath'] + '/' +'testSensory.csv')
-	
 def initializeTeensy():
 	teensy=csSer.connectComObj(csVar.sesVarDict['comPath']\
 		,csVar.sesVarDict['baudRate_teensy'])
@@ -1882,15 +1868,14 @@ def mqttStart():
 		csAIO.makeSubjectFeeds(tSubj,aio)
 		csAIO.makeMQTTFeed('rig-' + csVar.sesVarDict['hostName'],aio)
 		csVar.sesVarDict['waterConsumed'],csVar.sesVarDict['waterNeeded'],_,_ = \
-		csAIO.getDailyConsumption(aio,tSubj,csVar.sesVarDict['rigGMTZoneDif'],12,csVar.sesVarDict['waterNeeded'])
-
+		csAIO.getDailyConsumption(aio,tSubj,12)
 		
 		# make a prediction about consumption
-		topAmount=csVar.sesVarDict['waterNeeded']-csVar.sesVarDict['waterConsumed']
+		topAmount=csVar.sesVarDict['waterNeeded']
 		predTrials = int(topAmount/csVar.sesVarDict['volPerRwd'])
 		if predTrials < 0:
 			predTrials = 0
-		print('mqtt: {} still needs {:0.4f} mL of water today'.format(tSubj,topAmount))
+		print('mqtt: {} still needs {:0.3f} mL of water today'.format(tSubj,topAmount))
 		print('mqtt: {} should run at least {} rewarded trials'.format(tSubj,predTrials))
 		
 		if len(aio.username) == 0:
@@ -1930,8 +1915,9 @@ def mqttStop(mqttObj):
 
 	tDelay = csVar.sesVarDict['mqttUpDel']
 	if csVar.sesVarDict['logMQTT']==1:
-		waterConsumed = csVar.sesVarDict['waterConsumed']
-		waterNeeded = float(csVar.sesVarDict['waterNeeded'])
+		waterConsumed=float('{:0.4f}'.format(csVar.sesVarDict['waterConsumed']))
+		print("wc={}".format(waterConsumed))
+		waterNeeded = float('{:0.4f}'.format(csVar.sesVarDict['waterNeeded']))
 		tDPrime = csVar.sesVarDict['dprime']
 		tCriterion = csVar.sesVarDict['criterion']
 		loadCellChan = 4
@@ -2142,7 +2128,7 @@ def updatePlots():
 					csVar.sesVarDict['chanPlot']])),csVar.sesData[csVar.loopCnt-plotSamps:csVar.loopCnt,\
 				csVar.sesVarDict['chanPlot']],csVar.sesVarDict['trialNum'],\
 					csVar.sesVarDict['totalTrials'],csSer.tState,[lyMin,lyMax])
-def lickDetection(sensorChan = 5,latchTime=50):
+def lickDetection(sensorChan=5,latchTime=50):
 	# e) Lick detection. This can be done in hardware, but I like software because thresholds can be dynamic.
 	if csVar.sesData[csVar.cutInt,sensorChan]>=csVar.sesVarDict['lickAThr'] and csVar.sesVarDict['lickLatchA']==0:
 		csVar.sesData[csVar.cutInt,csVar.sesVarDict['dStreams']-1]=1
@@ -2238,7 +2224,8 @@ def sessionCleanup(exceptionBool):
 
 	if exceptionBool == 0:
 		sesNum = csVar.sesVarDict['curSession']
-	writeData(csVar.sesHDF,csVar.sesVarDict['curSession'],csVar.sesData[0:csVar.loopCnt,:],csVar.attributeLabels,csVar.attributeData)
+	writeData(csVar.sesHDF,csVar.sesVarDict['curSession'],\
+		csVar.sesData[0:csVar.loopCnt,:],csVar.attributeLabels,csVar.attributeData)
 	if csGui.useGUI==1:
 		csGui.toggleTaskButtons(1)
 	
@@ -2257,7 +2244,8 @@ def sessionCleanup(exceptionBool):
 	csGui.curNotes.append('session end: ' + tdStamp)
 	if Path(csVar.sesVarDict['dirPath']).joinpath('notes').exists() == 0:
 		Path(csVar.sesVarDict['dirPath']).joinpath('notes').mkdir()
-	txtNotesPath = Path(csVar.sesVarDict['dirPath']).joinpath('notes').joinpath(csVar.sesVarDict['subjID'] + '_session' +\
+	txtNotesPath = Path(csVar.sesVarDict['dirPath']).joinpath('notes')\
+	.joinpath(csVar.sesVarDict['subjID'] + '_session' +\
 	 '{}'.format(csVar.sesVarDict['curSession']) + tfStamp + '_notes.txt')
 
 	tempNoteString = ''
@@ -2313,10 +2301,10 @@ def sendDACVariables(vTime,pTime,dTime,mTime,tTime):
 		csSer.sendAnalogOutValues(csSer.teensy,'m',optoPulseNum)
 		csVar.serialVarTracker[5] = 1
 	elif csVar.serialVarTracker[6] == 0 and csVar.curStateTime>=tTime:
-		optoWave = [int(csVar.c1_waveform[csVar.tTrial])]
+		optoWave = [2,2]
+		# optoWave = [int(csVar.c1_waveform[csVar.tTrial]),int(csVar.c1_waveform[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'t',optoWave)
 		csVar.serialVarTracker[6] = 1
-
 
 # ~~~~~~~~~~~~~~~~~~~~
 # >>> Define Tasks <<<
@@ -2365,6 +2353,7 @@ def runDetectionTask():
 						if csVar.curStateTime>csVar.sesVarDict['minStim']:
 							if csVar.reported==1 or csVar.sesVarDict['shapingTrial']:
 								print("hit")
+								csVar.sesVarDict['waterConsumed'] = csVar.sesVarDict['waterConsumed'] + csVar.sesVarDict['volPerRwd']
 								csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 								csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
 								csVar.attributeData[csVar.attributeLabels.index('stimTrials')].append(csVar.sesVarDict['trialNum'])
@@ -2486,8 +2475,8 @@ def runTrialOptoTask():
 								csVar.pyState=8
 								csSer.teensy.write('a8>'.encode('utf-8'))
 							elif csVar.sesVarDict['useFlybackOpto'] is not 1:
-							 	csVar.pyState=7
-							 	csSer.teensy.write('a7>'.encode('utf-8'))
+								csVar.pyState=7
+								csSer.teensy.write('a7>'.encode('utf-8'))
 					elif csVar.pyState == 7:
 						if csVar.sHeaders[csVar.pyState]==0:
 							genericHeader()

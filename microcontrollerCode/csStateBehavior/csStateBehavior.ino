@@ -1,3 +1,4 @@
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
 // csStateBehavior v0.99 -- 32 bit version (teensy)
@@ -243,8 +244,8 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 void setup() {
   // Start MCP DACs
-//  dac3.begin(dac3Address); //adafruit A0 pulled high
-//  dac4.begin(dac4Address); // sparkfun A0 pulled low
+  //  dac3.begin(dac3Address); //adafruit A0 pulled high
+  //  dac4.begin(dac4Address); // sparkfun A0 pulled low
 
   // todo: Setup Cyclops
   // Start the device
@@ -348,7 +349,7 @@ void vStates() {
 
     pollColorChange();
     pollToggle();
-    pollRelays(); // Let other users use the trigger lines
+//    pollRelays(); // Let other users use the trigger lines
     // b) body for state 0
     genericStateBody();
 
@@ -531,15 +532,15 @@ void setPulseTrainVars(int recVar, int recVal) {
     pulseTrainVars[parsedChan - 1][3] = parsedValue;
   }
   else if (recVar == 11) {
-    // if you push pulses; make sure stop bit is off
     pulseTrainVars[parsedChan - 1][5] = parsedValue;
-    pulseTrainVars[parsedChan - 1][1] = 0;
   }
   else if (recVar == 12) {
     pulseTrainVars[parsedChan - 1][6] = parsedValue;
   }
   else if (recVar == 13) {
+    // if you push pulses; make sure stop bit is off
     pulseTrainVars[parsedChan - 1][8] = parsedValue;
+    pulseTrainVars[parsedChan - 1][1] = 0;
   }
 }
 
@@ -724,7 +725,7 @@ void genericHeader(int stateNum) {
   analogOutVals[2] = 0;
   analogOutVals[3] = 0;
   analogOutVals[4] = 0;
-  
+
   pulseTrainVars[0][0] = 1;
   pulseTrainVars[1][0] = 1;
   pulseTrainVars[2][0] = 1;
@@ -857,50 +858,65 @@ void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][10]) {
 void writeAnalogOutValues(uint32_t dacVals[]) {
   analogWrite(DAC1, dacVals[0]);
   analogWrite(DAC2, dacVals[1]);
-//  dac3.setVoltage(dacVals[2], false);
-//  dac4.setVoltage(dacVals[3], false);
-//  dac5.setVoltage(dacVals[4], false);
+  //  dac3.setVoltage(dacVals[2], false);
+  //  dac4.setVoltage(dacVals[3], false);
+  //  dac5.setVoltage(dacVals[4], false);
 }
 
 void stimGen(uint32_t pulseTracker[][10]) {
+
   int i;
   for (i = 0; i < 5; i = i + 1) {
+    int stimType = pulseTracker[i][6];
+    int pulseState = pulseTracker[i][0];
+
     // *** 0 == Square Waves
-    if (pulseTracker[i][6] == 0) {
-      // PULSE STATE
-      if (pulseTracker[i][0] == 1) {
-        // if we are over the pulse time:
-        // a) reset the timer, b) move to baseline state
+    if (stimType == 0) {
+
+      // a) pulse state
+      if (pulseState == 1) {
+
+        // *** 1) check for exit condition (pulse over)
         if (trainTimer[i] >= pulseTracker[i][3]) {
           trainTimer[i] = 0; // reset counter
           pulseTracker[i][0] = 0; // stop pulsing
           pulseTracker[i][7] = pulseTracker[i][4];
-          if (pulseTracker[i][8]  > 0) {
+
+          // *** 1b) This is where we keep track of pulses completed. (99999 prevents pulse counting)
+          if ((pulseTracker[i][8]  > 0) && (pulseTracker[i][8] != 99999)) {
             pulseTracker[i][8] = pulseTracker[i][8] - 1;
-            if (pulseTracker[i][8]<=0){
+            if (pulseTracker[i][8] <= 0) {
+              // flip the stop bit
               pulseTracker[i][1] = 1;
+              // make the pulse number 0 (don't go negative)
               pulseTracker[i][8] = 0;
             }
           }
         }
+
+        // *** 2) determine pulse amplitude
         else {
-          // if we still have pulse time, and we haven't flipped the stop bit, then pulse.
-          if (pulseTracker[i][1]==0) {
+          if (pulseTracker[i][1] == 0) {
             pulseTracker[i][7] = pulseTracker[i][5]; // 5 is the pulse amp; 7 is the current output.
           }
-          else if (pulseTracker[i][1]==1) {
+          else if (pulseTracker[i][1] == 1) {
             pulseTracker[i][7] = pulseTracker[i][4]; // baseline
           }
         }
       }
 
-      // BASLINE/DELAY STATE
-      else if (pulseTracker[i][0] == 0) {
+      // b) baseline/delay state
+      else if (pulseState == 0) {
         // if we are out of baseline time; move to stim state
         if (trainTimer[i] >=  pulseTracker[i][2]) {
           trainTimer[i] = 0; // reset counter
           pulseTracker[i][0] = 1; // start pulsing
-          pulseTracker[i][7] = pulseTracker[i][5];
+          if (pulseTracker[i][1] == 0) {
+            pulseTracker[i][7] = pulseTracker[i][5];
+          }
+          else if (pulseTracker[i][1] == 1) {
+            pulseTracker[i][7] = pulseTracker[i][4];
+          }
         }
         else {
           // but if we have delay time, then we use baseline
@@ -909,6 +925,7 @@ void stimGen(uint32_t pulseTracker[][10]) {
         }
       }
     }
+
     // add ramp back here
 
     // 2) Asymm Cosine
@@ -917,39 +934,28 @@ void stimGen(uint32_t pulseTracker[][10]) {
       // PULSE STATE
       if (pulseTracker[i][0] == 1) {
         // These pulses idealy have a variable time.
-        if (pulseTracker[i][1] == 0) {
-
-          if (trainTimer[i] <= 10) {
-            pulseTracker[i][10] = 0;
-          }
-
-          else if (trainTimer[i] > 10) {
-            pulseTracker[i][10] = 1;
-          }
-
-          if (pulseTracker[i][10] == 0) {
-            float curTimeSc = PI + ((PI * (trainTimer[i] - 1)) / 10);
-            pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
-          }
-          else if (pulseTracker[i][10] == 1) {
-            float curTimeSc = 0 + ((PI * (trainTimer[i] - 1)) / 100);
-            pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
-          }
-
-          if (trainTimer[i] > 110) {
-            pulseTracker[i][10] = 0;
-            pulseTracker[i][0] = 0;
-            trainTimer[i] = 0;
-            pulseTracker[i][7] = pulseTracker[i][4];
-            if (pulseTracker[i][8]  > 0) {
-              pulseTracker[i][8] = pulseTracker[i][8] - 1;
-              pulseTracker[i][1] = 1;
-            }
-          }
-
+        if (trainTimer[i] <= 10) {
+          pulseTracker[i][10] = 0;
         }
-        else if (pulseTracker[i][1] == 1) {
-          pulseTracker[i][7] = pulseTracker[i][4]; // baseline
+
+        else if (trainTimer[i] > 10) {
+          pulseTracker[i][10] = 1;
+        }
+
+        if (pulseTracker[i][10] == 0) {
+          float curTimeSc = PI + ((PI * (trainTimer[i] - 1)) / 10);
+          pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
+        }
+        else if (pulseTracker[i][10] == 1) {
+          float curTimeSc = 0 + ((PI * (trainTimer[i] - 1)) / 100);
+          pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
+        }
+
+        if (trainTimer[i] > 110) {
+          pulseTracker[i][10] = 0;
+          pulseTracker[i][0] = 0;
+          trainTimer[i] = 0;
+          pulseTracker[i][7] = pulseTracker[i][4];
         }
       }
 
@@ -965,7 +971,6 @@ void stimGen(uint32_t pulseTracker[][10]) {
           pulseTracker[i][7] = pulseTracker[i][4];
         }
       }
-
     }
   }
 }
