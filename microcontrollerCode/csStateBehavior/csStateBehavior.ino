@@ -23,8 +23,6 @@
 // ***** Initialize All The Things ********
 // ****************************************
 //
-// Include config vars
-#include "header.h"
 
 #include <math.h>
 
