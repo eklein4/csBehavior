@@ -2259,7 +2259,7 @@ def sessionCleanup(exceptionBool):
 	.joinpath(csVar.sesVarDict['subjID'] + '_session' +\
 	 '{}'.format(csVar.sesVarDict['curSession']) + tfStamp + '_notes.txt')
 
-	if sys.version_info[1] >= 5
+	if sys.version_info[1] >= 5:
 		tempNoteString = ''
 		for v in csGui.curNotes:
 			if type(v) is not str:
