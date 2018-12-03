@@ -1095,7 +1095,7 @@ class csVariables(object):
 		'logMQTT':1,'mqttUpDel':0.05,'curWeight':20,'rigGMTZoneDif':5,'volPerRwd':0.0023,\
 		'waterConsumed':0,'waterNeeded':1.5,'dirPath':'/Users/Deister/BData',\
 		'hashPath':'/Users/cad','trialNum':0,'sessionOn':0,'canQuit':1,\
-		'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':15,\
+		'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':16,\
 		'rewardDur':500,'lickAThr':3900,'lickLatchA':0,'minNoLickTime':1000,\
 		'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStim':1500,\
 		'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':0,'loadScale':1,\
