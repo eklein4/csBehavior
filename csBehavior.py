@@ -2259,12 +2259,13 @@ def sessionCleanup(exceptionBool):
 	.joinpath(csVar.sesVarDict['subjID'] + '_session' +\
 	 '{}'.format(csVar.sesVarDict['curSession']) + tfStamp + '_notes.txt')
 
-	tempNoteString = ''
-	for v in csGui.curNotes:
-		if type(v) is not str:
-			v = '{}'.format(v)
-		tempNoteString = tempNoteString + v + '\n'
-	txtNotesPath.write_text(tempNoteString)
+	if sys.version_info[1] >= 5
+		tempNoteString = ''
+		for v in csGui.curNotes:
+			if type(v) is not str:
+				v = '{}'.format(v)
+			tempNoteString = tempNoteString + v + '\n'
+		txtNotesPath.write_text(tempNoteString)
 
 	print('finished your session')
 	csVar.sesVarDict['curSession']=csVar.sesVarDict['curSession']+1
