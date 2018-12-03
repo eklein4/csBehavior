@@ -51,6 +51,7 @@
 #define genA1 A1
 #define genA2 A2
 #define genA3 A3
+#define genA4 A6
 #define analogMotion A16
 
 // b) Digital Input Pins
@@ -96,9 +97,9 @@ elapsedMicros loopTime;
 #define DAC1 A21
 #define DAC2 A22
 
-// ~~~ MCP DACs
-MCP4922 DAC(11,13,34,32);
-MCP4922 DAC5(11,13,33,37);
+// ~~~ MCP DACs (MCP4922) 
+MCP4922 mDAC1(11,13,34,32);
+MCP4922 mDAC2(11,13,33,37);
 
 
 // **** Make neopixel object
@@ -125,6 +126,7 @@ uint32_t genAnalogInput0 = 0;
 uint32_t genAnalogInput1 = 0;
 uint32_t genAnalogInput2 = 0;
 uint32_t genAnalogInput3 = 0;
+uint32_t genAnalogInput4 = 0;
 uint32_t analogAngle = 0;
 
 uint32_t microTimer;
@@ -215,7 +217,7 @@ uint32_t pulseTrainVars[][10] =
 };
 
 // stim trains are timed with elapsedMicros timers, which we store in an array to loop with channels.
-elapsedMillis trainTimer[4];
+elapsedMillis trainTimer[5];
 
 
 uint32_t analogOutVals[] = {pulseTrainVars[0][7], pulseTrainVars[1][7], pulseTrainVars[2][7], pulseTrainVars[3][7], pulseTrainVars[4][7]};
@@ -246,11 +248,7 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 void setup() {
   // Start MCP DACs
-  //  dac3.begin(dac3Address); //adafruit A0 pulled high
-  //  dac4.begin(dac4Address); // sparkfun A0 pulled low
 
-  // todo: Setup Cyclops
-  // Start the device
   SPI.begin();
 
   // neopixels
@@ -279,6 +277,9 @@ void setup() {
   digitalWrite(syncPin, LOW);
   pinMode(sessionOver, OUTPUT);
   digitalWrite(sessionOver, LOW);
+
+  pinMode (33, OUTPUT);
+  pinMode (34, OUTPUT);
 
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
@@ -411,6 +412,7 @@ void vStates() {
       analogOutVals[1] = 0;
       analogOutVals[2] = 0;
       analogOutVals[3] = 0;
+      analogOutVals[4] = 0;
       genericStateBody();
     }
 
@@ -526,7 +528,6 @@ void setPulseTrainVars(int recVar, int recVal) {
   int parsedChan = recVal % 10;  // ones digit is the channel
   int parsedValue = recVal * 0.1; // divide by 10 and round up
 
-
   // IPI
   if (recVar == 9) {
     pulseTrainVars[parsedChan - 1][2] = parsedValue;
@@ -574,7 +575,9 @@ void dataReport() {
   Serial.print(',');
   Serial.print(genAnalogInput2);
   Serial.print(',');
-  Serial.println(genAnalogInput3);
+  Serial.print(genAnalogInput3);
+  Serial.print(',');
+  Serial.println(genAnalogInput4);
 }
 
 int flagReceive(char varAr[], int32_t valAr[]) {
@@ -717,7 +720,7 @@ void genericHeader(int stateNum) {
   resetHeaders();
   headerStates[stateNum] = 1;
 
-  for ( int i = 0; i < 4; i++) {
+  for ( int i = 0; i < 5; i++) {
     trainTimer[i] = 0;
   }
 
@@ -741,6 +744,12 @@ void genericHeader(int stateNum) {
   pulseTrainVars[3][1] = 0;
   pulseTrainVars[4][1] = 0;
 
+  pulseTrainVars[0][7] = 0;
+  pulseTrainVars[1][7] = 0;
+  pulseTrainVars[2][7] = 0;
+  pulseTrainVars[3][7] = 0;
+  pulseTrainVars[4][7] = 0;
+
   pulseTrainVars[0][9] = 0;
   pulseTrainVars[1][9] = 0;
   pulseTrainVars[2][9] = 0;
@@ -759,6 +768,7 @@ void genericStateBody() {
   genAnalogInput1 = analogRead(genA1);
   genAnalogInput2 = analogRead(genA2);
   genAnalogInput3 = analogRead(genA3);
+  genAnalogInput4 = analogRead(genA4);
   analogAngle = analogRead(analogMotion);
   writeAnalogOutValues(analogOutVals);
   if (scale.is_ready()) {
@@ -839,9 +849,11 @@ void flybackStim_On() {
       stimGen(pulseTrainVars);
       analogWrite(DAC1, pulseTrainVars[0][7]);
       analogWrite(DAC2, pulseTrainVars[1][7]);
+      mDAC1.Set(pulseTrainVars[2][7],pulseTrainVars[3][7]);
     }
     analogWrite(DAC1, 0);
     analogWrite(DAC2, 0);
+    mDAC1.Set(0,0);
   }
 }
 
@@ -861,8 +873,8 @@ void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][10]) {
 void writeAnalogOutValues(uint32_t dacVals[]) {
   analogWrite(DAC1, dacVals[0]);
   analogWrite(DAC2, dacVals[1]);
-  DAC.Set(dacVals[2],dacVals[3]);
-  DAC5.Set(dacVals[4],0);
+  mDAC1.Set(dacVals[2],dacVals[3]);
+  mDAC2.Set(dacVals[4],dacVals[4]);
 }
 
 void stimGen(uint32_t pulseTracker[][10]) {
@@ -1060,4 +1072,12 @@ void pollColorChange() {
   else {
     knownValues[8] = 0;
   }
+}
+
+void secSPIWrite(uint32_t value, int csPin){
+  uint16_t out = (0 << 15) | (1 << 14) | (1<< 13) | (1 << 12) | ( int(value) ); 
+  digitalWriteFast(csPin,LOW);
+  SPI.transfer(out >> 8);                   //you can only put out one byte at a time so this is splitting the 16 bit value. 
+  SPI.transfer(out & 0xFF);
+  digitalWriteFast(csPin,HIGH);
 }
