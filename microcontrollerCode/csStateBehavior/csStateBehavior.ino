@@ -573,9 +573,7 @@ void dataReport() {
   Serial.print(',');
   Serial.print(genAnalogInput2);
   Serial.print(',');
-  Serial.print(genAnalogInput3);
-  Serial.print(',');
-  Serial.println(genAnalogInput4);
+  Serial.println(genAnalogInput3);
 }
 
 int flagReceive(char varAr[], int32_t valAr[]) {
