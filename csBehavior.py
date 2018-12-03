@@ -868,10 +868,11 @@ class csGUI(object):
 			# default to home directory
 			basePath=Path(str(Path.home()))
 
-		self.dirPath_TV.set(basePath.as_posix())
-		self.subjID_TV.set(os.path.basename(basePath))
+		
 		csVar.sesVarDict['dirPath']=basePath
 		csVar.sesVarDict['subjID']=basePath.name
+		self.dirPath_TV.set(csVar.sesVarDict['dirPath'])
+		self.subjID_TV.set(csVar.sesVarDict['subjID'])
 		self.toggleTaskButtons(1)
 
 		csVar.sesVarDict = self.loadCSVDictionary(csVar.sesVarDict,basePath.joinpath('sesVars.csv'))
