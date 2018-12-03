@@ -31,11 +31,13 @@
 // Builtin Libraries
 #include <Wire.h>
 #include <FlexiTimer2.h>
+#include <SPI.h>
 
 // Other people's libraries
 #include <Adafruit_NeoPixel.h>
 #include "HX711.h"
 #include <Adafruit_MCP4725.h>
+#include <MCP4922.h>
 
 
 //-----------------------------
@@ -95,8 +97,8 @@ elapsedMicros loopTime;
 #define DAC2 A22
 
 // ~~~ MCP DACs
-//Adafruit_MCP4725 dac3;
-//Adafruit_MCP4725 dac4;
+MCP4922 DAC(11,13,34,32);
+MCP4922 DAC5(11,13,33,37);
 
 
 // **** Make neopixel object
@@ -249,6 +251,7 @@ void setup() {
 
   // todo: Setup Cyclops
   // Start the device
+  SPI.begin();
 
   // neopixels
   strip.begin();
@@ -858,9 +861,8 @@ void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][10]) {
 void writeAnalogOutValues(uint32_t dacVals[]) {
   analogWrite(DAC1, dacVals[0]);
   analogWrite(DAC2, dacVals[1]);
-  //  dac3.setVoltage(dacVals[2], false);
-  //  dac4.setVoltage(dacVals[3], false);
-  //  dac5.setVoltage(dacVals[4], false);
+  DAC.Set(dacVals[2],dacVals[3]);
+  DAC5.Set(dacVals[4],0);
 }
 
 void stimGen(uint32_t pulseTracker[][10]) {
