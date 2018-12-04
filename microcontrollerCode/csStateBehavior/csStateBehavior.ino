@@ -723,7 +723,7 @@ void genericHeader(int stateNum) {
   // b: reset header states and set current state's header to 1 (fired).
   resetHeaders();
   headerStates[stateNum] = 1;
-
+  
   for ( int i = 0; i < 5; i++) {
     trainTimer[i] = 0;
   }
@@ -737,6 +737,7 @@ void genericHeader(int stateNum) {
   analogOutVals[4] = 0;
   sDacGate1=digitalRead(dacGate1);
   sDacGate2=digitalRead(dacGate2);
+  pollToggle();
 
   pulseTrainVars[0][0] = 1;
   pulseTrainVars[1][0] = 1;
@@ -774,7 +775,7 @@ void genericStateBody() {
   genAnalogInput1 = analogRead(genA1);
   genAnalogInput2 = analogRead(genA2);
   genAnalogInput3 = analogRead(genA3);
-  
+  pollToggle();
   analogAngle = analogRead(analogMotion);
   writeAnalogOutValues(analogOutVals);
   if (scale.is_ready()) {
@@ -1033,11 +1034,19 @@ void setStrip(uint32_t stripState) {
 
 void pollToggle() {
   if (knownValues[15] != 0){
-    bool cVal = digitalRead(knownValues[15]);
-    digitalWrite(knownValues[15], 1 - cVal);
-    cVal = digitalRead(knownValues[15]);
+    int parsedValue = knownValues[15] % 10;  // ones digit is the bool
+    int parsedChan = knownValues[15] * 0.1; // divide by 10 and round up
+
+    if (parsedValue==2){
+      digitalWrite(parsedChan,1);
+    }
+    else if (parsedValue ==1){
+      digitalWrite(parsedChan,0);
+    }
+    else {
+      digitalWrite(parsedChan,0);
+    }
     knownValues[15] = 0;
-    Serial.println(cVal);
   }
 }
 

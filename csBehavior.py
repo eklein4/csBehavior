@@ -1586,14 +1586,21 @@ class csSerial(object):
 		elif self.dNew==0:
 			self.returnVar=0
 		return self.returnVar,self.dNew
-	def sendAnalogOutValues(self,comObj,varChar,sendValues):
+	def sendAnalogOutValues(self,comObj,varChar,sendValues,appendChan=1):
 		# Specific to csStateBehavior defaults.
 		# Analog output is handled by passing a variable and specifying a channel (1-X)
 		count = 0
 		for x in sendValues:
 			count = count + 1
 			sendString = varChar + '{}'.format(sendValues[count-1]) + '{}'.format(count)
-			comObj.write('{}{}{}>'.format(varChar,sendValues[0],count).encode('utf-8'))
+			if appendChan:
+				comObj.write('{}{}{}>'.format(varChar,x,count).encode('utf-8'))
+
+			elif appendChan==0:
+				comObj.write('{}{}>'.format(varChar,x).encode('utf-8'))
+				
+
+
 
 	def sendVisualValues(self,comObj,trialNum):
 		
@@ -2278,7 +2285,7 @@ def sessionCleanup(exceptionBool):
 	if useGUI==1:
 		csGui.quitButton['text']="Quit"
 def resolveOutputMasks():
-	
+
 
 
 	if csVar.optoPair1[csVar.tTrial]==2:
@@ -2333,13 +2340,29 @@ def resolveOutputMasks():
 		print("piezo trial -->  amp: {:0.2f}V".format(5.0*(csVar.c5_amp[csVar.tTrial]/4095)))
 
 
-def sendDACVariables(vTime,pTime,dTime,mTime,tTime):
+def sendDACVariables(vTime,pTime,dTime,mTime,tTime,useSwitches = 1):
+	# # Two Options: Parallel Analog Outputs, or Double up with switches.
+	
 
-
+	
 	if csVar.serialVarTracker[2] == 0 and csVar.curStateTime>=vTime:
-		optoVoltages = [int(csVar.c1_amp[csVar.tTrial]),int(csVar.c2_amp[csVar.tTrial])]
-		csSer.sendAnalogOutValues(csSer.teensy,'v',optoVoltages)
-		csVar.serialVarTracker[2] = 1
+		optoVoltages = [int(csVar.c1_amp[csVar.tTrial]),int(csVar.c2_amp[csVar.tTrial]),\
+				int(csVar.c3_amp[csVar.tTrial]),int(csVar.c4_amp[csVar.tTrial]),int(csVar.c5_amp[csVar.tTrial])]
+		if useSwitches==1:
+			switchValues = [381,391]
+			sendAmps = [int(csVar.c1_amp[csVar.tTrial]),int(csVar.c3_amp[csVar.tTrial]),int(csVar.c5_amp[csVar.tTrial])]	
+			if optoVoltages[1]>optoVoltages[0]:
+				switchValues[0] = 382
+				sendAmps[0] = int(csVar.c2_amp[csVar.tTrial])
+			if optoVoltages[3]>optoVoltages[2]:
+				switchValues[1] = 392
+				sendAmps[1] = int(csVar.c4_amp[csVar.tTrial])
+			csSer.sendAnalogOutValues(csSer.teensy,'h',switchValues,appendChan=0)
+			csSer.sendAnalogOutValues(csSer.teensy,'v',sendAmps)
+			csVar.serialVarTracker[2] = 1
+		else:
+			csSer.sendAnalogOutValues(csSer.teensy,'v',optoVoltages)
+			csVar.serialVarTracker[2] = 1
 	elif csVar.serialVarTracker[3] == 0 and csVar.curStateTime>=pTime:
 		optoPulseDurs = [int(csVar.c1_pulseDur[csVar.tTrial]),int(csVar.c2_pulseDur[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'p',optoPulseDurs)
