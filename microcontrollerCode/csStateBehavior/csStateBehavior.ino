@@ -49,12 +49,14 @@
 #define genA1 A1
 #define genA2 A2
 #define genA3 A3
-#define genA4 A6
 #define analogMotion A16
 
 // b) Digital Input Pins
 #define scaleData  29
 #define scaleClock  28
+
+#define dacGate1 38
+#define dacGate2 39
 
 // c) Digital Interrupt Input Pins
 #define motionPin 36
@@ -96,8 +98,8 @@ elapsedMicros loopTime;
 #define DAC2 A22
 
 // ~~~ MCP DACs (MCP4922) 
-MCP4922 mDAC1(11,13,34,32);
-MCP4922 mDAC2(11,13,33,37);
+MCP4922 mDAC1(11,13,33,37);
+MCP4922 mDAC2(11,13,34,32);
 
 
 // **** Make neopixel object
@@ -117,6 +119,9 @@ uint32_t maxBrightness = 255;
 HX711 scale(scaleData, scaleClock);
 uint32_t weightOffset = 0;
 float scaleVal = 0;
+
+bool sDacGate1 = 0;
+bool sDacGate2 = 0;
 
 
 uint32_t lickSensorAValue = 0;
@@ -181,7 +186,7 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // m/13: max pulses for a stimulus for channel X. m381> will set the number of pulses on DAC1 to 38.
 // ____ Misc.
 // l/14: current value on loadCell
-// z/15: toggle a pin
+// h/15: toggle a pin
 // q/16: Flyback stim dur (in microseconds)
 // e/17: led switch
 // x/18: visStim xPos (times 10)
@@ -189,7 +194,7 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // z/20: visStim size (times 10)
 
 
-char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'z', 'q', 'e', 'x', 'y', 'z'};
+char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'h', 'q', 'e', 'x', 'y', 'z'};
 int32_t knownValues[] = { 0,  5, 8000, 0,  0,  4,  2, 1, 0, 90, 10, 0, 0, 0, 0, 0, 100, 1, 2, 0, 10};
 int knownCount = 21;
 
@@ -276,8 +281,11 @@ void setup() {
   pinMode(sessionOver, OUTPUT);
   digitalWrite(sessionOver, LOW);
 
-  pinMode (33, OUTPUT);
-  pinMode (34, OUTPUT);
+  pinMode(dacGate1,OUTPUT);
+  pinMode(dacGate2,OUTPUT);
+  
+  pinMode(33, OUTPUT);
+  pinMode(34, OUTPUT);
 
   pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
@@ -727,6 +735,8 @@ void genericHeader(int stateNum) {
   analogOutVals[2] = 0;
   analogOutVals[3] = 0;
   analogOutVals[4] = 0;
+  sDacGate1=digitalRead(dacGate1);
+  sDacGate2=digitalRead(dacGate2);
 
   pulseTrainVars[0][0] = 1;
   pulseTrainVars[1][0] = 1;
@@ -764,7 +774,7 @@ void genericStateBody() {
   genAnalogInput1 = analogRead(genA1);
   genAnalogInput2 = analogRead(genA2);
   genAnalogInput3 = analogRead(genA3);
-  genAnalogInput4 = analogRead(genA4);
+  
   analogAngle = analogRead(analogMotion);
   writeAnalogOutValues(analogOutVals);
   if (scale.is_ready()) {
@@ -859,10 +869,22 @@ void flybackStim_On() {
 // **************  Pulse Train Function ***************************
 // ****************************************************************
 void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][10]) {
-  dacVals[0] = pulseTracker[0][7];
-  dacVals[1] = pulseTracker[1][7];
-  dacVals[2] = pulseTracker[2][7];
-  dacVals[3] = pulseTracker[3][7];
+  if (sDacGate1 == 0){
+    dacVals[0] = pulseTracker[0][7];
+    dacVals[1] = pulseTracker[1][7];
+  }
+  else if (sDacGate1 == 1){
+    dacVals[0] = pulseTracker[1][7];
+    dacVals[1] = pulseTracker[0][7];
+  }
+  if (sDacGate2 == 0){
+    dacVals[2] = pulseTracker[2][7];
+    dacVals[3] = pulseTracker[3][7];
+  }
+  else if (sDacGate2 == 1){
+    dacVals[2] = pulseTracker[3][7];
+    dacVals[3] = pulseTracker[2][7];
+  }
   dacVals[4] = pulseTracker[4][7];
 }
 
@@ -939,30 +961,23 @@ void stimGen(uint32_t pulseTracker[][10]) {
     // add ramp back here
 
     // 2) Asymm Cosine
-    else if (pulseTracker[i][6] == 2) {
-
+    else if (stimType == 2) {
       // PULSE STATE
-      if (pulseTracker[i][0] == 1) {
+      pulseTracker[i][7] = pulseTracker[i][4];
+      if (pulseState == 1) {
         // These pulses idealy have a variable time.
         if (trainTimer[i] <= 10) {
-          pulseTracker[i][10] = 0;
-        }
-
-        else if (trainTimer[i] > 10) {
-          pulseTracker[i][10] = 1;
-        }
-
-        if (pulseTracker[i][10] == 0) {
+          pulseTracker[i][9] = 0;
           float curTimeSc = PI + ((PI * (trainTimer[i] - 1)) / 10);
           pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
         }
-        else if (pulseTracker[i][10] == 1) {
+        else if ((trainTimer[i] > 10) && (trainTimer[i] < 105)) {
+          pulseTracker[i][9] = 1;
           float curTimeSc = 0 + ((PI * (trainTimer[i] - 1)) / 100);
           pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
         }
-
-        if (trainTimer[i] > 110) {
-          pulseTracker[i][10] = 0;
+        else if (trainTimer[i] >= 105) {
+          pulseTracker[i][9] = 0;
           pulseTracker[i][0] = 0;
           trainTimer[i] = 0;
           pulseTracker[i][7] = pulseTracker[i][4];
@@ -970,15 +985,13 @@ void stimGen(uint32_t pulseTracker[][10]) {
       }
 
       // baseline STATE
-      else if (pulseTracker[i][0] == 0) {
+      else if (pulseState == 0) {
+        pulseTracker[i][7] = pulseTracker[i][4];
         if (trainTimer[i] >=  pulseTracker[i][2]) {
           pulseTracker[i][0] = 1;
-          pulseTracker[i][10] = 0;
+          pulseTracker[i][9] = 0;
+          pulseTracker[i][7] = pulseTracker[i][4];
           trainTimer[i] = 0;
-          pulseTracker[i][7] = pulseTracker[i][4];
-        }
-        else {
-          pulseTracker[i][7] = pulseTracker[i][4];
         }
       }
     }
@@ -1019,12 +1032,12 @@ void setStrip(uint32_t stripState) {
 }
 
 void pollToggle() {
-  if (knownValues[15] == rewardPin || knownValues[15] == syncPin || knownValues[15] == ledSwitch) {
+  if (knownValues[15] != 0){
     bool cVal = digitalRead(knownValues[15]);
     digitalWrite(knownValues[15], 1 - cVal);
-    delay(5);
-    digitalWrite(knownValues[15], cVal);
+    cVal = digitalRead(knownValues[15]);
     knownValues[15] = 0;
+    Serial.println(cVal);
   }
 }
 
