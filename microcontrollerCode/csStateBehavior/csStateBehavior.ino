@@ -216,8 +216,9 @@ uint32_t pulseTrainVars[][10] =
   {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
   {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
   {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
-  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0}
+  {1, 0, knownValues[9], knownValues[10], 0, 2000, 2, 0, knownValues[13], 0}
 };
+// cad: set default train type of channel 5 to asym cosine. 
 
 // stim trains are timed with elapsedMicros timers, which we store in an array to loop with channels.
 elapsedMillis trainTimer[5];
@@ -968,17 +969,14 @@ void stimGen(uint32_t pulseTracker[][10]) {
       if (pulseState == 1) {
         // These pulses idealy have a variable time.
         if (trainTimer[i] <= 10) {
-          pulseTracker[i][9] = 0;
-          float curTimeSc = PI + ((PI * (trainTimer[i] - 1)) / 10);
+          float curTimeSc = PI + ((PI * (trainTimer[i] - 0)) / 10);
           pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
         }
-        else if ((trainTimer[i] > 10) && (trainTimer[i] < 105)) {
-          pulseTracker[i][9] = 1;
-          float curTimeSc = 0 + ((PI * (trainTimer[i] - 1)) / 100);
+        else if ((trainTimer[i] > 10) && (trainTimer[i] < 106)) {
+          float curTimeSc = 0 + ((PI * (trainTimer[i] - 8)) / 100);
           pulseTracker[i][7] = pulseTracker[i][5] * ((cosf(curTimeSc) + 1) * 0.5); // 5 is the pulse amp; 7 is the current output.
         }
-        else if (trainTimer[i] >= 105) {
-          pulseTracker[i][9] = 0;
+        else if (trainTimer[i] >= 106) {
           pulseTracker[i][0] = 0;
           trainTimer[i] = 0;
           pulseTracker[i][7] = pulseTracker[i][4];
@@ -990,7 +988,6 @@ void stimGen(uint32_t pulseTracker[][10]) {
         pulseTracker[i][7] = pulseTracker[i][4];
         if (trainTimer[i] >=  pulseTracker[i][2]) {
           pulseTracker[i][0] = 1;
-          pulseTracker[i][9] = 0;
           pulseTracker[i][7] = pulseTracker[i][4];
           trainTimer[i] = 0;
         }

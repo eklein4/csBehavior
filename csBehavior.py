@@ -2340,14 +2340,20 @@ def resolveOutputMasks():
 		print("piezo trial -->  amp: {:0.2f}V".format(5.0*(csVar.c5_amp[csVar.tTrial]/4095)))
 
 
-def sendDACVariables(vTime,pTime,dTime,mTime,tTime,useSwitches = 1):
+def sendDACVariables(vTime,pTime,dTime,mTime,tTime,useSwitches = 0):
 	# # Two Options: Parallel Analog Outputs, or Double up with switches.
 	
 
-	
+	optoVoltages = [int(csVar.c1_amp[csVar.tTrial]),int(csVar.c2_amp[csVar.tTrial]),\
+	int(csVar.c3_amp[csVar.tTrial]),int(csVar.c4_amp[csVar.tTrial]),int(csVar.c5_amp[csVar.tTrial])]
+	optoPulseDurs = [int(csVar.c1_pulseDur[csVar.tTrial]),int(csVar.c2_pulseDur[csVar.tTrial]),\
+	int(csVar.c3_pulseDur[csVar.tTrial]),int(csVar.c4_pulseDur[csVar.tTrial]),int(csVar.c5_pulseDur[csVar.tTrial])]
+	optoIPIs = [int(csVar.c1_interPulseDur[csVar.tTrial]),int(csVar.c2_interPulseDur[csVar.tTrial]),\
+	int(csVar.c3_interPulseDur[csVar.tTrial]),int(csVar.c4_interPulseDur[csVar.tTrial]),int(csVar.c5_interPulseDur[csVar.tTrial])]
+	optoPulseNum = [int(csVar.c1_pulseCount[csVar.tTrial]),int(csVar.c2_pulseCount[csVar.tTrial]),int(csVar.c3_pulseCount[csVar.tTrial]),\
+	int(csVar.c4_pulseCount[csVar.tTrial]),int(csVar.c5_pulseCount[csVar.tTrial])]
+
 	if csVar.serialVarTracker[2] == 0 and csVar.curStateTime>=vTime:
-		optoVoltages = [int(csVar.c1_amp[csVar.tTrial]),int(csVar.c2_amp[csVar.tTrial]),\
-				int(csVar.c3_amp[csVar.tTrial]),int(csVar.c4_amp[csVar.tTrial]),int(csVar.c5_amp[csVar.tTrial])]
 		if useSwitches==1:
 			switchValues = [381,391]
 			sendAmps = [int(csVar.c1_amp[csVar.tTrial]),int(csVar.c3_amp[csVar.tTrial]),int(csVar.c5_amp[csVar.tTrial])]	
@@ -2364,22 +2370,17 @@ def sendDACVariables(vTime,pTime,dTime,mTime,tTime,useSwitches = 1):
 			csSer.sendAnalogOutValues(csSer.teensy,'v',optoVoltages)
 			csVar.serialVarTracker[2] = 1
 	elif csVar.serialVarTracker[3] == 0 and csVar.curStateTime>=pTime:
-		optoPulseDurs = [int(csVar.c1_pulseDur[csVar.tTrial]),int(csVar.c2_pulseDur[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'p',optoPulseDurs)
 		csVar.serialVarTracker[3] = 1
 	elif csVar.serialVarTracker[4] == 0 and csVar.curStateTime>=dTime:
-		optoIPIs = [int(csVar.c1_interPulseDur[csVar.tTrial]),int(csVar.c2_interPulseDur[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'d',optoIPIs)
 		csVar.serialVarTracker[4] = 1
 	elif csVar.serialVarTracker[5] == 0 and csVar.curStateTime>=mTime:
-		optoPulseNum = [int(csVar.c1_pulseCount[csVar.tTrial]),int(csVar.c2_pulseCount[csVar.tTrial])]
 		csSer.sendAnalogOutValues(csSer.teensy,'m',optoPulseNum)
 		csVar.serialVarTracker[5] = 1
-	elif csVar.serialVarTracker[6] == 0 and csVar.curStateTime>=tTime:
-		optoWave = [0,0]
-		# optoWave = [int(csVar.c1_waveform[csVar.tTrial]),int(csVar.c1_waveform[csVar.tTrial])]
-		csSer.sendAnalogOutValues(csSer.teensy,'t',optoWave)
-		csVar.serialVarTracker[6] = 1
+	# elif csVar.serialVarTracker[6] == 0 and csVar.curStateTime>=tTime:
+	# 	csSer.sendAnalogOutValues(csSer.teensy,'t',optoWave)
+	# 	csVar.serialVarTracker[6] = 1
 
 # ~~~~~~~~~~~~~~~~~~~~
 # >>> Define Tasks <<<
