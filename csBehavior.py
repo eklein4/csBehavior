@@ -1091,19 +1091,16 @@ class csVariables(object):
 	def __init__(self,sesVarDict={},sensory={},timing={},optical={}):
 
 		self.sesVarDict={'curSession':1,'comPath':'/dev/ttyACM0',\
-		'baudRate_teensy':115200,'subjID':'an1','taskType':'detect','totalTrials':100,\
-		'logMQTT':1,'mqttUpDel':0.05,'curWeight':20,'rigGMTZoneDif':5,'volPerRwd':0.0023,\
-		'waterConsumed':0,'waterNeeded':1.5,'dirPath':'/Users/Deister/BData',\
-		'hashPath':'/Users/cad','trialNum':0,'sessionOn':0,'canQuit':1,\
-		'contrastChange':0,'orientationChange':1,'spatialChange':1,'dStreams':15,\
-		'rewardDur':500,'lickAThr':3900,'lickLatchA':0,'minNoLickTime':1000,\
-		'toTime':4000,'shapingTrial':1,'chanPlot':5,'minStim':1500,\
-		'minTrialVar':200,'maxTrialVar':11000,'loadBaseline':0,'loadScale':1,\
+		'baudRate_teensy':115200,'subjID':'an1','totalTrials':100,\
+		'logMQTT':0,'mqttUpDel':0.05,'curWeight':0,'volPerRwd':0.0023,\
+		'waterConsumed':0,'waterNeeded':1.5,'dirPath':'/Users/cad/BData',\
+		'hashPath':'/Users/cad','trialNum':0,'sessionOn':0,'canQuit':1,'dStreams':15,\
+		'rewardDur':500,'lickAThr':3900,'lickLatchA':0,'toTime':4000,'shapingTrial':1,\
+		'chanPlot':5,'minStim':1500,'loadBaseline':0,'loadScale':1,\
 		'serBufSize':4096,'ramp1Dur':2000,'ramp1Amp':4095,'ramp2Dur':2000,'ramp2Amp':4095,\
 		'detectPlotNum':100,'updateCount':500,'plotSamps':200,'taskType':'detection',\
 		'useFlybackOpto':1,'flybackScale':100,'pulsefrequency':20,'pulsedutycycle':10,\
-		'firstTrialWait':10000,'pulseTrainLength':5000,\
-		'startState':1,'hostName':'Compy386','experimenter':'deister','dprime':0,'criterion':0}
+		'startState':1,'hostName':'Compy386','experimenter':'deister','dprime':0,'criterion':0,'debug':0}
 
 		# All steps go in list, even if there aren't any.
 		# So: 0 steps = []; 
@@ -1113,9 +1110,9 @@ class csVariables(object):
 		# example: min: 10; max: 20; steps [':',2] --> range(10,22,2) --> 10,12,14,...,18,20 
 
 		self.timing={'trialCount':1000,'varsToUse':['trialTime','noLickTime','visualStimTime','opticalStimTime'],\
-		'trialTime_min':3000,'trialTime_max':11000,'trialTime_steps':[':',1],'trialTime_probs':[0.0,0.0],\
+		'trialTime_min':3000,'trialTime_max':7000,'trialTime_steps':[':',1],'trialTime_probs':[0.0,0.0],\
 		'noLickTime_min':599,'noLickTime_max':2999,'noLickTime_steps':[':',1],'noLickTime_probs':[0.0,0.0],\
-		'visualStimTime_min':2000,'visualStimTime_max':5000,'visualStimTime_steps':[':',4],'visualStimTime_probs':[0.33,0.33],\
+		'visualStimTime_min':2000,'visualStimTime_max':3000,'visualStimTime_steps':2500,'visualStimTime_probs':[0.33,0.33],\
 		'opticalStimTime_min':2000,'opticalStimTime_max':5000,'opticalStimTime_steps':[':',4],'opticalStimTime_probs':[0.33,0.33],\
 		'noMotionTime_min':0,'noMotionTime_max':0,'noMotionTime_steps':[0],'noMotionTime_probs':[0.5,0.5],\
 		'motionTime_min':0,'motionTime_max':0,'motionTime_steps':[0],'motionTime_probs':[0.5,0.5]}
@@ -1502,24 +1499,7 @@ class csSerial(object):
 		
 		self.a=1
 
-	def modelTeensy(self,fdReport,fstate,flatch,flatchTimer,flatchTime):
-		newData = 0
-		if flatch == 0:
-			lastState = fdReport[3]
-			fdReport[0] = fdReport[0]+1
-			fdReport[1] = fdReport[1]+1
-			fdReport[2] = fdReport[2]+1
-			fdReport[3] = fstate
-			if dReport[3] != lastState:
-				dReport[2] = 0
-			flatch = 1
-			newData = 1
-		elif flatch == 1:
-			flatchTimer = flatchTimer + 1
-			if flatchTimer >= flatchTime:
-				flatchTimer = 0
-				flatch = 0
-		return newData,fdReport,flatchTimer,flatch
+	
 	def connectComObj(self,comPath,baudRate):
 		self.comObj = serial.Serial(comPath,baudRate,timeout=0)
 		self.comObj.close()
@@ -1667,7 +1647,7 @@ class csPlot(object):
 
 		# add the lickA axes and lines.
 		self.lA_Axes=self.trialFig.add_subplot(dGrid[1:4,0:]) #col,rows
-		self.lA_Axes.set_ylim([-100,1200])
+		self.lA_Axes.set_ylim([-600,5200])
 		self.lA_Axes.set_xticks([])
 		# self.lA_Axes.set_yticks([])
 		self.lA_Line,=self.lA_Axes.plot([],color="cornflowerblue",lw=1)
@@ -1758,9 +1738,46 @@ class csPlot(object):
 
 		self.trialFig.canvas.draw_idle()
 		self.trialFig.canvas.flush_events()
+class modelTeensy(object):
+	def __init__(self):
+		self.fstate = 0
+		self.flatch=0
+		self.flatchTimer = 0
+		self.flatchTime = 5
+		self.fdReport=[0,0,0,0,0,0,0,0,0,0,0,0,0]
+
+
+
+	def modelTeensy(self):
+		self.newData = 0
+		if self.flatch == 0:
+			lastState = self.fdReport[3]
+			self.fdReport[0] = self.fdReport[0]+1
+			self.fdReport[1] = self.fdReport[1]+1
+			self.fdReport[2] = self.fdReport[2]+1
+			self.fdReport[3] = self.fstate
+			if self.dReport[3] != lastState:
+				self.dReport[2] = 0
+			self.flatch = 1
+			self.newData = 1
+		elif self.flatch == 1:
+			self.flatchTimer = self.flatchTimer + 1
+			if self.flatchTimer >= self.flatchTime:
+				self.flatchTimer = 0
+				self.flatch = 0
+		return self.newData,self.fdReport
+
+	def resetModelTeensy(self):
+		self.fstate = 0
+		self.flatch=0
+		self.flatchTimer = 0
+		self.flatchTime = 5
+		self.fdReport=[0,0,0,0,0,0,0,0,0,0,0,0,0]
+
+
 
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-# $$$$$$$$$$    Main Program Body    $$$$$$$$$$$$$$$$$$
+# $$$$$$$$$$    Main Program Body    $$$$$$$$$$$$$
 # $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -1818,24 +1835,32 @@ def makeTrialVariables():
 	csVar.trialVars_optical.to_csv(csVar.sesVarDict['dirPath'] + '/' +'testOptical.csv')
 	csVar.trialVars_sensory.to_csv(csVar.sesVarDict['dirPath'] + '/' +'testSensory.csv')
 def initializeTeensy():
-	teensy=csSer.connectComObj(csVar.sesVarDict['comPath']\
-		,csVar.sesVarDict['baudRate_teensy'])
-	# D) Flush the teensy serial buffer. Send it to the init state (#0).
-	csSer.flushBuffer(teensy)
-	teensy.write('a0>'.encode('utf-8'))
-	time.sleep(0.01)
-
-	sChecked=0
-	while sChecked==0:
-		[tTeensyState,sChecked]=csSer.checkVariable(teensy,'a',0.005)
-
-	while tTeensyState != 0:
-		print("not in 0, will force")
+	if csVar.sesVarDict['debug']==0:
+		teensy=csSer.connectComObj(csVar.sesVarDict['comPath']\
+			,csVar.sesVarDict['baudRate_teensy'])
+		# D) Flush the teensy serial buffer. Send it to the init state (#0).
+		csSer.flushBuffer(teensy)
 		teensy.write('a0>'.encode('utf-8'))
-		time.sleep(0.005)
-		cReturn=csSer.checkVariable(teensy,'a',0.005)
-		if cReturn(1)==1:
-			tTeensyState=cReturn(0)
+		time.sleep(0.01)
+
+		sChecked=0
+		while sChecked==0:
+			[tTeensyState,sChecked]=csSer.checkVariable(teensy,'a',0.005)
+
+		while tTeensyState != 0:
+			print("not in 0, will force")
+			teensy.write('a0>'.encode('utf-8'))
+			time.sleep(0.005)
+			cReturn=csSer.checkVariable(teensy,'a',0.005)
+			if cReturn(1)==1:
+				tTeensyState=cReturn(0)
+	elif csVar.sesVarDict['debug']==1:
+		teensy = modelTeensy()
+		teensy.resetModelTeensy()
+		tTeensyState = teensy.fdReport[0]
+
+
+
 
 	return teensy,tTeensyState
 def initializeLoadCell():
@@ -2048,7 +2073,6 @@ def updateTaskVars():
 		csVar.sesVarDict['chanPlot']=csGui.chanPlotIV.get()
 		if csVar.sesVarDict['trialNum']>csVar.sesVarDict['totalTrials']:
 			csVar.sesVarDict['sessionOn']=0
-
 def initializeTasks():
 	csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 	csVar.attributeData=[[],[],[],[],[]]
@@ -2064,6 +2088,7 @@ def initializeTasks():
 		csVar.sesVarDict=csVar.updateDictFromTXT(csVar.sesVarDict,config)
 	makeTrialVariables()
 	# connect to the teensy
+	
 	[csSer.teensy,csSer.tState] = initializeTeensy()
 	initializeLoadCell()
 	csAIO.mAIO = mqttStart()
@@ -2097,43 +2122,69 @@ def initializeTasks():
 	csVar.lastLick=0
 	csVar.lickCounter=0
 	csVar.lastLickCount=0
-	csSer.teensy.write('a1>'.encode('utf-8')) 
+	if csVar.sesVarDict['debug'] == 0:
+		csSer.teensy.write('a1>'.encode('utf-8')) 
+	elif csVar.sesVarDict['debug'] == 1:
+		csSer.teensy.fdReport[3] = 1
 	# generic "report" variable
 	csVar.reported = 0
 def checkTeensyData():
 	newData=0
-	[csSer.serialBuf,eR,tString]=csSer.readSerialBuffer(csSer.teensy,csSer.serialBuf,csVar.sesVarDict['serBufSize'])
-	if len(tString)==csVar.sesVarDict['dStreams']-1:
-		newData =1
-		# handle timing stuff
-		intNum = int(tString[1])
-		tTime = int(tString[2])
-		tStateTime=int(tString[3])
-		# if time did not go backward (out of order packet) 
-		# then increment python time, int, and state time.
-		if (tTime >= csVar.curTime):
-			csVar.curTime  = tTime
-			csVar.cutInt = intNum
-			csVar.curStateTime = tStateTime
-		
-		# check the teensy state
-		csSer.tState=int(tString[4])
-		
-		# even if the the data came out of order, we need to assign it to the right part of the array.
-		for x in range(0,csVar.sesVarDict['dStreams']-2):
-			csVar.sesData[intNum,x]=int(tString[x+1])
-		csVar.sesData[intNum,csVar.sesVarDict['dStreams']-2]=csVar.pyState # The state python wants to be.
-		csVar.sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
-		csVar.loopCnt=csVar.loopCnt+1
-	
+	if csVar.sesVarDict['debug'] == 1:
+		[newData,tString]=teensy.modelTeensy()
+		if newData == 1:
+			intNum = int(tString[0])
+			tTime = int(tString[1])
+			tStateTime=int(tString[2])
+			# if time did not go backward (out of order packet) 
+			# then increment python time, int, and state time.
+			if (tTime >= csVar.curTime):
+				csVar.curTime  = tTime
+				csVar.cutInt = intNum
+				csVar.curStateTime = tStateTime
+			
+			# check the teensy state
+			csSer.tState=int(tString[3])
+			# even if the the data came out of order, we need to assign it to the right part of the array.
+			for x in range(0,csVar.sesVarDict['dStreams']-2):
+				csVar.sesData[intNum,x]=int(tString[x])
+			csVar.sesData[intNum,csVar.sesVarDict['dStreams']-2]=csVar.pyState # The state python wants to be.
+			csVar.sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
+			csVar.loopCnt=csVar.loopCnt+1
+			print("debuggg")
+			print(csVar.sesData[intNum,:])
+	else:
+		[csSer.serialBuf,eR,tString]=csSer.readSerialBuffer(csSer.teensy,csSer.serialBuf,csVar.sesVarDict['serBufSize'])
+		if len(tString)==csVar.sesVarDict['dStreams']-1:
+			newData =1
+			# handle timing stuff
+			intNum = int(tString[1])
+			tTime = int(tString[2])
+			tStateTime=int(tString[3])
+			# if time did not go backward (out of order packet) 
+			# then increment python time, int, and state time.
+			if (tTime >= csVar.curTime):
+				csVar.curTime  = tTime
+				csVar.cutInt = intNum
+				csVar.curStateTime = tStateTime
+			
+			# check the teensy state
+			csSer.tState=int(tString[4])
+			
+			# even if the the data came out of order, we need to assign it to the right part of the array.
+			for x in range(0,csVar.sesVarDict['dStreams']-2):
+				csVar.sesData[intNum,x]=int(tString[x+1])
+			csVar.sesData[intNum,csVar.sesVarDict['dStreams']-2]=csVar.pyState # The state python wants to be.
+			csVar.sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
+			csVar.loopCnt=csVar.loopCnt+1
 	return newData
 def updatePlots():
 	# d) If we are using the GUI plot updates ever so often.
 	if csGui.useGUI==1:
 		plotSamps=csVar.sesVarDict['plotSamps']
 		updateCount=csVar.sesVarDict['updateCount']
-		lyMin=-100
-		lyMax=4098
+		lyMin=-600
+		lyMax=5200
 		if csVar.sesVarDict['chanPlot']==11 or csVar.sesVarDict['chanPlot']==7:
 			lyMin=-0.6
 			lyMax=1.2
