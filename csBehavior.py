@@ -1835,29 +1835,25 @@ def makeTrialVariables():
 	csVar.trialVars_optical.to_csv(csVar.sesVarDict['dirPath'] + '/' +'testOptical.csv')
 	csVar.trialVars_sensory.to_csv(csVar.sesVarDict['dirPath'] + '/' +'testSensory.csv')
 def initializeTeensy():
-	if csVar.sesVarDict['debug']==0:
-		teensy=csSer.connectComObj(csVar.sesVarDict['comPath']\
-			,csVar.sesVarDict['baudRate_teensy'])
-		# D) Flush the teensy serial buffer. Send it to the init state (#0).
-		csSer.flushBuffer(teensy)
+	
+	teensy=csSer.connectComObj(csVar.sesVarDict['comPath'],csVar.sesVarDict['baudRate_teensy'])
+	# D) Flush the teensy serial buffer. Send it to the init state (#0).
+	csSer.flushBuffer(teensy)
+	teensy.write('a0>'.encode('utf-8'))
+	time.sleep(0.01)
+
+	sChecked=0
+	while sChecked==0:
+		[tTeensyState,sChecked]=csSer.checkVariable(teensy,'a',0.005)
+
+	while tTeensyState != 0:
+		print("not in 0, will force")
 		teensy.write('a0>'.encode('utf-8'))
-		time.sleep(0.01)
+		time.sleep(0.005)
+		cReturn=csSer.checkVariable(teensy,'a',0.005)
+		if cReturn(1)==1:
+			tTeensyState=cReturn(0)
 
-		sChecked=0
-		while sChecked==0:
-			[tTeensyState,sChecked]=csSer.checkVariable(teensy,'a',0.005)
-
-		while tTeensyState != 0:
-			print("not in 0, will force")
-			teensy.write('a0>'.encode('utf-8'))
-			time.sleep(0.005)
-			cReturn=csSer.checkVariable(teensy,'a',0.005)
-			if cReturn(1)==1:
-				tTeensyState=cReturn(0)
-	elif csVar.sesVarDict['debug']==1:
-		teensy = modelTeensy()
-		teensy.resetModelTeensy()
-		tTeensyState = teensy.fdReport[0]
 
 
 
@@ -2122,61 +2118,38 @@ def initializeTasks():
 	csVar.lastLick=0
 	csVar.lickCounter=0
 	csVar.lastLickCount=0
-	if csVar.sesVarDict['debug'] == 0:
-		csSer.teensy.write('a1>'.encode('utf-8')) 
-	elif csVar.sesVarDict['debug'] == 1:
-		csSer.teensy.fdReport[3] = 1
+	
+	csSer.teensy.write('a1>'.encode('utf-8')) 
+
 	# generic "report" variable
 	csVar.reported = 0
 def checkTeensyData():
 	newData=0
-	if csVar.sesVarDict['debug'] == 1:
-		[newData,tString]=teensy.modelTeensy()
-		if newData == 1:
-			intNum = int(tString[0])
-			tTime = int(tString[1])
-			tStateTime=int(tString[2])
-			# if time did not go backward (out of order packet) 
-			# then increment python time, int, and state time.
-			if (tTime >= csVar.curTime):
-				csVar.curTime  = tTime
-				csVar.cutInt = intNum
-				csVar.curStateTime = tStateTime
-			
-			# check the teensy state
-			csSer.tState=int(tString[3])
-			# even if the the data came out of order, we need to assign it to the right part of the array.
-			for x in range(0,csVar.sesVarDict['dStreams']-2):
-				csVar.sesData[intNum,x]=int(tString[x])
-			csVar.sesData[intNum,csVar.sesVarDict['dStreams']-2]=csVar.pyState # The state python wants to be.
-			csVar.sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
-			csVar.loopCnt=csVar.loopCnt+1
-			print("debuggg")
-			print(csVar.sesData[intNum,:])
-	else:
-		[csSer.serialBuf,eR,tString]=csSer.readSerialBuffer(csSer.teensy,csSer.serialBuf,csVar.sesVarDict['serBufSize'])
-		if len(tString)==csVar.sesVarDict['dStreams']-1:
-			newData =1
-			# handle timing stuff
-			intNum = int(tString[1])
-			tTime = int(tString[2])
-			tStateTime=int(tString[3])
-			# if time did not go backward (out of order packet) 
-			# then increment python time, int, and state time.
-			if (tTime >= csVar.curTime):
-				csVar.curTime  = tTime
-				csVar.cutInt = intNum
-				csVar.curStateTime = tStateTime
-			
-			# check the teensy state
-			csSer.tState=int(tString[4])
-			
-			# even if the the data came out of order, we need to assign it to the right part of the array.
-			for x in range(0,csVar.sesVarDict['dStreams']-2):
-				csVar.sesData[intNum,x]=int(tString[x+1])
-			csVar.sesData[intNum,csVar.sesVarDict['dStreams']-2]=csVar.pyState # The state python wants to be.
-			csVar.sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
-			csVar.loopCnt=csVar.loopCnt+1
+
+	
+	[csSer.serialBuf,eR,tString]=csSer.readSerialBuffer(csSer.teensy,csSer.serialBuf,csVar.sesVarDict['serBufSize'])
+	if len(tString)==csVar.sesVarDict['dStreams']-1:
+		newData =1
+		# handle timing stuff
+		intNum = int(tString[1])
+		tTime = int(tString[2])
+		tStateTime=int(tString[3])
+		# if time did not go backward (out of order packet) 
+		# then increment python time, int, and state time.
+		if (tTime >= csVar.curTime):
+			csVar.curTime  = tTime
+			csVar.cutInt = intNum
+			csVar.curStateTime = tStateTime
+		
+		# check the teensy state
+		csSer.tState=int(tString[4])
+		
+		# even if the the data came out of order, we need to assign it to the right part of the array.
+		for x in range(0,csVar.sesVarDict['dStreams']-2):
+			csVar.sesData[intNum,x]=int(tString[x+1])
+		csVar.sesData[intNum,csVar.sesVarDict['dStreams']-2]=csVar.pyState # The state python wants to be.
+		csVar.sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
+		csVar.loopCnt=csVar.loopCnt+1
 	return newData
 def updatePlots():
 	# d) If we are using the GUI plot updates ever so often.
