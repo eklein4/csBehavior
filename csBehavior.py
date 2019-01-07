@@ -1903,7 +1903,7 @@ def mqttStart():
 		aio=csAIO.connect_REST(hPath)
 		csAIO.makeSubjectFeeds(tSubj,aio)
 		csAIO.makeMQTTFeed('rig-' + csVar.sesVarDict['hostName'],aio)
-		csVar.sesVarDict['waterConsumed'],csVar.sesVarDict['waterNeeded'],_,_ = \
+		tWC,csVar.sesVarDict['waterNeeded'],_,_ = \
 		csAIO.getDailyConsumption(aio,tSubj,12)
 		
 		# make a prediction about consumption
