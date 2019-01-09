@@ -34,7 +34,7 @@
 // Other people's libraries
 #include <Adafruit_NeoPixel.h>
 #include "HX711.h"
-#include <Adafruit_MCP4725.h>
+
 #include <MCP4922.h>
 
 
@@ -286,7 +286,7 @@ void setup() {
   digitalWrite(syncPin, LOW);
   pinMode(sessionOver, OUTPUT);
   digitalWrite(sessionOver, LOW);
-//  pinMode(scaleData, OUTPUT);
+  //  pinMode(scaleData, OUTPUT);
 
 
 
@@ -588,9 +588,9 @@ void dataReport() {
   Serial.print(',');
   Serial.print(genAnalogInput1);
   Serial.print(',');
-  Serial.print(genAnalogInput2);
+  Serial.print(pulseTrainVars[0][7]);
   Serial.print(',');
-  Serial.println(genAnalogInput3);
+  Serial.println(pulseTrainVars[0][8]);
 }
 
 int flagReceive(char varAr[], int32_t valAr[]) {
@@ -924,6 +924,8 @@ void stimGen(uint32_t pulseTracker[][10]) {
           trainTimer[i] = 0; // reset counter
           pulseTracker[i][0] = 0; // stop pulsing
           pulseTracker[i][7] = pulseTracker[i][4];
+          // *** 1b) This is where we keep track of pulses completed. (99999 prevents pulse counting)
+          updateCount = 1;
         }
 
         // *** 2) determine pulse amplitude
@@ -978,6 +980,7 @@ void stimGen(uint32_t pulseTracker[][10]) {
           pulseTracker[i][0] = 0;
           trainTimer[i] = 0;
           pulseTracker[i][7] = pulseTracker[i][4];
+          updateCount = 1;
         }
         // if pulse count flips the bit, just do baseline (veto)
         if (pulseTracker[i][1] == 1) {
@@ -998,14 +1001,17 @@ void stimGen(uint32_t pulseTracker[][10]) {
 
     // *** Type Independent Stuff ***
     // *** This is where we keep track of pulses completed. (99999 prevents pulse counting)
-    if ((pulseTracker[i][8]  > 0) && (pulseTracker[i][8] != 99999)) {
-      pulseTracker[i][8] = pulseTracker[i][8] - 1;
-      if (pulseTracker[i][8] <= 0) {
-        // flip the stop bit
-        pulseTracker[i][1] = 1;
-        // make the pulse number 0 (don't go negative)
-        pulseTracker[i][8] = 0;
+    if (updateCount==1){
+      if ((pulseTracker[i][8]  > 0) && (pulseTracker[i][8] != 99999)) {
+        pulseTracker[i][8] = pulseTracker[i][8] - 1;
+        if (pulseTracker[i][8] <= 0) {
+          // flip the stop bit
+          pulseTracker[i][1] = 1;
+          // make the pulse number 0 (don't go negative)
+          pulseTracker[i][8] = 0;
+        }
       }
+      updateCount = 0;
     }
     // *** next chan
   }
@@ -1111,4 +1117,3 @@ void secSPIWrite(uint32_t value, int csPin) {
   SPI.transfer(out & 0xFF);
   digitalWriteFast(csPin, HIGH);
 }
-
