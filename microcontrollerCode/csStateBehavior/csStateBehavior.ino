@@ -908,6 +908,7 @@ void writeAnalogOutValues(uint32_t dacVals[]) {
 void stimGen(uint32_t pulseTracker[][10]) {
 
   int i;
+  int updateCount = 0;
   for (i = 0; i < dacNum; i = i + 1) {
     int stimType = pulseTracker[i][6];
     int pulseState = pulseTracker[i][0];
