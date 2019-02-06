@@ -715,8 +715,6 @@ class csGUI(object):
 			command=lambda:self.makeNotes(self.subjID_TV.get().lower() + '-notes',self.noteEntry_TV.get(),varDict))
 		self.sendNoteBtn.grid(row=11,column=0,sticky=W,pady=2,padx=2)
 		self.sendNoteBtn['state'] = 'normal'
-				
-
 	def makeNotes(self,feedName,newNote,varDict):
 		if self.logMQTT_TV.get()==1:
 			try:
@@ -901,7 +899,6 @@ class csGUI(object):
 				except:
 					pass
 		return targetDict
-
 	def updateDictFromTXT(self,varDict,configF):
 		for key in list(varDict.keys()):
 			try:
@@ -962,7 +959,6 @@ class csGUI(object):
 	
 		except:
 			pass
-
 	def refreshGuiFromDict(self,targetDict):
 		for key in list(targetDict.keys()):
 			try:
@@ -1009,7 +1005,6 @@ class csGUI(object):
 				print("¯\_(ツ)_/¯ try again?")
 
 		teensy.close()
-
 	def readSerialVariable(self,comObj):
 		sR=[]
 		newData=0
@@ -1498,8 +1493,6 @@ class csSerial(object):
 	def __init__(self,a):
 		
 		self.a=1
-
-	
 	def connectComObj(self,comPath,baudRate):
 		self.comObj = serial.Serial(comPath,baudRate,timeout=0)
 		self.comObj.close()
@@ -1578,10 +1571,6 @@ class csSerial(object):
 
 			elif appendChan==0:
 				comObj.write('{}{}>'.format(varChar,x).encode('utf-8'))
-				
-
-
-
 	def sendVisualValues(self,comObj,trialNum):
 		
 		comObj.write('c{}>'.format(int(csVar.contrast[trialNum])).encode('utf-8'))
@@ -2125,31 +2114,30 @@ def initializeTasks():
 	csVar.reported = 0
 def checkTeensyData():
 	newData=0
-
-	
-	[csSer.serialBuf,eR,tString]=csSer.readSerialBuffer(csSer.teensy,csSer.serialBuf,csVar.sesVarDict['serBufSize'])
-	if len(tString)==csVar.sesVarDict['dStreams']-1:
-		newData =1
-		# handle timing stuff
-		intNum = int(tString[1])
-		tTime = int(tString[2])
-		tStateTime=int(tString[3])
-		# if time did not go backward (out of order packet) 
-		# then increment python time, int, and state time.
-		if (tTime >= csVar.curTime):
-			csVar.curTime  = tTime
-			csVar.cutInt = intNum
-			csVar.curStateTime = tStateTime
-		
-		# check the teensy state
-		csSer.tState=int(tString[4])
-		
-		# even if the the data came out of order, we need to assign it to the right part of the array.
-		for x in range(0,csVar.sesVarDict['dStreams']-2):
-			csVar.sesData[intNum,x]=int(tString[x+1])
-		csVar.sesData[intNum,csVar.sesVarDict['dStreams']-2]=csVar.pyState # The state python wants to be.
-		csVar.sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
-		csVar.loopCnt=csVar.loopCnt+1
+	try:
+		[csSer.serialBuf,eR,tString]=csSer.readSerialBuffer(csSer.teensy,csSer.serialBuf,csVar.sesVarDict['serBufSize'])
+		if len(tString)==csVar.sesVarDict['dStreams']-1:
+			newData =1
+			# handle timing stuff
+			intNum = int(tString[1])
+			tTime = int(tString[2])
+			tStateTime=int(tString[3])
+			# if time did not go backward (out of order packet) 
+			# then increment python time, int, and state time.
+			if (tTime >= csVar.curTime):
+				csVar.curTime  = tTime
+				csVar.cutInt = intNum
+				csVar.curStateTime = tStateTime
+			# check the teensy state
+			csSer.tState=int(tString[4])
+			# even if the the data came out of order, we need to assign it to the right part of the array.
+			for x in range(0,csVar.sesVarDict['dStreams']-2):
+				csVar.sesData[intNum,x]=int(tString[x+1])
+			csVar.sesData[intNum,csVar.sesVarDict['dStreams']-2]=csVar.pyState # The state python wants to be.
+			csVar.sesData[intNum,csVar.sesVarDict['dStreams']-1]=0 # Thresholded licks
+			csVar.loopCnt=csVar.loopCnt+1
+	except:
+		newData = 0
 	return newData
 def updatePlots():
 	# d) If we are using the GUI plot updates ever so often.
@@ -2362,8 +2350,6 @@ def resolveOutputMasks():
 		csVar.c4_amp[csVar.tTrial]=0
 
 		print("piezo trial -->  amp: {:0.2f}V".format(5.0*(csVar.c5_amp[csVar.tTrial]/4095)))
-
-
 def sendDACVariables(vTime,pTime,dTime,mTime,tTime,useSwitches = 0):
 	# # Two Options: Parallel Analog Outputs, or Double up with switches.
 	
@@ -2485,22 +2471,20 @@ def runDetectionTask():
 								print("false alarm")
 								csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 								csVar.attributeData[csVar.attributeLabels.index('responses')].append(1)
-								csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
+								# csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
 								csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(0)
 								
 								csVar.stateSync=0
 								csVar.pyState=5
 								csSer.teensy.write('a5>'.encode('utf-8'))
 								
-								if csGui.useGUI==1:
-									csPlt.updateOutcome(stimTrials,stimResponses,noStimTrials,noStimResponses,csVar.sesVarDict['totalTrials'])
 							
 							elif csVar.reported==0:
 								# correct rejections
 								print("correct rejection")
 								csVar.attributeLabels = ['stimTrials','noStimTrials','responses','binaryStim','trialDurs']
 								csVar.attributeData[csVar.attributeLabels.index('responses')].append(0)
-								csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
+								# csVar.attributeData[csVar.attributeLabels.index('noStimTrials')].append(csVar.sesVarDict['trialNum'])
 								csVar.attributeData[csVar.attributeLabels.index('binaryStim')].append(0)
 								csVar.trialSamps[1]=csVar.loopCnt
 								# update sample log
