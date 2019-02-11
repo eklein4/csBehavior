@@ -2580,7 +2580,7 @@ def runTrialOptoTask():
 					elif csVar.pyState == 8:
 						if csVar.sHeaders[csVar.pyState]==0:
 							genericHeader()
-						if csVar.curStateTime>csVar.sesVarDict['minStim']:
+						if csVar.curStateTime>csVar.opticalStimTime[csVar.tTrial]:
 							csVar.trialSamps[1]=csVar.loopCnt
 							# update sample log
 							csVar.attributeData[csVar.attributeLabels.index('trialDurs')].append(np.diff(csVar.trialSamps)[0])
