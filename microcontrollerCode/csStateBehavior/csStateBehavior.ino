@@ -1003,7 +1003,7 @@ void stimGen(uint32_t pulseTracker[][10]) {
     // *** Type Independent Stuff ***
     // *** This is where we keep track of pulses completed. (99999 prevents pulse counting)
     if (updateCount==1){
-      if ((pulseTracker[i][8]  > 0) && (pulseTracker[i][8] != 99999) && (knownValues[0] != 8)) {
+      if ((pulseTracker[i][8]  > 0) && (pulseTracker[i][8] != 99999)) {
         pulseTracker[i][8] = pulseTracker[i][8] - 1;
         if (pulseTracker[i][8] <= 0) {
           // flip the stop bit
