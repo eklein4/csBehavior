@@ -1,8 +1,8 @@
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// csStateBehavior v0.99 -- 32 bit version (teensy)
+// csStateBehavior v1.1b1 -- 32 bit version (teensy 4 version)
 //
-// Interrupt timed state machine for running behavior tasks and delivering stimuli etc. with a Teensy 3.5/6 board.
+// Timed state machine for running behavior tasks and delivering stimuli etc. with a Teensy 4.0 board.
 // Intended to be used with a python program (csBehavior.py) that enables:
 // a) on-demand insturment control
 // b) data saving
@@ -23,84 +23,23 @@
 // ****************************************
 //
 // Include config vars
+
 #include "header.h"
-
-#include <math.h>
-
-// Builtin Libraries
+#include "external.h"
 #include <Wire.h>
-#include <FlexiTimer2.h>
-
-// Other people's libraries
-#include <Adafruit_NeoPixel.h>
-#include "HX711.h"
-#include <Adafruit_MCP4725.h>
 
 
-//-----------------------------
-// ~~~~~~~ IO Pin Defs ~~~~~~~~
-//-----------------------------
-//
-// a) Analog Input Pins
-#define lickPinA  23      // Lick/Touch Sensor A 
-#define lickPinB  22      // Lick/Touch Sensor B 
-#define genA0 A0
-#define genA1 A1
-#define genA2 A2
-#define genA3 A3
-#define analogMotion A16
-
-// b) Digital Input Pins
-#define scaleData  29
-#define scaleClock  28
-
-// c) Digital Interrupt Input Pins
-#define motionPin 36
-#define framePin  5
-#define yGalvo  6
-
-// d) Digital Output Pins
-#define rewardPin 24  // Trigger/signal a reward
-#define syncPin 25    // Trigger other things like a microscope and/or camera
-#define sessionOver  26
-#define rewardMirror 30
-#define syncMirror 27
-#define ledSwitch 31
-
-#define neoStripPin 2
-#define pmtBlank  34
 
 
-// session header
-bool startSession = 0;
 
-uint32_t vStim_xPos = 800;
-uint32_t vStim_yPos = 800;
 
-elapsedMillis trialTime;
-elapsedMillis stateTime;
-elapsedMicros headerTime;
-elapsedMicros loopTime;
 
-// e) UARTs (Hardware Serial Lines)
-#define visualSerial Serial1 // out to a computer running psychopy
-#define dashSerial Serial3 // out to a csDashboard
 
-// f) True 12-bit DACs (I define as an array object to loop later)
-// on a teensy 3.2 A14 is the only DAC
-// MCP DACs (3&4) can be powered by 5V, and will give 5V out.
-// Teensy DACs are 3.3V, but see documentation for simple opamp wiring to get 5V peak.
-#define DAC1 A21
-#define DAC2 A22
-
-// ~~~ MCP DACs
-//Adafruit_MCP4725 dac3;
-//Adafruit_MCP4725 dac4;
 
 
 // **** Make neopixel object
 // if rgbw use top line, if rgb use second.
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, neoStripPin, NEO_GRBW + NEO_KHZ800);
+//Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, neoStripPin, NEO_GRBW + NEO_KHZ800);
 //Adafruit_NeoPixel strip = Adafruit_NeoPixel(30, neoStripPin, NEO_GRB + NEO_KHZ800);
 uint32_t maxBrightness = 255;
 
@@ -112,20 +51,16 @@ uint32_t maxBrightness = 255;
 #define calibration_factor 440000
 #define zero_factor 8421804
 
-HX711 scale(scaleData, scaleClock);
+//HX711 scale(scaleData, scaleClock);
 uint32_t weightOffset = 0;
 float scaleVal = 0;
 
+bool looped = 0;
 
-uint32_t lickSensorAValue = 0;
-uint32_t genAnalogInput0 = 0;
-uint32_t genAnalogInput1 = 0;
-uint32_t genAnalogInput2 = 0;
-uint32_t genAnalogInput3 = 0;
-uint32_t analogAngle = 0;
 
 uint32_t microTimer;
 uint32_t microTimer2;
+uint32_t tCount = 0;
 
 // a) Set DAC and ADC resolution in bits.
 uint32_t adcResolution = 12;
@@ -146,7 +81,8 @@ volatile uint32_t curLine = 0;
 volatile uint32_t lastLine = 0;
 
 // e) State Machine (vStates) Interupt Timing
-int sampsPerSecond = 1000;
+
+
 float evalEverySample = 1.0; // number of times to poll the vStates funtion
 
 // e) bidirectional dynamic variables
@@ -187,7 +123,7 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 
 
 char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'z', 'q', 'e', 'x', 'y', 'z'};
-int32_t knownValues[] = { 0,  5, 8000, 0,  0,  4,  2, 1, 0, 90, 10, 0, 0, 0, 0, 0, 100, 1, 2, 0, 10};
+uint32_t knownValues[] = { 0,  5, 8000, 0,  0,  4,  2, 1, 0, 90, 10, 0, 0, 0, 0, 0, 100, 1, 2, 0, 10};
 int knownCount = 21;
 
 
@@ -242,33 +178,16 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 
 void setup() {
-  // Start MCP DACs
-//  dac3.begin(dac3Address); //adafruit A0 pulled high
-//  dac4.begin(dac4Address); // sparkfun A0 pulled low
-
-  // todo: Setup Cyclops
-  // Start the device
-
-  // neopixels
-  strip.begin();
-  strip.show();
-  strip.setBrightness(100);
-  setStrip(2);
-
-  // loadcell
-  scale.set_scale(calibration_factor);
-  scale.set_offset(zero_factor);
-  scale.tare();
 
 
   // Analog In/Out
-  analogReadResolution(12);
-  analogWriteResolution(12);
+  //    analogReadResolution(12);
+  //    analogWriteResolution(12);
 
   // Interrupts
-  attachInterrupt(motionPin, rising, RISING);
-  attachInterrupt(framePin, frameCount, RISING);
-  attachInterrupt(yGalvo, flybackStim_On, FALLING);
+  //  attachInterrupt(motionPin, rising, RISING);
+  //  attachInterrupt(framePin, frameCount, RISING);
+  //  attachInterrupt(yGalvo, flybackStim_On, FALLING);
 
   // DIO Pin States
   pinMode(syncPin, OUTPUT);
@@ -283,34 +202,82 @@ void setup() {
   pinMode(ledSwitch, OUTPUT);
   digitalWrite(ledSwitch, LOW);
 
-  pinMode(syncMirror, INPUT);
-  pinMode(rewardMirror, INPUT);
 
   // Serial Lines
   dashSerial.begin(115200);
   visualSerial.begin(115200);
-  Serial.begin(19200);
+  Serial.begin(9600);
+
   delay(20);
 
-  // Start Program Timer
-  FlexiTimer2::set(1, evalEverySample / sampsPerSecond, vStates);
-  FlexiTimer2::start();
 }
 
 void loop() {
-  // This is interupt based so nothing here.
+
+  // ***** A) Background *****
+
+  // We are going to time each loop as a proxy for flexiTimer like behavior.
+  loopTime = 0;
+
+  // log the last state
+  lastState = knownValues[0];
+
+  while (loopTime < microsPerSamp) {
+
+
+    int curSerVar = flagReceive(knownHeaders, knownValues);
+
+    // check to see if a requested variable change is a pulse train variable (they get handled differently).
+    if ((curSerVar == 9) || (curSerVar == 10) || (curSerVar == 11) || (curSerVar == 12) || (curSerVar == 13)) {
+      setPulseTrainVars(curSerVar, knownValues[curSerVar]);
+    }
+
+    // check to see if we block state changes.
+    if (blockStateChange == 1) {
+      knownValues[0] = lastState;
+    }
+  }
+
+  // check to see if the state has changed.
+
+  stateChanged = 0;
+  if (knownValues[0] != lastState) {
+    stateChanged = 1;
+    tCount = 0;
+  }
+
+  tCount++;
+
+
+  if (knownValues[0] == 1) {
+    if (startSession == 0) {
+      startSession = 1;
+      trialTime = 0;
+    }
+    if (stateChanged == 1) {
+      Serial.print("in state #");
+      Serial.println(knownValues[0]);
+    }
+
+    genericStateBody();
+    dataReport();
+  }
+
 }
 
-
 void vStates() {
+  Serial.println(1);
   // ***************************************************************************************
   // **** Loop Timing/Serial Processing:
   // Every loop resets the timer, then looks for serial variable changes.
   loopTime = 0;
   lastState = knownValues[0];
-
+  Serial.println(1);
   // we then look for any changes to variables, or calls for updates
-  int curSerVar = flagReceive(knownHeaders, knownValues);
+
+  int curSerVar = 1;
+  //  flagReceive(knownHeaders, knownValues);
+
   if ((curSerVar == 9) || (curSerVar == 10) || (curSerVar == 11) || (curSerVar == 12) || (curSerVar == 13)) {
     setPulseTrainVars(curSerVar, knownValues[curSerVar]);
   }
@@ -333,7 +300,7 @@ void vStates() {
       visStim(0);
       genericHeader(0);
       loopCount = 0;
-      setStrip(3); // red
+      //      setStrip(3); // red
       pulseCount = 0;
       // reset session header
       if (startSession == 1) {
@@ -348,7 +315,7 @@ void vStates() {
 
     pollColorChange();
     pollToggle();
-    pollRelays(); // Let other users use the trigger lines
+    //    pollRelays(); // Let other users use the trigger lines
     // b) body for state 0
     genericStateBody();
 
@@ -573,7 +540,7 @@ void dataReport() {
   Serial.println(genAnalogInput3);
 }
 
-int flagReceive(char varAr[], int32_t valAr[]) {
+int flagReceive(char varAr[], uint32_t valAr[]) {
   static byte ndx = 0;
   char endMarker = '>';
   char feedbackMarker = '<';
@@ -584,7 +551,6 @@ int flagReceive(char varAr[], int32_t valAr[]) {
   int selectedVar = 0;
   static boolean recvInProgress = false;
   bool newData = 0;
-  int32_t negScale = 1;
 
   while (Serial.available() > 0 && newData == 0) {
     rc = Serial.read();
@@ -604,8 +570,8 @@ int flagReceive(char varAr[], int32_t valAr[]) {
         recvInProgress = false;
         ndx = 0;
         newData = 1;
-        nVal = int32_t(String(writeChar).toInt());
-        valAr[selectedVar] = nVal * negScale;
+        nVal = uint32_t(String(writeChar).toInt());
+        valAr[selectedVar] = nVal;
         return selectedVar;
       }
 
@@ -622,9 +588,7 @@ int flagReceive(char varAr[], int32_t valAr[]) {
         Serial.print(',');
         Serial.println('~');
       }
-      else if (rc == '-') {
-        negScale = -1;
-      }
+
       else if (rc != feedbackMarker || rc != endMarker) {
         writeChar[ndx] = rc;
         ndx++;
@@ -724,7 +688,7 @@ void genericHeader(int stateNum) {
   analogOutVals[2] = 0;
   analogOutVals[3] = 0;
   analogOutVals[4] = 0;
-  
+
   pulseTrainVars[0][0] = 1;
   pulseTrainVars[1][0] = 1;
   pulseTrainVars[2][0] = 1;
@@ -751,18 +715,16 @@ void genericStateBody() {
 
   lickSensorAValue = analogRead(lickPinA);
   lickSensorAValue = analogRead(lickPinB);
+
   genAnalogInput0 = analogRead(genA0);
   genAnalogInput1 = analogRead(genA1);
   genAnalogInput2 = analogRead(genA2);
   genAnalogInput3 = analogRead(genA3);
   analogAngle = analogRead(analogMotion);
-  writeAnalogOutValues(analogOutVals);
-  if (scale.is_ready()) {
-    scaleVal = scale.get_units() * 22000;
-    // this scale factor gives hundreths of a gram as the least significant int
-    knownValues[14] = scaleVal;
+
+    //writeAnalogOutValues(analogOutVals);
+
   }
-}
 
 // ****************************************************************
 // **************  Visual Stimuli *********************************
@@ -833,11 +795,11 @@ void flybackStim_On() {
     pfTime = 0;
     while (pfTime <= knownValues[16]) {
       stimGen(pulseTrainVars);
-      analogWrite(DAC1, pulseTrainVars[0][7]);
-      analogWrite(DAC2, pulseTrainVars[1][7]);
+      mDAC1.Set(pulseTrainVars[0][7], pulseTrainVars[1][7]);
+      mDAC2.Set(pulseTrainVars[2][7], pulseTrainVars[3][7]);
     }
-    analogWrite(DAC1, 0);
-    analogWrite(DAC2, 0);
+    mDAC1.Set(0, 0);
+    mDAC2.Set(0, 0);
   }
 }
 
@@ -855,11 +817,11 @@ void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][10]) {
 }
 
 void writeAnalogOutValues(uint32_t dacVals[]) {
-  analogWrite(DAC1, dacVals[0]);
-  analogWrite(DAC2, dacVals[1]);
-//  dac3.setVoltage(dacVals[2], false);
-//  dac4.setVoltage(dacVals[3], false);
-//  dac5.setVoltage(dacVals[4], false);
+
+
+  mDAC1.Set(dacVals[0], dacVals[1]);
+  //  mDAC2.Set(dacVals[2], dacVals[3]);
+
 }
 
 void stimGen(uint32_t pulseTracker[][10]) {
@@ -877,7 +839,7 @@ void stimGen(uint32_t pulseTracker[][10]) {
           pulseTracker[i][7] = pulseTracker[i][4];
           if (pulseTracker[i][8]  > 0) {
             pulseTracker[i][8] = pulseTracker[i][8] - 1;
-            if (pulseTracker[i][8]<=0){
+            if (pulseTracker[i][8] <= 0) {
               pulseTracker[i][1] = 1;
               pulseTracker[i][8] = 0;
             }
@@ -885,10 +847,10 @@ void stimGen(uint32_t pulseTracker[][10]) {
         }
         else {
           // if we still have pulse time, and we haven't flipped the stop bit, then pulse.
-          if (pulseTracker[i][1]==0) {
+          if (pulseTracker[i][1] == 0) {
             pulseTracker[i][7] = pulseTracker[i][5]; // 5 is the pulse amp; 7 is the current output.
           }
-          else if (pulseTracker[i][1]==1) {
+          else if (pulseTracker[i][1] == 1) {
             pulseTracker[i][7] = pulseTracker[i][4]; // baseline
           }
         }
@@ -976,32 +938,32 @@ void stimGen(uint32_t pulseTracker[][10]) {
 // ---------- NEOPIXEL FUNCTIONS ----------------
 // ----------------------------------------------
 
-void setStrip(uint32_t stripState) {
-  for (uint16_t i = 0; i < strip.numPixels(); i++) {
-    if (stripState == 1) {
-      strip.setPixelColor(i, strip.Color(0, 0, 0));
-    }
-    else if (stripState == 2) {
-      strip.setPixelColor(i, strip.Color(0, 0, 0, 255));
-    }
-    else if (stripState == 3) {
-      strip.setPixelColor(i, strip.Color(255, 0, 0));
-    }
-    else if (stripState == 4) {
-      strip.setPixelColor(i, strip.Color(0, 255, 0));
-    }
-    else if (stripState == 5) {
-      strip.setPixelColor(i, strip.Color(0, 0, 255));
-    }
-    else if (stripState == 6) {
-      strip.setPixelColor(i, strip.Color(255, 0, 255));
-    }
-    else if (stripState == 7) {
-      strip.setPixelColor(i, strip.Color(random(256), random(256), random(256)));
-    }
-  }
-  strip.show();
-}
+//void setStrip(uint32_t stripState) {
+//  for (uint16_t i = 0; i < strip.numPixels(); i++) {
+//    if (stripState == 1) {
+//      strip.setPixelColor(i, strip.Color(0, 0, 0));
+//    }
+//    else if (stripState == 2) {
+//      strip.setPixelColor(i, strip.Color(0, 0, 0, 255));
+//    }
+//    else if (stripState == 3) {
+//      strip.setPixelColor(i, strip.Color(255, 0, 0));
+//    }
+//    else if (stripState == 4) {
+//      strip.setPixelColor(i, strip.Color(0, 255, 0));
+//    }
+//    else if (stripState == 5) {
+//      strip.setPixelColor(i, strip.Color(0, 0, 255));
+//    }
+//    else if (stripState == 6) {
+//      strip.setPixelColor(i, strip.Color(255, 0, 255));
+//    }
+//    else if (stripState == 7) {
+//      strip.setPixelColor(i, strip.Color(random(256), random(256), random(256)));
+//    }
+//  }
+//  strip.show();
+//}
 
 void pollToggle() {
   if (knownValues[15] == rewardPin || knownValues[15] == syncPin || knownValues[15] == ledSwitch) {
@@ -1013,22 +975,22 @@ void pollToggle() {
   }
 }
 
-void pollRelays() {
-  bool rTrig;
-  bool rRwd;
-  rTrig = digitalRead(syncMirror);
-  rRwd = digitalRead(rewardMirror);
-  if (rTrig == 1) {
-    digitalWrite(syncPin, HIGH);
-    delay(5);
-    digitalWrite(syncPin, LOW);
-  }
-  if (rRwd == 1) {
-    digitalWrite(rewardPin, HIGH);
-    delay(5);
-    digitalWrite(rewardPin, LOW);
-  }
-}
+//void pollRelays() {
+//  bool rTrig;
+//  bool rRwd;
+//  rTrig = digitalRead(syncMirror);
+//  rRwd = digitalRead(rewardMirror);
+//  if (rTrig == 1) {
+//    digitalWrite(syncPin, HIGH);
+//    delay(5);
+//    digitalWrite(syncPin, LOW);
+//  }
+//  if (rRwd == 1) {
+//    digitalWrite(rewardPin, HIGH);
+//    delay(5);
+//    digitalWrite(rewardPin, LOW);
+//  }
+//}
 
 void pollTones(uint32_t tonePin, uint32_t toneFreq, uint32_t toneDuration) {
   tone(tonePin, toneFreq, toneDuration);
@@ -1040,14 +1002,14 @@ void pollColorChange() {
     if (knownValues[7] > maxBrightness) {
       knownValues[7] = maxBrightness;
     }
-    strip.setBrightness(knownValues[7]);
-    strip.show();
+    //    strip.setBrightness(knownValues[7]);
+    //    strip.show();
     lastBrightness = knownValues[7];
   }
 
   // b) Handle color changes.
   if (knownValues[8] > 0 && knownValues[8] < 8) {
-    setStrip(knownValues[8]);
+    //    setStrip(knownValues[8]);
     knownValues[8] = 0;
   }
   else {
