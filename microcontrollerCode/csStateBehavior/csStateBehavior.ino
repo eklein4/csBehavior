@@ -26,34 +26,14 @@
 
 #include "header.h"
 #include "external.h"
+#include "neoPixelConfig.h"
+#include "encoderConfig.h"
+
 #include <Wire.h>
-
-
-
-
-
-
-
-
-
-
-// **** Make neopixel object
-// if rgbw use top line, if rgb use second.
-//Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, neoStripPin, NEO_GRBW + NEO_KHZ800);
-//Adafruit_NeoPixel strip = Adafruit_NeoPixel(30, neoStripPin, NEO_GRB + NEO_KHZ800);
-uint32_t maxBrightness = 255;
 
 //--------------------------------
 // ~~~~~~~ Variable Block ~~~~~~~~
 //--------------------------------
-
-// make a loadcell object and set variables
-#define calibration_factor 440000
-#define zero_factor 8421804
-
-//HX711 scale(scaleData, scaleClock);
-uint32_t weightOffset = 0;
-float scaleVal = 0;
 
 bool looped = 0;
 
@@ -65,10 +45,6 @@ uint32_t tCount = 0;
 // a) Set DAC and ADC resolution in bits.
 uint32_t adcResolution = 12;
 uint32_t dacResolution = 12;
-
-// b) Position Encoder
-volatile uint32_t encoderAngle = 0;
-volatile uint32_t prev_time = 0;
 
 // c) Frame Counter
 volatile uint32_t pulseCount = 0;
@@ -82,8 +58,6 @@ volatile uint32_t lastLine = 0;
 
 // e) State Machine (vStates) Interupt Timing
 
-
-float evalEverySample = 1.0; // number of times to poll the vStates funtion
 
 // e) bidirectional dynamic variables
 // ** These are variables you may want to have other devices/programs change
@@ -179,13 +153,11 @@ uint32_t knownDashValues[] = {10, 0, 10};
 
 void setup() {
 
+  if (analogEncoder==1){
+    attachInterrupt(motionPin, rising, RISING);
+    loopCount = 1;
+  }
 
-  // Analog In/Out
-  //    analogReadResolution(12);
-  //    analogWriteResolution(12);
-
-  // Interrupts
-  //  attachInterrupt(motionPin, rising, RISING);
   //  attachInterrupt(framePin, frameCount, RISING);
   //  attachInterrupt(yGalvo, flybackStim_On, FALLING);
 
@@ -202,6 +174,13 @@ void setup() {
   pinMode(ledSwitch, OUTPUT);
   digitalWrite(ledSwitch, LOW);
 
+  
+  pinMode(7, OUTPUT);
+  digitalWrite(7, LOW);
+  
+  pinMode(8, OUTPUT);
+  digitalWrite(8, LOW);
+
 
   // Serial Lines
   dashSerial.begin(115200);
@@ -213,12 +192,8 @@ void setup() {
 }
 
 void loop() {
-
-  // ***** A) Background *****
-
-  // We are going to time each loop as a proxy for flexiTimer like behavior.
+  
   loopTime = 0;
-
   // log the last state
   lastState = knownValues[0];
 
@@ -358,6 +333,10 @@ void vStates() {
         genericHeader(1);
         blockStateChange = 0;
       }
+      analogOutVals[0] = 0;
+      analogOutVals[1] = 0;
+      analogOutVals[2] = 0;
+      analogOutVals[3] = 0;
       genericStateBody();
     }
 
@@ -722,7 +701,7 @@ void genericStateBody() {
   genAnalogInput3 = analogRead(genA3);
   analogAngle = analogRead(analogMotion);
 
-    //writeAnalogOutValues(analogOutVals);
+   writeAnalogOutValues(analogOutVals);
 
   }
 
@@ -819,8 +798,8 @@ void setAnalogOutValues(uint32_t dacVals[], uint32_t pulseTracker[][10]) {
 void writeAnalogOutValues(uint32_t dacVals[]) {
 
 
-  mDAC1.Set(dacVals[0], dacVals[1]);
-  //  mDAC2.Set(dacVals[2], dacVals[3]);
+  //mDAC1.Set(0,0);
+    mDAC2.Set(0,0);
 
 }
 

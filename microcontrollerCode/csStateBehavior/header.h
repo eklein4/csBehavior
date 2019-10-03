@@ -27,8 +27,8 @@ uint32_t microsPerSamp = 1000;
 
 // c) Digital Interrupt Input Pins
 #define motionPin 6
-#define framePin 7
-#define yGalvo  8
+#define framePin 28
+#define yGalvo  31
 
 // d) Digital Output Pins
 #define rewardPin 9  // Trigger/signal a reward
@@ -48,8 +48,8 @@ uint32_t microsPerSamp = 1000;
 //#define DAC1 A21
 //#define DAC2 A22
 
-MCP4922 mDAC1(11, 13, 10, 28);
-MCP4922 mDAC2(11, 13, 10, 31);
+MCP4922 mDAC1(11, 13, 10, 7);
+MCP4922 mDAC2(11, 13, 10, 8);
 
 
 uint32_t lickSensorAValue = 0;
