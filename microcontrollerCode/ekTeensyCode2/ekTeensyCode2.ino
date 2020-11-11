@@ -1,22 +1,22 @@
-
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//
+// ekMicroController code, modified version of 
 // csStateBehavior v0.99 -- 32 bit version (teensy)
-//
+// by Chris Deister --> cdeister@brown.edu
+// 
 // Interrupt timed state machine for running behavior tasks and delivering stimuli etc. with a Teensy 3.5/6 board.
 // Intended to be used with a python program (csBehavior.py) that enables:
 // a) on-demand insturment control
 // b) data saving
 // c) state-flow logic
 //
-// By default, csStateBehavior runs at 1 KHz.
-// I can run up to 10 KHz, but I don't reccomend it.
 // On a Teensy 3.6, each interrupt takes ~50-100 us depending on how many variables are processed.
 //
-// Questions: Chris Deister --> cdeister@brown.edu
-// Last Update 10/30/2018
-//
-//
+// Changes from Deister version:
+//  Removal of unused I/O 
+//  Removal of unsused state processes
+//  Changed process of pulse-train counting to make it independent of state changes
+//  Added next stim time and stim num to process of stim gen to allow for push of stim train timing within 
+//    a state and in advance of the trigger time. This allows for independent control of all stimuli within a unchanging state.
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // ****************************************
@@ -32,7 +32,7 @@
 #include <SPI.h>
 
 // Other people's libraries
-#include <Adafruit_NeoPixel.h>
+// NO #include <Adafruit_NeoPixel.h>
 #include "HX711.h"
 
 #include <MCP4922.h>
@@ -43,8 +43,10 @@
 //-----------------------------
 //
 // a) Analog Input Pins
+// TODO get rid of one of these
 #define lickPinA  23      // Lick/Touch Sensor A 
 #define lickPinB  22      // Lick/Touch Sensor B 
+
 #define genA0 A0
 #define genA1 A1
 #define genA2 A2
@@ -55,42 +57,50 @@
 #define scaleData  29
 #define scaleClock  28
 
-#define dacGate1 38
-#define dacGate2 39
+// TODO do we need:
+// NO? #define dacGate1 38
+// NO? #define dacGate2 39
 
 // c) Digital Interrupt Input Pins
-#define motionPin 36
+// NO #define motionPin 36
 #define framePin  5
 #define yGalvo  6
 
 // d) Digital Output Pins
 #define rewardPin 24  // Trigger/signal a reward
 #define syncPin 25    // Trigger other things like a microscope and/or camera
+
+// TODO decide if useful
 #define sessionOver  26
 #define rewardMirror 30
-#define syncMirror 27
-#define ledSwitch 31
 
-#define neoStripPin 2
-#define pmtBlank  34
+// TODO decide if we want TTL triggering #define syncMirror 27 removed all traces of LED swtich and other removed
+// NO #define ledSwitch 31
+
+// NO #define neoStripPin 2
+// NO #define pmtBlank  34
 
 
 // session header
-bool startSession = 0;
+bool startSession = 0;  // TODO this is only used for the end session, if we don't need -> delete
 
-uint32_t vStim_xPos = 800;
-uint32_t vStim_yPos = 800;
+// NO uint32_t vStim_xPos = 800;
+// NO uint32_t vStim_yPos = 800;
+
+// TODO delete these if not needed
 
 elapsedMillis trialTime;
 elapsedMillis stateTime;
 elapsedMicros headerTime;
 elapsedMicros loopTime;
 
+// TODO this is hard coded into the Stim Gen, change back
 uint32_t dacNum = 5;
 
-// e) UARTs (Hardware Serial Lines)
-#define visualSerial Serial1 // out to a computer running psychopy
-#define dashSerial Serial3 // out to a csDashboard
+
+// NO e) UARTs (Hardware Serial Lines)
+// NO #define visualSerial Serial1 // out to a computer running psychopy
+// NO #define dashSerial Serial3 // out to a csDashboard
 
 // f) True 12-bit DACs (I define as an array object to loop later)
 // on a teensy 3.2 A14 is the only DAC
@@ -99,16 +109,17 @@ uint32_t dacNum = 5;
 #define DAC1 A21
 #define DAC2 A22
 
-// ~~~ MCP DACs (MCP4922)
+// ~~~ MCP DACs
+
+// TODO Change LDAC pin (see readme) if appropriate
 MCP4922 mDAC1(11, 13, 33, 37);
 MCP4922 mDAC2(11, 13, 34, 32);
 
-
-// **** Make neopixel object
-// if rgbw use top line, if rgb use second.
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, neoStripPin, NEO_GRBW + NEO_KHZ800);
-//Adafruit_NeoPixel strip = Adafruit_NeoPixel(30, neoStripPin, NEO_GRB + NEO_KHZ800);
-uint32_t maxBrightness = 255;
+// NO  **** Make neopixel object
+// NO if rgbw use top line, if rgb use second.
+// NO Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, neoStripPin, NEO_GRBW + NEO_KHZ800);
+// NO Adafruit_NeoPixel strip = Adafruit_NeoPixel(30, neoStripPin, NEO_GRB + NEO_KHZ800);
+// NO uint32_t maxBrightness = 255;
 
 //--------------------------------
 // ~~~~~~~ Variable Block ~~~~~~~~
@@ -122,20 +133,19 @@ HX711 scale(scaleData, scaleClock);
 uint32_t weightOffset = 0;
 float scaleVal = 0;
 
-bool sDacGate1 = 0;
-bool sDacGate2 = 0;
-
+// NO bool sDacGate1 = 0;
+// NO bool sDacGate2 = 0;
 
 uint32_t lickSensorAValue = 0;
 uint32_t genAnalogInput0 = 0;
 uint32_t genAnalogInput1 = 0;
 uint32_t genAnalogInput2 = 0;
 uint32_t genAnalogInput3 = 0;
-uint32_t genAnalogInput4 = 0;
 uint32_t analogAngle = 0;
 
-uint32_t microTimer;
-uint32_t microTimer2;
+// TODO These might be for something?
+// uint32_t microTimer;
+// uint32_t microTimer2;
 
 // a) Set DAC and ADC resolution in bits.
 uint32_t adcResolution = 12;
@@ -159,6 +169,10 @@ volatile uint32_t lastLine = 0;
 int sampsPerSecond = 1000;
 float evalEverySample = 1.0; // number of times to poll the vStates funtion
 
+// e) State Machine (vStates) Interupt Timing
+int sampsPerSecond = 1000;
+float evalEverySample = 1.0; // number of times to poll the vStates funtion
+
 // e) bidirectional dynamic variables
 // ** These are variables you may want to have other devices/programs change
 // ** To set each send over serial the header char, the value as an int and the close char '>'
@@ -171,14 +185,14 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // ____ Reinforcement Related
 // r/1: reward duration (if solenoid) or volume (if pump)
 // g/2: time out duration (could be used to time a negative tone etc)
-// ____ Visual Stim Related
-// c/3: contrast of a visual stimulus (python tells teensy and teensy relays to psychopy etc.)
-// o/4: orientation of a visual stimulus
-// s/5: spatial frequency of a visual stimulus
-// f/6: temporal frequency of a visual stimulus
+// NO  ____ Visual Stim Related
+// NO c/3: contrast of a visual stimulus (python tells teensy and teensy relays to psychopy etc.)
+// NO o/4: orientation of a visual stimulus
+// NO s/5: spatial frequency of a visual stimulus
+// NO f/6: temporal frequency of a visual stimulus
 // ____ NEOPIXEL Related (These do not return actual values)
-// b/7: brightness of a neopixel strip
-// n/8: color of neopixels (1: all white; 2: all red; 3) all green;
+// NO b/7: brightness of a neopixel strip
+// NO n/8: color of neopixels (1: all white; 2: all red; 3) all green;
 // --------> 4) all blue; 5) all purple (the best color) 6) random; 7) pulse rainbows for a bit
 // ____ DAC Stim Train Related
 // d/9: interpulse duration (us) of train X end the call with the DAC# so d1001 will set the IPI of DAC1 to 100.
@@ -186,19 +200,25 @@ float evalEverySample = 1.0; // number of times to poll the vStates funtion
 // v/11: pulse amplitude of train X end the call with the DAC# so v40001 will set the pulse dur of DAC1 to 4000.
 // t/12: stim type of train X end the call with the DAC# 0 is pulse train, 1 is ramp, 2 is asymmetric cosine stim; so t11> will set DAC1 to ramp.
 // m/13: max pulses for a stimulus for channel X. m381> will set the number of pulses on DAC1 to 38.
+//New Pulse Tracker Data
+// n/ TODO: Next stim time - needs to be pushed with stims if not state dependent
+
 // ____ Misc.
 // l/14: current value on loadCell
-// h/15: toggle a pin
+// TODO do we need?  h/15: toggle a pin
 // q/16: Flyback stim dur (in microseconds)
-// e/17: led switch
-// x/18: visStim xPos (times 10)
-// y/19: visStim yPos
-// z/20: visStim size (times 10)
+// NO e/17: led switch
+// NO x/18: visStim xPos (times 10)
+// NO y/19: visStim yPos
+// NO z/20: visStim size (times 10)
 
+char knownHeaders[] =    {'a', 'r', 'g', 'l', 'h', 'q', 'd', 'p', 'v', 't', 'm', 'n'};
+ int32_t knownValues[] = { 0, 5, 8000, 0, 0, 100, 90, 10, 0, 0, 0, -1};
+ int knownCount = 12;
 
-char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'h', 'q', 'e', 'x', 'y', 'z'};
-int32_t knownValues[] = { 0,  5, 8000, 0,  0,  4,  2, 1, 0, 90, 10, 0, 0, 0, 0, 0, 100, 1, 2, 0, 10};
-int knownCount = 21;
+//char knownHeaders[] =    {'a', 'r', 'g', 'c', 'o', 's', 'f', 'b', 'n', 'd', 'p', 'v', 't', 'm', 'l', 'h', 'q', 'e', 'x', 'y', 'z'};
+// int32_t knownValues[] = { 0,  5, 8000, 0,  0,  4,  2, 1, 0, 90, 10, 0, 0, 0, 0, 0, 100, 1, 2, 0, 10};
+//int knownCount = 21;
 
 
 
@@ -213,14 +233,17 @@ int knownCount = 21;
 // 8: number of pulses to complete
 // 9: up or down bit: used for complex kernels like asymmetric cosine
 // todo: swap 7 and 8
-uint32_t pulseTrainVars[][10] =
-{ {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
-  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
-  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
-  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0},
-  {1, 0, knownValues[9], knownValues[10], 0, 2000, 2, 0, knownValues[13], 0}
+
+// TODO some of these are a lie, update with real behaviors, add two more categories for new counting method
+// added next stim time and stim count (11/12)
+// changed data type to int 32 no need for it to be higher, negative is useful
+int32_t pulseTrainVars[][12] =
+{ {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0, -1, 0},
+  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0, -1, 0},
+  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0, -1, 0},
+  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0, -1, 0},
+  {1, 0, knownValues[9], knownValues[10], 0, knownValues[11], knownValues[12], 0, knownValues[13], 0, -1, 0}
 };
-// cad: set default train type of channel 5 to asym cosine.
 
 // stim trains are timed with elapsedMicros timers, which we store in an array to loop with channels.
 elapsedMillis trainTimer[5];
@@ -229,48 +252,63 @@ elapsedMillis trainTimer[5];
 uint32_t analogOutVals[] = {pulseTrainVars[0][7], pulseTrainVars[1][7], pulseTrainVars[2][7], pulseTrainVars[3][7], pulseTrainVars[4][7]};
 
 // g) Reward Params
-uint32_t rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulus
+// NO just use solonoid uint32_t rewardDelivTypeA = 0; // 0 is solenoid; 1 is syringe pump; 2 is stimulus
 
 // h) Various State Related Things
 uint32_t lastState = knownValues[0];  // We keep track of current state "knownValues[0]" and the last state.
+
+// TODO why do we care about last state?
+
 uint32_t loopCount = 0; // Count state machine interrupts
 uint32_t trigTime = 10; // Duration (in interrupt time) of a sync out trigger.
-uint32_t lastBrightness = 10;
-bool trigStuff = 0;      // Keeps track of whether we triggered things.
 
+// NO uint32_t lastBrightness = 10;
+
+// NOT NEEDED bool trigStuff = 0;      // Keeps track of whether we triggered things.
+
+// TODO might not need
 bool blockStateChange = 0;   // Sometimes you want teensy to be able to finish something before python can push it.
 bool rewarding = 0;
-bool scopeState = 1;
+//NO bool scopeState = 1;
+
 // ***** All states have a header we keep track of whether it fired with an array.
 // !!!!!! So, if you add a state, add a header entry and increment stateCount.
+
+//TODO set states to something else
 int headerStates[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
 int stateCount = 9;
 
-// i) csDashboard
+/* NO // i) csDashboard
 //char knownDashHeaders[] = {'b', 'n','v'};
 uint32_t knownDashValues[] = {10, 0, 10};
 //int knownDashCount = 3;
-
+*/
 
 void setup() {
-  Serial.begin(19200);
-  Serial.println("yo");
+ // Serial Lines
+ // dashSerial.begin(115200);
+ // visualSerial.begin(115200);
+  // Serial.begin(19200);
+  Serial.begin(115200);
+  while (!Serial) {
+    ; // wait for serial port to connect 
+  }
   // Start MCP DACs
 
   SPI.begin();
-
-  // neopixels
+  pinMode(33, OUTPUT);
+  pinMode(34, OUTPUT);
+ /* // neopixels
   strip.begin();
   strip.show();
-  strip.setBrightness(255);
+  strip.setBrightness(100);
   setStrip(2);
-
+  */
+  
   // loadcell
   scale.set_scale(calibration_factor);
   scale.set_offset(zero_factor);
   scale.tare();
-
-
 
   // Analog In/Out
   analogReadResolution(12);
@@ -289,28 +327,18 @@ void setup() {
   //  pinMode(scaleData, OUTPUT);
 
 
+  // NO pinMode(dacGate1, OUTPUT);
+  // NO pinMode(dacGate2, OUTPUT);
 
-
-  pinMode(dacGate1, OUTPUT);
-  pinMode(dacGate2, OUTPUT);
-
-  pinMode(33, OUTPUT);
-  pinMode(34, OUTPUT);
-
-  pinMode(rewardPin, OUTPUT);
+    pinMode(rewardPin, OUTPUT);
   digitalWrite(rewardPin, LOW);
-  pinMode(pmtBlank, OUTPUT);
-  digitalWrite(pmtBlank, LOW);
-  pinMode(ledSwitch, OUTPUT);
-  digitalWrite(ledSwitch, LOW);
+  // pinMode(pmtBlank, OUTPUT);
+  // digitalWrite(pmtBlank, LOW);
+  // pinMode(ledSwitch, OUTPUT);
+  // digitalWrite(ledSwitch, LOW);
 
   pinMode(syncMirror, INPUT);
   pinMode(rewardMirror, INPUT);
-
-  // Serial Lines
-  dashSerial.begin(115200);
-  visualSerial.begin(115200);
-  delay(20);
 
   // Start Program Timer
   FlexiTimer2::set(1, evalEverySample / sampsPerSecond, vStates);
@@ -331,9 +359,14 @@ void vStates() {
 
   // we then look for any changes to variables, or calls for updates
   int curSerVar = flagReceive(knownHeaders, knownValues);
-  if ((curSerVar == 9) || (curSerVar == 10) || (curSerVar == 11) || (curSerVar == 12) || (curSerVar == 13)) {
+
+  // TODO these need to change based on new KnwnV's
+  // changed from 9-13 added 11
+  if ((curSerVar == 6) || (curSerVar == 7) || (curSerVar == 8) || (curSerVar == 9) || (curSerVar == 10) || (curSerVar == 11)) {
     setPulseTrainVars(curSerVar, knownValues[curSerVar]);
   }
+
+  //TODO evaluate this and  determine need for this function and last state
 
   // Some hardware actions need to complete before a state-change.
   // So, we have a latch for state change. We write over any change with lastState
@@ -350,23 +383,23 @@ void vStates() {
 
     // a) run a header for state 0
     if (headerStates[0] == 0) {
-      visStim(0);
+      // visStim(0);
       genericHeader(0);
       loopCount = 0;
-      setStrip(3); // red
+      // setStrip(3); // red
       pulseCount = 0;
       // reset session header
       if (startSession == 1) {
         digitalWrite(sessionOver, HIGH);
         digitalWrite(13, HIGH);
-        delay(100);
+        delay(10);
         digitalWrite(sessionOver, LOW);
         digitalWrite(13, LOW);
       }
       startSession = 0;
     }
 
-    pollColorChange();
+    // pollColorChange();
     pollToggle();
     // pollRelays(); // Let other users use the trigger lines
     // b) body for state 0
@@ -381,14 +414,15 @@ void vStates() {
   if (knownValues[0] != 0) {
 
     if (loopCount == 0) {
-      trigStuff = 0;
+     // why? trigStuff = 0;
       digitalWrite(syncPin, HIGH);
     }
 
     // This ends the trigger.
-    if (loopCount >= trigTime && trigStuff == 0) {
+    // why? if (loopCount >= trigTime && trigStuff == 0) {
+    if (loopCount >= trigTime) {
       digitalWrite(syncPin, LOW);
-      trigStuff = 1;
+      // why? trigStuff = 1;
     }
 
     //******************************************
@@ -407,7 +441,7 @@ void vStates() {
       }
 
       if (headerStates[1] == 0) {
-        visStim(0);
+      //  visStim(0);
         genericHeader(1);
         blockStateChange = 0;
       }
@@ -417,20 +451,22 @@ void vStates() {
     // **************************
     // State 2: Stim State
     // **************************
+    /*
+     * This Needs to be removed
+     
     else if (knownValues[0] == 2) {
       if (headerStates[2] == 0) {
         genericHeader(2);
-        visStim(2);
+        // visStim(2);
         blockStateChange = 0;
       }
       analogOutVals[0] = 0;
       analogOutVals[1] = 0;
       analogOutVals[2] = 0;
       analogOutVals[3] = 0;
-      analogOutVals[4] = 0;
       genericStateBody();
     }
-
+    */
     // **************************************
     // State 3: Catch-Trial (no-stim) State
     // **************************************
@@ -438,7 +474,7 @@ void vStates() {
       if (headerStates[3] == 0) {
         blockStateChange = 0;
         genericHeader(3);
-        visStim(0);
+       // visStim(0);
       }
 
       stimGen(pulseTrainVars);
@@ -453,32 +489,34 @@ void vStates() {
       if (headerStates[4] == 0) {
         blockStateChange = 0;
         genericHeader(4);
-        visStim(0);
+        // visStim(0);
         rewarding = 0;
       }
       genericStateBody();
-
+// TODO Superfluous conditional confirm how 'rewarding' is cleared type is gone 
       if (rewardDelivTypeA == 0 && rewarding == 0) {
         digitalWrite(rewardPin, HIGH);
         rewarding = 1;
       }
-      if (stateTime >= 5) {
+      if (stateTime >= uint32_t(knownValues[1])) {
         digitalWrite(rewardPin, LOW);
       }
     }
 
-    // **************************************
+    /*
+     * Remove
+     // **************************************
     // State 5: Time-Out State
     // **************************************
     else if (knownValues[0] == 5) {
       if (headerStates[5] == 0) {
         blockStateChange = 0;
         genericHeader(5);
-        visStim(0);
+        //visStim(0);
       }
       genericStateBody();
     }
-
+    */
     // **************************************
     // State 6: Manual Reward State
     // **************************************
@@ -489,6 +527,8 @@ void vStates() {
         blockStateChange = 0;
       }
       genericStateBody();
+      
+// TODO Superfluous conditional confirm how 'rewarding' is cleared type is gone
 
       if (rewardDelivTypeA == 0 && rewarding == 0) {
         digitalWrite(rewardPin, HIGH);
@@ -506,7 +546,7 @@ void vStates() {
     else if (knownValues[0] == 7) {
       if (headerStates[7] == 0) {
         genericHeader(7);
-        visStim(0);
+       // visStim(0);
         blockStateChange = 0;
       }
       stimGen(pulseTrainVars);
@@ -520,7 +560,7 @@ void vStates() {
     else if (knownValues[0] == 8) {
       if (headerStates[8] == 0) {
         genericHeader(8);
-        visStim(0);
+      //  visStim(0);
         blockStateChange = 0;
       }
       stimGen(pulseTrainVars);
@@ -537,6 +577,109 @@ void vStates() {
   }
 }
 
+
+// ******************************************************
+// FUNCTIONS IN USE
+// ******************************************************
+
+/* Flag recieve changed to return specific non-variable integer (-1) if called w/o a serial buffer or if a paremeter 
+ *  request is recieved. Returns header number only when paremeter change is rececieved. Also the max receieved int size limit
+ *  was changed to reflect 12 bit (10 digits plus null) and the exceed case was changed to an error message escape with
+ *  a buffer flush.
+ *  NOTE: This WILL bug on slow serial (i.e. genuine Arduino / other slow TTL serial 9600 baud definitey bugs) unless
+ *  blocking term is added after serial.read (e.g., while(rc != something))
+ */
+
+int flagReceive(char varAr[], int32_t valAr[]) {
+  static byte ndx = 0;          // finds place being read
+  char endMarker = '>';         // Designates recieve message
+  char feedbackMarker = '<';    // Designates send/requested message
+  char rc;                      // recieved variable header character
+  uint32_t nVal;                // Variable value (I think)
+  const byte numChars = 11;     // Size of string to store each digit of int 16 bit 10 digits + 1 null
+  char writeChar[numChars];     // Make the string of this size
+  int selectedVar = -1;          // Returned index of kV header of recieved variable for Pulse update TODO: pulses be updated here?
+  static boolean recvInProgress = false;  // Bit indicating in recieve PERSISTS THROUGH CALLS TO THIS FUNCTION !
+  bool newData = 0;               // Bit breaks loop when true, fliped when variable recieve is finished 
+  int32_t negScale = 1;         // used to convert the ABS value of the variable recieved to negative when '-' read out
+
+  while (Serial.available() > 0 && newData == 0) {    // set a loop to run if there is a bit in the buffer until the message is read
+    rc = Serial.read();                               // read the (next) bit and store it to RC
+    //delay(10);                                // this is for slow serial - 'while' statement is better but EITHER BLOCKS
+    if (recvInProgress == false) {                // If this is a new message (variable; not partially read)
+      for ( int i = 0; i < knownCount; i++) {   // Loop through the number of knownValues variables
+        if (rc == varAr[i]) {                   // if the read byte == the looped to (any) kV Header char
+          selectedVar = i;                      // set the return value to variable's the index of the kV Header 
+          recvInProgress = true;                //  indicate the message is being read by flipping rcvInProg
+          break;                                // added for efficency and prevent redunfance bugs 
+        }
+      }
+    }
+
+    else if (recvInProgress == true) {        // if the message is in the process of being read
+      
+      if (rc == endMarker ) {                 // if the bit is a revieve message stop 
+        writeChar[ndx] = '\0';                // terminate the string by writing a non-integer to writeChar at present ndx
+        recvInProgress = false;               // indicate finished message by flipping rcvInProg
+        ndx = 0;                              // reset the index 
+        newData = 1;                          // indecate that the message is read (and ready)
+        nVal = int32_t(String(writeChar).toInt());  //convert the Char to string and then to integer and call it nVal
+        valAr[selectedVar] = nVal * negScale; // process ABS value with +/- read and set the (global) array value equal to it
+        return selectedVar;                   // message is done, return the variable's array index and break
+      }
+
+      else if (rc == feedbackMarker) {        // if the bit is a send message stop
+        writeChar[ndx] = '\0';                // terminate the string by writing a non-integer to writeChar at present ndx
+        recvInProgress = false;               // indicate finished message by flipping rcvInProg 
+        ndx = 0;                              // reset the index 
+        newData = 1;                          // indecate that the message is read (and ready)
+                                  //don't write anything
+        Serial.print("echo");                 // send a line through serial with the requested value
+        Serial.print(',');
+        Serial.print(varAr[selectedVar]);
+        Serial.print(',');
+        Serial.print(valAr[selectedVar]);
+        Serial.print(',');
+        Serial.println('~');
+        selectedVar = -1;                     // prevent returning "1"
+        return selectedVar;                   // message is done, return the variable's array index and break
+      }
+      else if (rc == '-') {                   // if "-" read out, store command to process the variable recieved
+                                              // as negative TODO, BUG this could occur anywere before < >, requires
+                                              // variable to store ndx where recieved was flagged to look only there
+        negScale = -1;
+      }
+      else if ((rc != feedbackMarker || rc != endMarker) && isDigit(rc)) { // if the bit wasn't accounted for yet, assume it's a digit
+                                                        // BUG if it's not a digit, could bug the string2int FIXED
+        writeChar[ndx] = rc;          // Write the digit to the character array at ndx
+        ndx++;                        // increment ndx
+        //if (ndx >= numChars) {
+        if (ndx > numChars) {       // original 'if' here didn't make much sense if things are working but could cause
+                                    // bugs in the recieved, so turned this into a error & escape
+          //ndx = numChars - 1;
+          recvInProgress = false;   //reset the statics
+          ndx = 0;
+          Serial.print("error");                 // send an error
+          Serial.print(',');
+          Serial.println('~');
+          while (Serial.available()>0) {    // flush the buffer
+            Serial.read();
+          }
+          selectedVar = -1;                     // prevent returning "1"
+          return selectedVar; 
+        }
+      }
+    }
+  }
+  return selectedVar;                   // prevent returning "1" or "0"
+}
+
+
+// ******************************************************
+// FUNCTIONS TO REVIEW 
+// ******************************************************
+
+// TODO remap and add variables
 
 void setPulseTrainVars(int recVar, int recVal) {
 
@@ -568,6 +711,7 @@ void dataReport() {
   Serial.print(',');
   Serial.print(loopCount);
   Serial.print(',');
+   // TODO needed?
   Serial.print(trialTime);
   Serial.print(',');
   Serial.print(stateTime);
@@ -588,75 +732,16 @@ void dataReport() {
   Serial.print(',');
   Serial.print(genAnalogInput1);
   Serial.print(',');
-  Serial.print(pulseTrainVars[0][7]);
+  // Serial.print(pulseTrainVars[0][7]);
+  Serial.print(genAnalogInput2);
   Serial.print(',');
-  Serial.println(pulseTrainVars[0][8]);
+  // Serial.println(pulseTrainVars[0][8]);
+  Serial.print(genAnalogInput3);
 }
 
-int flagReceive(char varAr[], int32_t valAr[]) {
-  static byte ndx = 0;
-  char endMarker = '>';
-  char feedbackMarker = '<';
-  char rc;
-  uint32_t nVal;
-  const byte numChars = 32;
-  char writeChar[numChars];
-  int selectedVar = 0;
-  static boolean recvInProgress = false;
-  bool newData = 0;
-  int32_t negScale = 1;
 
-  while (Serial.available() > 0 && newData == 0) {
-    rc = Serial.read();
 
-    if (recvInProgress == false) {
-      for ( int i = 0; i < knownCount; i++) {
-        if (rc == varAr[i]) {
-          selectedVar = i;
-          recvInProgress = true;
-        }
-      }
-    }
-
-    else if (recvInProgress == true) {
-      if (rc == endMarker ) {
-        writeChar[ndx] = '\0'; // terminate the string
-        recvInProgress = false;
-        ndx = 0;
-        newData = 1;
-        nVal = int32_t(String(writeChar).toInt());
-        valAr[selectedVar] = nVal * negScale;
-        return selectedVar;
-      }
-
-      else if (rc == feedbackMarker) {
-        writeChar[ndx] = '\0'; // terminate the string
-        recvInProgress = false;
-        ndx = 0;
-        newData = 1;
-        Serial.print("echo");
-        Serial.print(',');
-        Serial.print(varAr[selectedVar]);
-        Serial.print(',');
-        Serial.print(valAr[selectedVar]);
-        Serial.print(',');
-        Serial.println('~');
-      }
-      else if (rc == '-') {
-        negScale = -1;
-      }
-      else if (rc != feedbackMarker || rc != endMarker) {
-        writeChar[ndx] = rc;
-        ndx++;
-        if (ndx >= numChars) {
-          ndx = numChars - 1;
-        }
-      }
-    }
-  }
-}
-
-int flagReceiveDashboard(uint32_t valAr[]) {
+/*int flagReceiveDashboard(uint32_t valAr[]) {
   static boolean recvInProgress2 = false;
   static byte ndx2 = 0;
   char endMarker = '>';
@@ -717,7 +802,7 @@ int flagReceiveDashboard(uint32_t valAr[]) {
     }
   }
   return newData; // tells us if a valid variable arrived.
-}
+}*/
 
 void resetHeaders() {
   for ( int i = 0; i < stateCount; i++) {
@@ -744,8 +829,8 @@ void genericHeader(int stateNum) {
   analogOutVals[2] = 0;
   analogOutVals[3] = 0;
   analogOutVals[4] = 0;
-  sDacGate1 = digitalRead(dacGate1);
-  sDacGate2 = digitalRead(dacGate2);
+  // NO sDacGate1 = digitalRead(dacGate1);
+  // NO sDacGate2 = digitalRead(dacGate2);
   pollToggle();
 
   pulseTrainVars[0][0] = 1;
@@ -779,7 +864,7 @@ void genericHeader(int stateNum) {
 void genericStateBody() {
 
   lickSensorAValue = analogRead(lickPinA);
-  lickSensorAValue = analogRead(lickPinB);
+  // NO lickSensorAValue = analogRead(lickPinB);
   genAnalogInput0 = analogRead(genA0);
   genAnalogInput1 = analogRead(genA1);
   genAnalogInput2 = analogRead(genA2);
@@ -1118,3 +1203,96 @@ void secSPIWrite(uint32_t value, int csPin) {
   SPI.transfer(out & 0xFF);
   digitalWriteFast(csPin, HIGH);
 }
+
+
+// ******************************************************
+// OLD OR UNUSED FUNCTIONS
+// ******************************************************
+
+// ******************************************************
+/* Old flag recieve changed to return specific non-variable integer (-1) is called w/o a serial buffer or if a paremeter 
+ *  request is recieved. Returns header number only when paremeter change is rececieved. Also the max receieved int size limit
+ *  was changed to reflect 12 bit (10 digits plus null) and the exceed case was changed to an error message escape with
+ *  a buffer flush.
+ */
+
+  /*
+int flagReceive(char varAr[], int32_t valAr[]) {
+  static byte ndx = 0;          // finds place being read
+  char endMarker = '>';         // Designates recieve message
+  char feedbackMarker = '<';    // Designates send/requested message
+  char rc;                      // recieved variable header character
+  uint32_t nVal;                // Variable value (I think)
+  const byte numChars = 32;     // Size of string to store each digit of int TODO make smaller? <= 10 ?
+  char writeChar[numChars];     // Make the string of this size
+  int selectedVar = 0;          // Returned index of kV header of recieved variable for Pulse update TODO: pulses be updated here?
+  static boolean recvInProgress = false;  // Bit indicating in recieve PERSISTS THROUGH CALLS TO THIS FUNCTION !
+  bool newData = 0;               // Bit breaks loop when true, fliped when variable recieve is finished 
+  int32_t negScale = 1;         // used to convert the ABS value of the variable recieved to negative when '-' read out
+
+  while (Serial.available() > 0 && newData == 0) {    // set a loop to run if there is a bit in the buffer until the message is read
+    rc = Serial.read();                               // read the (next) bit and store it to RC
+
+    if (recvInProgress == false) {                // If this is a new message (variable; not partially read)
+      for ( int i = 0; i < knownCount; i++) {   // Loop through the number of knownValues variables
+        if (rc == varAr[i]) {                   // if the read byte == the looped to (any) kV Header char
+          selectedVar = i;                      // set the return value to variable's the index of the kV Header 
+          recvInProgress = true;                //  indicate the message is being read by flipping rcvInProg
+        }
+      }
+    }
+
+    else if (recvInProgress == true) {        // if the message is in the process of being read
+      
+      if (rc == endMarker ) {                 // if the bit is a revieve message stop 
+        writeChar[ndx] = '\0';                // terminate the string by writing a non-integer to writeChar at present ndx
+        recvInProgress = false;               // indicate finished message by flipping rcvInProg
+        ndx = 0;                              // reset the index 
+        newData = 1;                          // indecate that the message is read (and ready)
+        nVal = int32_t(String(writeChar).toInt());  //convert the Char to string and then to integer and call it nVal
+        valAr[selectedVar] = nVal * negScale; // process ABS value with +/- read and set the (global) array value equal to it
+        return selectedVar;                   // message is done, return the variable's array index and break
+      }
+
+      else if (rc == feedbackMarker) {        // if the bit is a send message stop
+        writeChar[ndx] = '\0';                // terminate the string by writing a non-integer to writeChar at present ndx
+        recvInProgress = false;               // indicate finished message by flipping rcvInProg 
+        ndx = 0;                              // reset the index 
+        newData = 1;                          // indecate that the message is read (and ready)
+                                  //don't write anything
+        Serial.print("echo");                 // send a line through serial with the requested value
+        Serial.print(',');
+        Serial.print(varAr[selectedVar]);
+        Serial.print(',');
+        Serial.print(valAr[selectedVar]);
+        Serial.print(',');
+        Serial.println('~');
+      }
+      else if (rc == '-') {                   // if "-" read out, store command to process the variable recieved
+                                              // as negative TODO, BUG this could occur anywere before < >, requires
+                                              // variable to store ndx where recieved was flagged to look only there
+        negScale = -1;
+      }
+      else if ((rc != feedbackMarker || rc != endMarker) && isDigit(rc)) { // if the bit wasn't accounted for yet, assume it's a digit
+                                                        // BUG if it's not a digit, could bug the string2int FIXED
+        writeChar[ndx] = rc;          // Write the digit to the character array at ndx
+        ndx++;                        // increment ndx
+        //if (ndx >= numChars) {
+        if (ndx > numChars) {       // original 'if' here didn't make much sense if things are working but could cause
+                                    // bugs in the recieved, so turned this into a error & escape
+          //ndx = numChars - 1;
+          recvInProgress = false;   //reset the statics
+          ndx = 0;
+          Serial.print("error");                 // send an error
+          Serial.print(',');
+          Serial.println('~');
+          while(Serial.available>0){    // flush the buffer
+            Serial.read();
+          }
+          return;
+        }
+      }
+    }
+  }
+} */
+// ******************************************************
